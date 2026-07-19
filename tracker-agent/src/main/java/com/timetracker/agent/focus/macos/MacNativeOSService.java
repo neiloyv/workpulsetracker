@@ -17,7 +17,7 @@ public final class MacNativeOSService implements NativeOSService {
     private static final Logger logger = LoggerFactory.getLogger(MacNativeOSService.class);
 
     public MacNativeOSService() {
-        logger.warn("MacNativeOSService: фокус окна пока не реализован (заглушка)");
+        logger.warn("MacNativeOSService: window focus is not implemented yet (stub)");
     }
 
     @Override

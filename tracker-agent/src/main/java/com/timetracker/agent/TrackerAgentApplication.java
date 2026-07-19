@@ -9,8 +9,6 @@ import com.timetracker.agent.storage.UserSettingsStore;
 import com.timetracker.agent.tracking.TrackingEngine;
 import com.timetracker.agent.ui.ActivationDialog;
 import com.timetracker.agent.ui.TrackerMainFrame;
-import com.timetracker.common.i18n.MessageCodes;
-import com.timetracker.common.i18n.Messages;
 import com.timetracker.common.i18n.UserLocaleContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,18 +31,14 @@ public final class TrackerAgentApplication {
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
         } catch (Exception exception) {
-            logger.debug("Не удалось установить системный Look&Feel: {}", exception.getMessage());
+            logger.debug("Failed to set system Look&Feel: {}", exception.getMessage());
         }
 
         SwingUtilities.invokeLater(() -> {
             try {
                 startApplication();
             } catch (Exception exception) {
-                String userFacingMessage = Messages.get(
-                        MessageCodes.ERROR_AGENT_STARTUP_FAILED,
-                        exception.getMessage()
-                );
-                logger.error(userFacingMessage, exception);
+                logger.error("Failed to start the tracker agent: {}", exception.getMessage(), exception);
                 System.exit(1);
             }
         });
@@ -101,12 +95,12 @@ public final class TrackerAgentApplication {
         }
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            logger.info("Остановка tracker-agent...");
+            logger.info("Stopping tracker-agent...");
             trackingEngine.close();
         }, "tracker-agent-shutdown"));
 
         trackerMainFrame.setVisible(true);
-        logger.info("tracker-agent UI запущен");
+        logger.info("tracker-agent UI started");
     }
 
     private static void shutdown(TrackingEngine trackingEngine) {

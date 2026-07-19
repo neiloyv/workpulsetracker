@@ -32,7 +32,7 @@ public final class TrayService {
 
     public void install() {
         if (!SystemTray.isSupported()) {
-            logger.warn("SystemTray не поддерживается на этой ОС");
+            logger.warn("SystemTray is not supported on this OS");
             return;
         }
         try {
@@ -53,7 +53,7 @@ public final class TrayService {
             trayIcon.addActionListener(actionEvent -> trackerMainFrame.restoreFromTray());
             SystemTray.getSystemTray().add(trayIcon);
         } catch (AWTException exception) {
-            logger.warn("Не удалось добавить иконку в трей: {}", exception.getMessage());
+            logger.warn("Failed to add tray icon: {}", exception.getMessage());
         }
     }
 

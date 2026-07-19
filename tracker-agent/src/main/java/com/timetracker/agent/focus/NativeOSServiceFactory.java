@@ -18,14 +18,14 @@ public final class NativeOSServiceFactory {
 
     public static NativeOSService create() {
         OperatingSystemType operatingSystemType = OperatingSystemType.detect();
-        logger.info("Определена ОС: {}", operatingSystemType);
+        logger.info("Detected OS: {}", operatingSystemType);
 
         return switch (operatingSystemType) {
             case WINDOWS -> new WindowsNativeOSService();
             case LINUX -> new LinuxNativeOSService();
             case MACOS -> new MacNativeOSService();
             case UNKNOWN -> {
-                logger.warn("Неизвестная ОС '{}', фокус окна будет недоступен",
+                logger.warn("Unknown OS '{}', window focus will be unavailable",
                         System.getProperty("os.name"));
                 yield new NativeOSService() {
                     @Override

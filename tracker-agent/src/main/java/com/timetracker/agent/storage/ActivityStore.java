@@ -67,9 +67,9 @@ public final class ActivityStore {
                     );
                 }
             }
-            logger.info("Загружено интервалов из файла: {}", storedActivityIntervals.size());
+            logger.info("Loaded intervals from file: {}", storedActivityIntervals.size());
         } catch (IOException exception) {
-            logger.warn("Не удалось прочитать intervals.json: {}", exception.getMessage());
+            logger.warn("Failed to read intervals.json: {}", exception.getMessage());
             storedActivityIntervals.clear();
         } finally {
             reentrantLock.unlock();
@@ -111,7 +111,7 @@ public final class ActivityStore {
                 gson.toJson(storedIntervals, writer);
             }
         } catch (IOException exception) {
-            logger.error("Не удалось сохранить intervals.json: {}", exception.getMessage(), exception);
+            logger.error("Failed to save intervals.json: {}", exception.getMessage(), exception);
         }
     }
 

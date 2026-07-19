@@ -47,7 +47,7 @@ public final class IdleDetector implements AutoCloseable {
                 TimeUnit.SECONDS
         );
         logger.info(
-                "IdleDetector запущен: timeout={}s, checkInterval={}s",
+                "IdleDetector started: timeout={}s, checkInterval={}s",
                 idleTimeoutSeconds,
                 checkIntervalSeconds
         );
@@ -58,7 +58,7 @@ public final class IdleDetector implements AutoCloseable {
         TrackerStatus previousStatus = currentStatus.get();
         if (previousStatus == TrackerStatus.IDLE) {
             changeStatus(TrackerStatus.ACTIVE);
-            logger.info("Активность восстановлена");
+            logger.info("Activity restored");
         }
     }
 
@@ -89,13 +89,13 @@ public final class IdleDetector implements AutoCloseable {
             if (idleSeconds >= idleTimeoutSeconds && currentStatus.get() == TrackerStatus.ACTIVE) {
                 changeStatus(TrackerStatus.IDLE);
                 logger.info(
-                        "Пользователь ушел в IDLE (нет активности {}с, порог {}с)",
+                        "User went IDLE (no activity for {}s, threshold {}s)",
                         idleSeconds,
                         idleTimeoutSeconds
                 );
             }
         } catch (Exception exception) {
-            logger.error("Ошибка в IdleDetector: {}", exception.getMessage(), exception);
+            logger.error("IdleDetector error: {}", exception.getMessage(), exception);
         }
     }
 
@@ -110,6 +110,6 @@ public final class IdleDetector implements AutoCloseable {
     @Override
     public void close() {
         scheduledExecutorService.shutdownNow();
-        logger.info("IdleDetector остановлен");
+        logger.info("IdleDetector stopped");
     }
 }

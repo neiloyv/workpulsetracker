@@ -16,7 +16,7 @@ public final class LinuxNativeOSService implements NativeOSService {
     private static final Logger logger = LoggerFactory.getLogger(LinuxNativeOSService.class);
 
     public LinuxNativeOSService() {
-        logger.warn("LinuxNativeOSService: фокус окна пока не реализован (заглушка)");
+        logger.warn("LinuxNativeOSService: window focus is not implemented yet (stub)");
     }
 
     @Override

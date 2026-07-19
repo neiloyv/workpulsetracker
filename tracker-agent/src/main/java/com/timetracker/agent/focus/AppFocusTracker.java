@@ -54,7 +54,7 @@ public final class AppFocusTracker implements AutoCloseable {
                 TimeUnit.SECONDS
         );
         logger.info(
-                "AppFocusTracker запущен (ОС={}, interval={}s)",
+                "AppFocusTracker started (OS={}, interval={}s)",
                 nativeOSService.getOperatingSystemName(),
                 pollIntervalSeconds
         );
@@ -78,22 +78,22 @@ public final class AppFocusTracker implements AutoCloseable {
                 logActiveWindow(latestWindowInfo, trackerStatus);
             }
         } catch (Exception exception) {
-            logger.error("Ошибка в AppFocusTracker: {}", exception.getMessage(), exception);
+            logger.error("AppFocusTracker error: {}", exception.getMessage(), exception);
         }
     }
 
     private void logActiveWindow(WindowInfo windowInfo, TrackerStatus trackerStatus) {
         if (trackerStatus == TrackerStatus.IDLE) {
-            logger.info("Пользователь в IDLE (последнее окно: {})", windowInfo);
+            logger.info("User is IDLE (last window: {})", windowInfo);
             return;
         }
-        logger.info("Пользователь активен (программа {})", windowInfo);
+        logger.info("User is active (application {})", windowInfo);
     }
 
     @Override
     public void close() {
         scheduledExecutorService.shutdownNow();
-        logger.info("AppFocusTracker остановлен");
+        logger.info("AppFocusTracker stopped");
     }
 
     @FunctionalInterface

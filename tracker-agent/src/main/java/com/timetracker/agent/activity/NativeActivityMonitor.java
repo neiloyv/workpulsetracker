@@ -38,7 +38,7 @@ public final class NativeActivityMonitor implements ActivityMonitor, NativeKeyLi
             GlobalScreen.addNativeMouseListener(this);
             GlobalScreen.addNativeMouseMotionListener(this);
             started = true;
-            logger.info("ActivityMonitor запущен (JNativeHook)");
+            logger.info("ActivityMonitor started (JNativeHook)");
         } catch (NativeHookException exception) {
             throw new IllegalStateException(
                     Messages.get(MessageCodes.ERROR_AGENT_NATIVE_HOOK_FAILED, exception.getMessage()),
@@ -72,10 +72,10 @@ public final class NativeActivityMonitor implements ActivityMonitor, NativeKeyLi
         try {
             GlobalScreen.unregisterNativeHook();
         } catch (NativeHookException exception) {
-            logger.warn("Ошибка при остановке ActivityMonitor: {}", exception.getMessage());
+            logger.warn("Error while stopping ActivityMonitor: {}", exception.getMessage());
         }
         started = false;
-        logger.info("ActivityMonitor остановлен");
+        logger.info("ActivityMonitor stopped");
     }
 
     @Override

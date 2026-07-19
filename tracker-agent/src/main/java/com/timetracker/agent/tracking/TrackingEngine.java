@@ -13,8 +13,6 @@ import com.timetracker.agent.focus.WindowInfo;
 import com.timetracker.agent.idle.IdleDetector;
 import com.timetracker.agent.idle.TrackerStatus;
 import com.timetracker.agent.storage.ActivityStore;
-import com.timetracker.common.i18n.MessageCodes;
-import com.timetracker.common.i18n.Messages;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -91,7 +89,7 @@ public final class TrackingEngine implements AutoCloseable {
         activityMonitor.start();
         idleDetector.start();
         appFocusTracker.start();
-        logger.info("Мониторы TrackingEngine запущены (запись времени на паузе)");
+        logger.info("TrackingEngine monitors started (time recording paused)");
     }
 
     public void startTracking() {
@@ -103,7 +101,7 @@ public final class TrackingEngine implements AutoCloseable {
         }
         WindowInfo currentWindowInfo = nativeOSService.getActiveWindowInfo();
         openIntervalIfTracking(currentWindowInfo, idleDetector.getCurrentStatus());
-        logger.info("Трекинг включён (Start)");
+        logger.info("Tracking started");
         notifyStateChanged();
     }
 
@@ -112,7 +110,7 @@ public final class TrackingEngine implements AutoCloseable {
             return;
         }
         dataBuffer.closeCurrentInterval();
-        logger.info("Трекинг на паузе (Pause)");
+        logger.info("Tracking paused");
         notifyStateChanged();
     }
 
@@ -168,7 +166,7 @@ public final class TrackingEngine implements AutoCloseable {
         try {
             autoCloseable.close();
         } catch (Exception exception) {
-            logger.warn(Messages.get(MessageCodes.ERROR_AGENT_RESOURCE_CLOSE_FAILED, exception.getMessage()));
+            logger.warn("Failed to close resource: {}", exception.getMessage());
         }
     }
 }

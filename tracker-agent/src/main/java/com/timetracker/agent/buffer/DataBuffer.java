@@ -52,7 +52,7 @@ public final class DataBuffer {
             );
             ActivityInterval openedActivityInterval = currentActivityInterval;
             logger.debug(
-                    "Открыт интервал: app={}, title={}, idle={}",
+                    "Opened interval: app={}, title={}, idle={}",
                     applicationName,
                     windowTitle,
                     idle
@@ -123,7 +123,7 @@ public final class DataBuffer {
         ActivityInterval closedActivityInterval = currentActivityInterval;
         closedActivityIntervals.add(closedActivityInterval);
         currentActivityInterval = null;
-        logger.debug("Закрыт интервал: {}", closedActivityInterval);
+        logger.debug("Closed interval: {}", closedActivityInterval);
         activityBufferListeners.forEach(listener -> listener.onIntervalClosed(closedActivityInterval));
     }
 }

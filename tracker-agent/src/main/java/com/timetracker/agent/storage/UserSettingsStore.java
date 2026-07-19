@@ -47,7 +47,7 @@ public final class UserSettingsStore {
                 return userSettings;
             }
         } catch (IOException exception) {
-            logger.warn("Не удалось прочитать settings.json: {}", exception.getMessage());
+            logger.warn("Failed to read settings.json: {}", exception.getMessage());
             return new UserSettings();
         }
     }
@@ -59,7 +59,7 @@ public final class UserSettingsStore {
                 gson.toJson(userSettings, writer);
             }
         } catch (IOException exception) {
-            logger.error("Не удалось сохранить settings.json: {}", exception.getMessage(), exception);
+            logger.error("Failed to save settings.json: {}", exception.getMessage(), exception);
         }
     }
 }

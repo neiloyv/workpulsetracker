@@ -60,7 +60,7 @@ public final class WindowsNativeOSService implements NativeOSService {
             String processImagePath = Kernel32Util.QueryFullProcessImageName(processId, 0);
             return extractFileName(processImagePath);
         } catch (Exception exception) {
-            logger.debug("Не удалось получить имя процесса pid={}: {}", processId, exception.getMessage());
+            logger.debug("Failed to resolve process name for pid={}: {}", processId, exception.getMessage());
             return readProcessNameFallback(processId);
         }
     }
@@ -77,7 +77,7 @@ public final class WindowsNativeOSService implements NativeOSService {
         try {
             return extractFileName(Kernel32Util.QueryFullProcessImageName(processHandle, 0));
         } catch (Exception exception) {
-            logger.debug("Fallback имени процесса не удался: {}", exception.getMessage());
+            logger.debug("Process name fallback failed: {}", exception.getMessage());
             return "unknown";
         } finally {
             Kernel32.INSTANCE.CloseHandle(processHandle);

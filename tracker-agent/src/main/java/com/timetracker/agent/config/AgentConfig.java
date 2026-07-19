@@ -45,10 +45,10 @@ public final class AgentConfig {
             if (Objects.nonNull(inputStream)) {
                 properties.load(inputStream);
             } else {
-                logger.warn("application.properties не найден, используются значения по умолчанию");
+                logger.warn("application.properties not found, using default values");
             }
         } catch (IOException exception) {
-            logger.warn("Не удалось прочитать application.properties: {}", exception.getMessage());
+            logger.warn("Failed to read application.properties: {}", exception.getMessage());
         }
 
         AppLanguage language = AppLanguage.fromCode(properties.getProperty("app.language"));
@@ -75,7 +75,7 @@ public final class AgentConfig {
                 focusPollIntervalSeconds
         );
         logger.info(
-                "Конфигурация загружена: language={}, idleTimeout={}s, idleCheck={}s, focusPoll={}s",
+                "Configuration loaded: language={}, idleTimeout={}s, idleCheck={}s, focusPoll={}s",
                 language.getCode(),
                 idleTimeoutSeconds,
                 idleCheckIntervalSeconds,
@@ -93,7 +93,7 @@ public final class AgentConfig {
             return Long.parseLong(propertyValue.trim());
         } catch (NumberFormatException exception) {
             logger.warn(
-                    "Некорректное значение '{}' для '{}', используется {}",
+                    "Invalid value '{}' for '{}', using {}",
                     propertyValue,
                     propertyName,
                     defaultValue
