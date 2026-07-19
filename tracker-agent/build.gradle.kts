@@ -11,6 +11,7 @@ dependencies {
     implementation("net.java.dev.jna:jna-platform:5.15.0")
     implementation("org.apache.commons:commons-lang3:3.17.0")
     implementation("com.google.code.gson:gson:2.11.0")
+    implementation("com.formdev:flatlaf:3.5.4")
     implementation("org.slf4j:slf4j-api:2.0.16")
     implementation("ch.qos.logback:logback-classic:1.5.12")
 

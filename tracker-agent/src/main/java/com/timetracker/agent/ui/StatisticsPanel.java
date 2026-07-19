@@ -18,6 +18,7 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.SwingUtilities;
 import java.awt.BorderLayout;
+import java.awt.Font;
 import java.awt.GridLayout;
 import java.util.stream.Collectors;
 
@@ -35,8 +36,9 @@ public final class StatisticsPanel extends JPanel {
 
     public StatisticsPanel(StatisticsService statisticsService) {
         this.statisticsService = statisticsService;
-        setLayout(new BorderLayout(8, 8));
-        setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        setLayout(new BorderLayout(0, 12));
+        setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
+        setBackground(UiTheme.BACKGROUND);
         buildContent();
         refresh();
     }
@@ -49,33 +51,48 @@ public final class StatisticsPanel extends JPanel {
         periodComboBox.addItem(new StatsPeriodItem(StatsPeriod.ALL_TIME, MessageCodes.UI_STATS_PERIOD_ALL));
         periodComboBox.addActionListener(actionEvent -> refresh());
 
-        JPanel headerPanel = new JPanel(new BorderLayout(8, 8));
-        headerPanel.add(new JLabel(Messages.get(MessageCodes.UI_STATS_PERIOD)), BorderLayout.WEST);
-        headerPanel.add(periodComboBox, BorderLayout.CENTER);
+        JPanel headerCard = new JPanel(new BorderLayout(8, 10));
+        UiTheme.styleSurfaceCard(headerCard);
 
-        JPanel totalPanel = new JPanel(new BorderLayout());
-        totalPanel.add(new JLabel(Messages.get(MessageCodes.UI_STATS_TOTAL)), BorderLayout.WEST);
-        totalPanel.add(totalTimeValueLabel, BorderLayout.CENTER);
+        JPanel periodRow = new JPanel(new BorderLayout(8, 8));
+        periodRow.setOpaque(false);
+        JLabel periodLabel = new JLabel(Messages.get(MessageCodes.UI_STATS_PERIOD));
+        UiTheme.styleMutedLabel(periodLabel);
+        periodRow.add(periodLabel, BorderLayout.WEST);
+        periodRow.add(periodComboBox, BorderLayout.CENTER);
 
-        JPanel listsPanel = new JPanel(new GridLayout(1, 2, 8, 8));
+        JPanel totalRow = new JPanel(new BorderLayout(8, 0));
+        totalRow.setOpaque(false);
+        JLabel totalCaptionLabel = new JLabel(Messages.get(MessageCodes.UI_STATS_TOTAL));
+        UiTheme.styleMutedLabel(totalCaptionLabel);
+        totalTimeValueLabel.setFont(totalTimeValueLabel.getFont().deriveFont(Font.BOLD, 22f));
+        totalTimeValueLabel.setForeground(UiTheme.TEXT_PRIMARY);
+        totalRow.add(totalCaptionLabel, BorderLayout.WEST);
+        totalRow.add(totalTimeValueLabel, BorderLayout.CENTER);
 
-        JPanel dailyPanel = new JPanel(new BorderLayout(4, 4));
-        dailyPanel.add(new JLabel(Messages.get(MessageCodes.UI_STATS_BY_DAY)), BorderLayout.NORTH);
-        dailyPanel.add(new JScrollPane(new JList<>(dailyListModel)), BorderLayout.CENTER);
+        headerCard.add(periodRow, BorderLayout.NORTH);
+        headerCard.add(totalRow, BorderLayout.SOUTH);
 
-        JPanel applicationsPanel = new JPanel(new BorderLayout(4, 4));
-        applicationsPanel.add(new JLabel(Messages.get(MessageCodes.UI_STATS_BY_APP)), BorderLayout.NORTH);
-        applicationsPanel.add(new JScrollPane(new JList<>(applicationListModel)), BorderLayout.CENTER);
+        JPanel listsPanel = new JPanel(new GridLayout(1, 2, 12, 12));
+        listsPanel.setOpaque(false);
 
+        JPanel dailyPanel = createListCard(Messages.get(MessageCodes.UI_STATS_BY_DAY), dailyListModel);
+        JPanel applicationsPanel = createListCard(Messages.get(MessageCodes.UI_STATS_BY_APP), applicationListModel);
         listsPanel.add(dailyPanel);
         listsPanel.add(applicationsPanel);
 
-        JPanel northPanel = new JPanel(new GridLayout(2, 1, 6, 6));
-        northPanel.add(headerPanel);
-        northPanel.add(totalPanel);
-
-        add(northPanel, BorderLayout.NORTH);
+        add(headerCard, BorderLayout.NORTH);
         add(listsPanel, BorderLayout.CENTER);
+    }
+
+    private JPanel createListCard(String title, DefaultListModel<String> listModel) {
+        JPanel panel = new JPanel(new BorderLayout(4, 8));
+        UiTheme.styleSurfaceCard(panel);
+        JLabel titleLabel = new JLabel(title);
+        UiTheme.styleMutedLabel(titleLabel);
+        panel.add(titleLabel, BorderLayout.NORTH);
+        panel.add(new JScrollPane(new JList<>(listModel)), BorderLayout.CENTER);
+        return panel;
     }
 
     public void refresh() {

@@ -47,7 +47,7 @@ tracker-agent/
 | Ключ | Смысл | По умолчанию |
 |---|---|---|
 | `app.language` | `en` / `uk` (до первого сохранения настроек) | `en` |
-| `idle.timeout.seconds` | через сколько секунд бездействия → IDLE | `180` |
+| `idle.timeout.seconds` | через сколько секунд бездействия → IDLE | `60` (1 минута) |
 | `idle.check.interval.seconds` | как часто проверять idle | `5` |
 | `focus.poll.interval.seconds` | как часто читать активное окно | `10` |
 

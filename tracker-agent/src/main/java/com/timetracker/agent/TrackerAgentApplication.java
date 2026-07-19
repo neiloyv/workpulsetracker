@@ -9,12 +9,12 @@ import com.timetracker.agent.storage.UserSettingsStore;
 import com.timetracker.agent.tracking.TrackingEngine;
 import com.timetracker.agent.ui.ActivationDialog;
 import com.timetracker.agent.ui.TrackerMainFrame;
+import com.timetracker.agent.ui.UiTheme;
 import com.timetracker.common.i18n.UserLocaleContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.SwingUtilities;
-import javax.swing.UIManager;
 import java.util.Objects;
 
 /**
@@ -28,11 +28,7 @@ public final class TrackerAgentApplication {
     }
 
     public static void main(String[] args) {
-        try {
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (Exception exception) {
-            logger.debug("Failed to set system Look&Feel: {}", exception.getMessage());
-        }
+        UiTheme.install();
 
         SwingUtilities.invokeLater(() -> {
             try {

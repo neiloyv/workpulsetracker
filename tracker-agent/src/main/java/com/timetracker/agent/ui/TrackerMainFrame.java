@@ -40,7 +40,8 @@ public final class TrackerMainFrame extends JFrame {
         this.trayService = new TrayService(this, exitAction);
 
         setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
-        setMinimumSize(new Dimension(460, 520));
+        setMinimumSize(new Dimension(480, 560));
+        getContentPane().setBackground(UiTheme.BACKGROUND);
         setLocationRelativeTo(null);
         buildContent();
         wireWindowEvents();

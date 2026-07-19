@@ -17,7 +17,7 @@ public final class AgentConfig {
 
     private static final Logger logger = LoggerFactory.getLogger(AgentConfig.class);
 
-    private static final long DEFAULT_IDLE_TIMEOUT_SECONDS = 180L;
+    private static final long DEFAULT_IDLE_TIMEOUT_SECONDS = 60L;
     private static final long DEFAULT_IDLE_CHECK_INTERVAL_SECONDS = 5L;
     private static final long DEFAULT_FOCUS_POLL_INTERVAL_SECONDS = 10L;
 

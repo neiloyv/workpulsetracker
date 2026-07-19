@@ -9,16 +9,20 @@ import com.timetracker.common.i18n.MessageCodes;
 import com.timetracker.common.i18n.Messages;
 
 import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JList;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import java.awt.BorderLayout;
-import java.awt.FlowLayout;
-import java.awt.Font;
+import java.awt.Component;
+import java.awt.Dimension;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -31,6 +35,7 @@ public final class MainPanel extends JPanel {
     private final StatisticsService statisticsService;
     private final UserSettings userSettings;
 
+    private final JLabel workTimeCaptionLabel = new JLabel();
     private final JLabel workTimeValueLabel = new JLabel("0:00:00");
     private final JLabel statusValueLabel = new JLabel();
     private final JButton startPauseButton = new JButton();
@@ -46,40 +51,61 @@ public final class MainPanel extends JPanel {
         this.trackingEngine = trackingEngine;
         this.statisticsService = statisticsService;
         this.userSettings = userSettings;
-        setLayout(new BorderLayout(8, 8));
-        setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        setLayout(new BorderLayout(0, 12));
+        setBorder(BorderFactory.createEmptyBorder(20, 20, 16, 20));
+        setBackground(UiTheme.BACKGROUND);
         buildContent();
         refresh();
     }
 
     private void buildContent() {
-        JPanel topPanel = new JPanel(new BorderLayout(8, 8));
+        JPanel heroPanel = new JPanel();
+        heroPanel.setOpaque(false);
+        heroPanel.setLayout(new BoxLayout(heroPanel, BoxLayout.Y_AXIS));
 
-        JPanel timePanel = new JPanel(new BorderLayout());
-        JLabel workTimeCaptionLabel = new JLabel(Messages.get(MessageCodes.UI_MAIN_WORK_TIME));
-        workTimeValueLabel.setFont(workTimeValueLabel.getFont().deriveFont(Font.BOLD, 28f));
-        timePanel.add(workTimeCaptionLabel, BorderLayout.NORTH);
-        timePanel.add(workTimeValueLabel, BorderLayout.CENTER);
-        timePanel.add(statusValueLabel, BorderLayout.SOUTH);
+        workTimeCaptionLabel.setText(Messages.get(MessageCodes.UI_MAIN_WORK_TIME));
+        workTimeCaptionLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        workTimeCaptionLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        UiTheme.styleMutedLabel(workTimeCaptionLabel);
 
-        JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        UiTheme.styleTimerLabel(workTimeValueLabel);
+        workTimeValueLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        statusValueLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        statusValueLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        UiTheme.styleMutedLabel(statusValueLabel);
+
+        startPauseButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        startPauseButton.setMaximumSize(new Dimension(220, 48));
         startPauseButton.addActionListener(actionEvent -> onStartPauseClicked());
+        UiTheme.stylePrimaryButton(startPauseButton);
+
         syncButton.setText(Messages.get(MessageCodes.UI_MAIN_SYNC));
+        syncButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+        syncButton.setMaximumSize(new Dimension(220, 40));
         syncButton.addActionListener(actionEvent -> onSyncClicked());
-        buttonsPanel.add(startPauseButton);
-        buttonsPanel.add(syncButton);
+        UiTheme.styleSecondaryButton(syncButton);
 
-        topPanel.add(timePanel, BorderLayout.CENTER);
-        topPanel.add(buttonsPanel, BorderLayout.SOUTH);
+        heroPanel.add(Box.createVerticalStrut(8));
+        heroPanel.add(workTimeCaptionLabel);
+        heroPanel.add(Box.createVerticalStrut(8));
+        heroPanel.add(workTimeValueLabel);
+        heroPanel.add(Box.createVerticalStrut(6));
+        heroPanel.add(statusValueLabel);
+        heroPanel.add(Box.createVerticalStrut(18));
+        heroPanel.add(startPauseButton);
+        heroPanel.add(Box.createVerticalStrut(10));
+        heroPanel.add(syncButton);
 
-        JPanel applicationsPanel = new JPanel(new BorderLayout(4, 4));
-        applicationsPanel.add(
-                new JLabel(Messages.get(MessageCodes.UI_MAIN_APPLICATIONS_TODAY)),
-                BorderLayout.NORTH
-        );
+        JPanel applicationsPanel = new JPanel(new BorderLayout(4, 8));
+        UiTheme.styleSurfaceCard(applicationsPanel);
+        JLabel applicationsCaptionLabel = new JLabel(Messages.get(MessageCodes.UI_MAIN_APPLICATIONS_TODAY));
+        UiTheme.styleMutedLabel(applicationsCaptionLabel);
+        applicationList.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
+        applicationsPanel.add(applicationsCaptionLabel, BorderLayout.NORTH);
         applicationsPanel.add(new JScrollPane(applicationList), BorderLayout.CENTER);
 
-        add(topPanel, BorderLayout.NORTH);
+        add(heroPanel, BorderLayout.NORTH);
         add(applicationsPanel, BorderLayout.CENTER);
     }
 
@@ -98,6 +124,12 @@ public final class MainPanel extends JPanel {
                         ? Messages.get(MessageCodes.UI_MAIN_PAUSE)
                         : Messages.get(MessageCodes.UI_MAIN_START)
         );
+        if (trackingEnabled) {
+            UiTheme.styleDangerButton(startPauseButton);
+        } else {
+            UiTheme.stylePrimaryButton(startPauseButton);
+        }
+
         statusValueLabel.setText(
                 trackingEnabled
                         ? Messages.get(MessageCodes.UI_MAIN_STATUS_RUNNING)
@@ -138,12 +170,11 @@ public final class MainPanel extends JPanel {
     }
 
     private void onSyncClicked() {
-        // Пока заглушка: серверная синхронизация появится позже
-        javax.swing.JOptionPane.showMessageDialog(
+        JOptionPane.showMessageDialog(
                 this,
                 Messages.get(MessageCodes.UI_MAIN_SYNC_NOT_IMPLEMENTED),
                 Messages.get(MessageCodes.UI_MAIN_SYNC),
-                javax.swing.JOptionPane.INFORMATION_MESSAGE
+                JOptionPane.INFORMATION_MESSAGE
         );
     }
 }
