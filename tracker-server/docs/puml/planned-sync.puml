@@ -1,0 +1,23 @@
+@startuml tracker-server-future
+title tracker-server — planned flow (stub)
+
+|Web / Agent|
+start
+:Send activation key / sync payload;
+
+|tracker-server|
+:Validate key → organizationId + userId;
+:Accept activity intervals;
+:Store in database;
+:Return API responses (i18n errors by user language);
+
+|Web UI|
+:Show reports / stats;
+
+note right
+  Not implemented yet.
+  Diagram is a target sketch.
+end note
+stop
+
+@enduml

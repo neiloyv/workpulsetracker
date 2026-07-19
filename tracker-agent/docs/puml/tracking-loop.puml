@@ -1,0 +1,49 @@
+@startuml tracker-agent-tracking
+title tracker-agent — Start / Pause / IDLE tracking loop
+
+|User|
+start
+:Click Start;
+
+|TrackingEngine|
+:Initialize monitors (once)\nActivityMonitor, IdleDetector, AppFocusTracker;
+:trackingEnabled = true;
+:Open interval for current window;
+
+fork
+  |ActivityMonitor|
+  while (running?) is (yes)
+    :Mouse / keyboard event;
+    :Notify IdleDetector.onUserActivity();
+  endwhile (stop)
+fork again
+  |IdleDetector|
+  while (running?) is (yes)
+    :Every N seconds check last activity;
+    if (idle longer than timeout?) then (yes)
+      :Status = IDLE;
+      :Close current interval\nOpen IDLE interval;
+    else (no)
+    endif
+  endwhile (stop)
+fork again
+  |AppFocusTracker|
+  while (running?) is (yes)
+    :Every M seconds read active window;
+    if (window changed AND tracking on?) then (yes)
+      :Close previous interval\nOpen new interval (app + title);
+    else (no)
+    endif
+  endwhile (stop)
+end fork
+
+|User|
+:Click Pause;
+
+|TrackingEngine|
+:trackingEnabled = false;
+:Close current interval;
+:Persist non-IDLE closed intervals → intervals.json;
+stop
+
+@enduml

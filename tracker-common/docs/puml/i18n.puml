@@ -1,0 +1,17 @@
+@startuml tracker-common-i18n
+title tracker-common — i18n message resolution
+
+start
+:Code requests Messages.get(code, args...);
+:Read language from UserLocaleContext\n(or explicit AppLanguage);
+:Load ResourceBundle i18n/messages_{en|uk};
+:MessageFormat with arguments;
+:Return localized string for UI;
+
+note right
+  Logs must NOT use Messages —
+  logs are always English.
+end note
+stop
+
+@enduml

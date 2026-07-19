@@ -1,0 +1,16 @@
+@startuml tracker-android-future
+title tracker-android — planned flow (stub)
+
+start
+:Install app;
+:Activate with key (same as desktop);
+:Track mobile foreground apps (future);
+:Sync to tracker-server;
+stop
+
+note right
+  Module folder only.
+  Replace this stub when Android work starts.
+end note
+
+@enduml

@@ -1,0 +1,16 @@
+@startuml tracker-ui-future
+title tracker-ui — planned screens (stub)
+
+start
+:Login / register;
+:Dashboard with org/user stats;
+:Generate activation key for desktop agent;
+:View reports (day/week/month/...);
+stop
+
+note right
+  Frontend module is a stub.
+  Update this diagram when UI work starts.
+end note
+
+@enduml

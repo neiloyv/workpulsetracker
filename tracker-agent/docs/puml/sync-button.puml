@@ -1,0 +1,23 @@
+@startuml tracker-agent-sync-button
+title tracker-agent — Send to server button visibility
+
+start
+:Read UserSettings;
+
+if (localOnly == true?) then (yes)
+  :Button DISABLED\nTooltip: unavailable in local-only mode;
+  stop
+else (no)
+endif
+
+if (activationKey blank?) then (yes)
+  :Button DISABLED;
+  stop
+else (no)
+endif
+
+:Button ENABLED;
+:On click → show "not implemented" stub;
+stop
+
+@enduml

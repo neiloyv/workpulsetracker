@@ -1,0 +1,27 @@
+@startuml tracker-agent-startup
+title tracker-agent — startup & activation
+
+start
+:Load application.properties;
+:Load UserSettings from ~/.timetracker/settings.json;
+:Set UI language (UserLocaleContext);
+:Load ActivityStore (intervals.json);
+:Create TrackingEngine + StatisticsService;
+:Create main window (hidden activation first if needed);
+
+if (setupCompleted?) then (no)
+  :Show ActivationDialog;
+  if (user choice) then (Activate with key)
+    :Save key\nlocalOnly = false;
+  else (Continue locally)
+    :Clear key\nlocalOnly = true;
+  endif
+  :setupCompleted = true\nSave settings.json;
+else (yes)
+endif
+
+:Show main window;
+:Install system tray icon;
+stop
+
+@enduml

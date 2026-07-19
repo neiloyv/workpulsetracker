@@ -1,0 +1,42 @@
+@startuml tracker-agent-overview
+title tracker-agent — high-level components
+
+package "UI" {
+  [TrackerMainFrame]
+  [MainPanel]
+  [StatisticsPanel]
+  [ActivationDialog]
+  [TrayService]
+}
+
+package "Tracking" {
+  [TrackingEngine]
+  [ActivityMonitor]
+  [IdleDetector]
+  [AppFocusTracker]
+}
+
+package "Data" {
+  [DataBuffer]
+  [ActivityStore]
+  [UserSettingsStore]
+  [StatisticsService]
+}
+
+[TrackerMainFrame] --> [MainPanel]
+[TrackerMainFrame] --> [StatisticsPanel]
+[TrackerMainFrame] --> [TrayService]
+[MainPanel] --> [TrackingEngine]
+[MainPanel] --> [StatisticsService]
+[StatisticsPanel] --> [StatisticsService]
+
+[TrackingEngine] --> [ActivityMonitor]
+[TrackingEngine] --> [IdleDetector]
+[TrackingEngine] --> [AppFocusTracker]
+[TrackingEngine] --> [DataBuffer]
+[DataBuffer] --> [ActivityStore]
+[StatisticsService] --> [ActivityStore]
+[StatisticsService] --> [DataBuffer]
+[ActivationDialog] --> [UserSettingsStore]
+
+@enduml

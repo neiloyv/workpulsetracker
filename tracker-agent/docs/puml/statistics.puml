@@ -1,0 +1,22 @@
+@startuml tracker-agent-statistics
+title tracker-agent — statistics aggregation
+
+start
+:User opens Statistics tab\nor changes Period;
+:StatisticsService.buildSnapshot(period);
+
+:Collect intervals =
+  ActivityStore (disk)
+  + current open interval (if active, non-IDLE);
+
+:Clip intervals to period range\n(Day / Week / Month / Year / All time);
+:Exclude IDLE intervals;
+
+:Sum total active seconds;
+:Group by LocalDate → By day list;
+:Group by applicationName → By app list;
+
+:Render lists in UI;
+stop
+
+@enduml
