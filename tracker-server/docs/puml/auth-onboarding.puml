@@ -1,0 +1,27 @@
+@startuml tracker-server-auth-onboarding
+title tracker-server — Google login and onboarding
+
+actor User
+participant UI as "tracker-ui"
+participant API as "tracker-server"
+participant Google
+database DB as "PostgreSQL"
+
+User -> UI : Open site / Continue with Google
+UI -> API : GET /oauth2/authorization/google
+API -> Google : OAuth login
+Google -> API : callback
+API -> DB : find/create app_user by google_sub/email
+API -> UI : redirect /auth/callback
+UI -> API : GET /api/me
+alt onboarded = false
+  UI -> User : Onboarding form
+  User -> UI : company, first, last name
+  UI -> API : POST /api/onboarding
+  API -> DB : create organization\nset user OWNER + agent_key
+  UI -> User : /org
+else onboarded = true
+  UI -> User : /org
+end
+
+@enduml

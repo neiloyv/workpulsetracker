@@ -28,9 +28,15 @@ hs_err_pid*
 *.log
 logs/
 
-# Local config overrides
+# Local config overrides / secrets
+.env
 **/application-local.properties
+**/application-local.yml
 **/config.local.json
+
+# Node / frontend
+tracker-ui/node_modules/
+tracker-ui/dist/
 
 # Android (future)
 tracker-android/.gradle/

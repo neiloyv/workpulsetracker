@@ -1,0 +1,156 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-init-schema
+      author: timetracker
+      changes:
+        - createTable:
+            tableName: organization
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+
+        - createTable:
+            tableName: app_user
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: organization_id
+                  type: UUID
+              - column:
+                  name: google_sub
+                  type: VARCHAR(255)
+              - column:
+                  name: email
+                  type: VARCHAR(320)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: first_name
+                  type: VARCHAR(120)
+              - column:
+                  name: last_name
+                  type: VARCHAR(120)
+              - column:
+                  name: role
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: onboarded
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+
+        - addForeignKeyConstraint:
+            baseTableName: app_user
+            baseColumnNames: organization_id
+            referencedTableName: organization
+            referencedColumnNames: id
+            constraintName: fk_app_user_organization
+
+        - addUniqueConstraint:
+            tableName: app_user
+            columnNames: google_sub
+            constraintName: ux_app_user_google_sub
+
+        - sql:
+            sql: CREATE UNIQUE INDEX ux_app_user_email ON app_user (LOWER(email));
+
+        - createTable:
+            tableName: agent_key
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: key_hash
+                  type: VARCHAR(128)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: key_prefix
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: revoked_at
+                  type: TIMESTAMP WITH TIME ZONE
+
+        - addForeignKeyConstraint:
+            baseTableName: agent_key
+            baseColumnNames: user_id
+            referencedTableName: app_user
+            referencedColumnNames: id
+            constraintName: fk_agent_key_user
+            onDelete: CASCADE
+
+        - createTable:
+            tableName: organization_setting
+            columns:
+              - column:
+                  name: organization_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: setting_key
+                  type: VARCHAR(128)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: setting_value
+                  type: TEXT
+                  constraints:
+                    nullable: false
+
+        - addPrimaryKey:
+            tableName: organization_setting
+            columnNames: organization_id, setting_key
+            constraintName: pk_organization_setting
+
+        - addForeignKeyConstraint:
+            baseTableName: organization_setting
+            baseColumnNames: organization_id
+            referencedTableName: organization
+            referencedColumnNames: id
+            constraintName: fk_organization_setting_organization
+            onDelete: CASCADE

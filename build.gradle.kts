@@ -12,6 +12,10 @@ allprojects {
 }
 
 subprojects {
+    if (name == "tracker-ui") {
+        return@subprojects
+    }
+
     apply(plugin = "java")
 
     configure<JavaPluginExtension> {

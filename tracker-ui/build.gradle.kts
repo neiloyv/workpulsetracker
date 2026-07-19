@@ -1,11 +1,26 @@
 plugins {
-    // Заглушка: веб-интерфейс будет подключён позже (например, Node/Vite или Java frontend tooling).
+    // Frontend is built with Node/Vite. Use npm scripts inside tracker-ui.
 }
 
-tasks.register("prepareFrontendStub") {
+tasks.register("npmInstall") {
     group = "build"
-    description = "Placeholder task for future tracker-ui frontend build"
+    description = "Install tracker-ui npm dependencies"
     doLast {
-        logger.lifecycle("tracker-ui: frontend module stub — no build yet")
+        exec {
+            workingDir = projectDir
+            commandLine(if (System.getProperty("os.name").lowercase().contains("win")) listOf("npm.cmd", "install") else listOf("npm", "install"))
+        }
+    }
+}
+
+tasks.register("npmBuild") {
+    group = "build"
+    description = "Build tracker-ui production bundle"
+    dependsOn("npmInstall")
+    doLast {
+        exec {
+            workingDir = projectDir
+            commandLine(if (System.getProperty("os.name").lowercase().contains("win")) listOf("npm.cmd", "run", "build") else listOf("npm", "run", "build"))
+        }
     }
 }

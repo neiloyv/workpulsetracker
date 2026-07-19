@@ -7,17 +7,37 @@
 |---|---|
 | `tracker-agent` | Локальное десктоп-приложение (трекинг, UI, трей) |
 | `tracker-common` | Общий код (i18n и др.) |
-| `tracker-server` | Бэкенд (заготовка) |
-| `tracker-ui` | Веб-интерфейс (заготовка) |
+| `tracker-server` | Spring Boot API (Hibernate + Liquibase + Google OAuth) |
+| `tracker-ui` | React + Vite веб-кабинет |
 | `tracker-android` | Мобильное приложение (заготовка) |
 
 ## Документация
-Подробности — в каталоге **[docs/](docs/README.md)**:
-- как работает агент
-- что делают кнопки и при каких условиях
-- как собрать и запустить
+См. **[docs/](docs/README.md)**.
 
-## Быстрый старт (агент)
+## Локальная БД
+| Field | Value |
+|---|---|
+| Host | `localhost` |
+| Port | `5432` |
+| Database | `timetracker` |
+| Username | `timetracker` |
+| Password | `timetracker_dev_password` |
+
 ```powershell
-.\gradlew :tracker-agent:run
+docker compose up -d
+# or use local PostgreSQL with the same credentials
+```
+
+## Быстрый старт
+```powershell
+# Agent
+.\gradlew.bat :tracker-agent:run
+
+# API
+.\gradlew.bat :tracker-server:bootRun
+
+# Web UI (requires Node.js)
+cd tracker-ui
+npm install
+npm run dev
 ```

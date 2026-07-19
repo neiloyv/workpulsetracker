@@ -1,16 +1,23 @@
-@startuml tracker-ui-future
-title tracker-ui — planned screens (stub)
+@startuml tracker-ui-pages
+title tracker-ui — page flow
 
 start
-:Login / register;
-:Dashboard with org/user stats;
-:Generate activation key for desktop agent;
-:View reports (day/week/month/...);
+:Landing /;
+if (logged in?) then (no)
+  :Continue with Google;
+  :/auth/callback;
+endif
+if (onboarded?) then (no)
+  :/onboarding;
+endif
+:/org;
+fork
+  :Statistics tab;
+fork again
+  :Users tab;
+fork again
+  :Settings tab;
+end fork
 stop
-
-note right
-  Frontend module is a stub.
-  Update this diagram when UI work starts.
-end note
 
 @enduml

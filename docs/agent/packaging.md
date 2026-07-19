@@ -48,3 +48,8 @@ java -jar tracker-agent\build\libs\tracker-agent-0.1.0-SNAPSHOT-all.jar
 | Разработка / проверка UI | `.\gradlew :tracker-agent:run` |
 | Готовый jar | `shadowJar` → `java -jar ...` |
 | Установщик Windows | `.\gradlew :tracker-agent:jpackageNative` |
+
+## Связь с веб-лендингом
+Ссылки скачивания на сайте (`GET /api/downloads`) пока-заглушки из `.env`:
+`DOWNLOAD_WINDOWS_URL`, `DOWNLOAD_MACOS_URL`, `DOWNLOAD_LINUX_URL`.
+Позже сюда можно подставить артефакты `jpackageNative` / CI.

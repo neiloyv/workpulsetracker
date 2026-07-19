@@ -1,0 +1,18 @@
+@startuml tracker-server-add-user
+title tracker-server — add organization user + agent key
+
+actor Owner
+participant UI as "tracker-ui"
+participant API as "tracker-server"
+database DB as "PostgreSQL"
+
+Owner -> UI : Users tab / Add user
+UI -> API : POST /api/organization/users
+API -> API : require OWNER
+API -> DB : insert app_user (MEMBER)
+API -> API : generate tt_ key\nhash SHA-256
+API -> DB : insert agent_key (hash + prefix)
+API -> UI : response with plaintext agentKey
+UI -> Owner : show key once
+
+@enduml

@@ -13,24 +13,21 @@
 | [Интерфейс](agent/ui.md) | Окно, вкладки, кнопки, условия показа/блокировки |
 | [Сборка и запуск](agent/packaging.md) | `run` / Fat JAR / установщик Windows |
 
+### Веб
+| Документ | О чём |
+|---|---|
+| [Сервер](server/overview.md) | API, Hibernate, Liquibase, Google OAuth, БД |
+| [Веб-UI](ui/overview.md) | Страницы лендинга, онбординга, организации |
+
 ### PlantUML-схемы по модулям
-Схемы процессов лежат **внутри каждого модуля**: `<module>/docs/puml/*.puml`.
-
-| Модуль | Папка | Содержание |
-|---|---|---|
-| `tracker-agent` | [docs/puml](../tracker-agent/docs/puml/) | старт/активация, трекинг, sync-кнопка, статистика |
-| `tracker-common` | [docs/puml](../tracker-common/docs/puml/) | i18n |
-| `tracker-server` | [docs/puml](../tracker-server/docs/puml/) | план синхронизации (заглушка) |
-| `tracker-ui` | [docs/puml](../tracker-ui/docs/puml/) | план экранов (заглушка) |
-| `tracker-android` | [docs/puml](../tracker-android/docs/puml/) | план мобильного потока (заглушка) |
-
-Открывать удобно плагином PlantUML в IDE или на [plantuml.com](https://www.plantuml.com/plantuml).
-
-### Позже (текстовые разделы)
-- `docs/server/` — API, привязка по ключу, синхронизация
-- `docs/ui/` — веб-кабинет
-- `docs/android/` — мобильный клиент
+| Модуль | Папка |
+|---|---|
+| `tracker-agent` | [docs/puml](../tracker-agent/docs/puml/) |
+| `tracker-common` | [docs/puml](../tracker-common/docs/puml/) |
+| `tracker-server` | [docs/puml](../tracker-server/docs/puml/) |
+| `tracker-ui` | [docs/puml](../tracker-ui/docs/puml/) |
+| `tracker-android` | [docs/puml](../tracker-android/docs/puml/) |
 
 ## Языки
-- **UI пользователя:** английский / украинский (`app.language`, настройки)
+- **UI пользователя:** английский / украинский
 - **Логи (консоль):** всегда английский
