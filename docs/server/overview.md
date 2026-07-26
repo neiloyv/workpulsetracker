@@ -15,10 +15,10 @@ Spring Boot API for the web product.
 |---|---|
 | Host | `localhost` |
 | Port | `5432` |
-| Database | `timetracker` |
-| Username | `timetracker` |
-| Password | `timetracker_dev_password` |
-| JDBC | `jdbc:postgresql://localhost:5432/timetracker` |
+| Database | `workpulsetracker` |
+| Username | `workpulsetracker` |
+| Password | `workpulsetracker_dev_password` |
+| JDBC | `jdbc:postgresql://localhost:5432/workpulsetracker` |
 
 Same values are in [`.env.example`](../../.env.example).
 
@@ -28,7 +28,7 @@ Same values are in [`.env.example`](../../.env.example).
 
 ## Run API
 ```powershell
-cd D:\Projects\timetracker
+cd D:\Projects\workpulsetracker
 .\gradlew.bat :tracker-server:bootRun
 ```
 

@@ -3,7 +3,7 @@ title tracker-agent — startup & activation
 
 start
 :Load application.properties;
-:Load UserSettings from ~/.timetracker/settings.json;
+:Load UserSettings from ~/.workpulsetracker/settings.json;
 :Set UI language (UserLocaleContext);
 :Load ActivityStore (intervals.json);
 :Create TrackingEngine + StatisticsService;

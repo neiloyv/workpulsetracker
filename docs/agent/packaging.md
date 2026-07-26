@@ -2,7 +2,7 @@
 
 ## Требования
 - JDK 17+
-- Корень репозитория: `D:\Projects\timetracker`
+- Корень репозитория: `D:\Projects\workpulsetracker`
 - Если нет `gradlew`: `gradle wrapper`
 
 ---
@@ -11,7 +11,7 @@
 Окно откроется само (браузер не нужен).
 
 ```powershell
-cd D:\Projects\timetracker
+cd D:\Projects\workpulsetracker
 .\gradlew :tracker-agent:run
 ```
 

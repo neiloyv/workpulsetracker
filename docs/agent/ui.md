@@ -1,6 +1,6 @@
 # Локальный агент — интерфейс
 
-Окно: небольшое Swing-приложение **TimeTracker** с темой **FlatLaf** (`UiTheme`):
+Окно: небольшое Swing-приложение **WorkPulseTracker** с темой **FlatLaf** (`UiTheme`):
 светлый фон, бирюзовый акцент, скруглённые кнопки, крупный таймер по центру.
 
 Закрытие (крестик) или сворачивание **не завершает** процесс — приложение уходит в системный трей. Выход только через меню трея → **Exit**.
@@ -22,7 +22,7 @@
 
 Сброс активации:
 ```powershell
-Remove-Item $env:USERPROFILE\.timetracker\settings.json
+Remove-Item $env:USERPROFILE\.workpulsetracker\settings.json
 ```
 
 ---

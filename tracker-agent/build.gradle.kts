@@ -20,11 +20,11 @@ dependencies {
 }
 
 application {
-    mainClass.set("com.timetracker.agent.TrackerAgentApplication")
+    mainClass.set("com.workpulsetracker.agent.TrackerAgentApplication")
 }
 
-val appDisplayName = "TimeTracker Agent"
-val appVendor = "TimeTracker"
+val appDisplayName = "WorkPulseTracker Agent"
+val appVendor = "WorkPulseTracker"
 val packagedAppVersion = version.toString().removeSuffix("-SNAPSHOT")
 
 tasks.shadowJar {
@@ -32,7 +32,7 @@ tasks.shadowJar {
     archiveClassifier.set("all")
     mergeServiceFiles()
     manifest {
-        attributes["Main-Class"] = "com.timetracker.agent.TrackerAgentApplication"
+        attributes["Main-Class"] = "com.workpulsetracker.agent.TrackerAgentApplication"
     }
 }
 
@@ -101,7 +101,7 @@ tasks.register<Exec>("jpackageNative") {
             "--vendor", appVendor,
             "--input", jpackageInputDirectory.get().asFile.absolutePath,
             "--main-jar", "tracker-agent.jar",
-            "--main-class", "com.timetracker.agent.TrackerAgentApplication",
+            "--main-class", "com.workpulsetracker.agent.TrackerAgentApplication",
             "--type", packageType,
             "--dest", jpackageOutputDirectory.get().asFile.absolutePath,
             "--description", "Local automatic time tracker agent"

@@ -12,7 +12,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "timetracker"
+rootProject.name = "workpulsetracker"
 
 include(
     "tracker-common",

@@ -34,7 +34,7 @@ tracker-agent/
 Общий код (i18n и т.п.): модуль `tracker-common`.
 
 ## Данные на диске
-Каталог: `%USERPROFILE%\.timetracker\` (Linux/macOS: `~/.timetracker/`)
+Каталог: `%USERPROFILE%\.workpulsetracker\` (Linux/macOS: `~/.workpulsetracker/`)
 
 | Файл | Назначение |
 |---|---|

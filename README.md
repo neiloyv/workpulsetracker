@@ -1,4 +1,4 @@
-# TimeTracker
+# WorkPulseTracker
 
 Монорепозиторий автоматического тайм-трекера.
 
@@ -19,9 +19,9 @@
 |---|---|
 | Host | `localhost` |
 | Port | `5432` |
-| Database | `timetracker` |
-| Username | `timetracker` |
-| Password | `timetracker_dev_password` |
+| Database | `workpulsetracker` |
+| Username | `workpulsetracker` |
+| Password | `workpulsetracker_dev_password` |
 
 ```powershell
 docker compose up -d

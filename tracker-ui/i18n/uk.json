@@ -4,7 +4,7 @@
   "error.agent.resource.close.failed": "Не вдалося закрити ресурс: {0}",
   "error.generic.unexpected": "Неочікувана помилка: {0}",
   "error.settings.language.unsupported": "Непідтримувана мова: {0}. Допустимі значення: en, uk.",
-  "ui.app.title": "TimeTracker",
+  "ui.app.title": "WorkPulseTracker",
   "landing.tagline": "Автоматичний трекінг часу для команд.",
   "landing.subtitle": "Встановіть десктопний агент, підключіть його ключем активації та бачте активність усієї організації.",
   "landing.login": "Увійти через Google",

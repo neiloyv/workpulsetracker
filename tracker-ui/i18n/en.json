@@ -4,7 +4,7 @@
   "error.agent.resource.close.failed": "Failed to close a resource: {0}",
   "error.generic.unexpected": "Unexpected error: {0}",
   "error.settings.language.unsupported": "Unsupported language: {0}. Allowed values: en, uk.",
-  "ui.app.title": "TimeTracker",
+  "ui.app.title": "WorkPulseTracker",
   "landing.tagline": "Automatic time tracking for focused teams.",
   "landing.subtitle": "Install the desktop agent, connect it with an activation key, and see work patterns across your organization.",
   "landing.login": "Continue with Google",

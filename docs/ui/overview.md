@@ -7,7 +7,7 @@ React + Vite web client.
 
 ## Run
 ```powershell
-cd D:\Projects\timetracker\tracker-ui
+cd D:\Projects\workpulsetracker\tracker-ui
 npm install
 npm run dev
 ```

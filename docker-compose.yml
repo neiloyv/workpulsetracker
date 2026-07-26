@@ -1,21 +1,21 @@
 services:
   postgres:
     image: postgres:17-alpine
-    container_name: timetracker-postgres
+    container_name: workpulsetracker-postgres
     restart: unless-stopped
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_DB: timetracker
-      POSTGRES_USER: timetracker
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-timetracker_dev_password}
+      POSTGRES_DB: workpulsetracker
+      POSTGRES_USER: workpulsetracker
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-workpulsetracker_dev_password}
     volumes:
-      - timetracker_pg_data:/var/lib/postgresql/data
+      - workpulsetracker_pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U timetracker -d timetracker"]
+      test: ["CMD-SHELL", "pg_isready -U workpulsetracker -d workpulsetracker"]
       interval: 5s
       timeout: 5s
       retries: 10
 
 volumes:
-  timetracker_pg_data:
+  workpulsetracker_pg_data:
