@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --surface: 255 255 255;
+  --surface-2: 246 246 251;
+  --border: 226 226 236;
+  --ink: 23 23 35;
+  --muted: 100 100 120;
+}
+
+.dark {
+  color-scheme: dark;
+  --surface: 20 20 34;
+  --surface-2: 26 26 43;
+  --border: 47 47 71;
+  --ink: 237 237 246;
+  --muted: 158 158 181;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: "Manrope", system-ui, sans-serif;
+  color: rgb(var(--ink));
+  background-color: #f7f7fb;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.dark body {
+  background-color: #0a0a14;
+}
+
+h1,
+h2,
+h3,
+h4,
+.font-display {
+  font-family: "Sora", system-ui, sans-serif;
+}
+
+::selection {
+  background: rgba(116, 88, 255, 0.35);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 148, 180, 0.35);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 148, 180, 0.55);
+}
+
+.app-bg-light {
+  background:
+    radial-gradient(circle at 15% 10%, rgba(116, 88, 255, 0.08), transparent 45%),
+    radial-gradient(circle at 85% 0%, rgba(56, 189, 248, 0.08), transparent 40%),
+    #f7f7fb;
+}
+
+.app-bg-dark {
+  background:
+    radial-gradient(circle at 15% 10%, rgba(124, 92, 255, 0.16), transparent 45%),
+    radial-gradient(circle at 85% -5%, rgba(56, 189, 248, 0.12), transparent 40%),
+    linear-gradient(180deg, #0b0b18 0%, #0a0a14 55%, #100a24 100%);
+}
+
+.glass-panel {
+  background-color: rgb(var(--surface) / 0.72);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgb(var(--border) / 0.7);
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}

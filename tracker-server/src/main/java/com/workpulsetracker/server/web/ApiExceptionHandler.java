@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -16,6 +17,7 @@ import java.util.stream.Collectors;
 public class ApiExceptionHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(ApiExceptionHandler.class);
+    private static final String schema = "public";
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, String>> handleResponseStatusException(
@@ -25,6 +27,15 @@ public class ApiExceptionHandler {
                 .body(Map.of("message", responseStatusException.getReason() == null
                         ? "Request failed"
                         : responseStatusException.getReason()));
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<Map<String, String>> handleBadCredentialsException(
+            BadCredentialsException badCredentialsException
+    ) {
+        logger.info("schema={} Authentication failed: {}", schema, badCredentialsException.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(Map.of("message", "Invalid credentials"));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -39,7 +50,7 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleGenericException(Exception exception) {
-        logger.error("Unhandled API error: {}", exception.getMessage(), exception);
+        logger.error("schema={} Unhandled API error: {}", schema, exception.getMessage(), exception);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("message", "Unexpected server error"));
     }

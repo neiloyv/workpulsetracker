@@ -1,14 +1,21 @@
 package com.workpulsetracker.server.config;
 
-import com.workpulsetracker.server.security.GoogleOAuth2SuccessHandler;
+import com.workpulsetracker.server.security.AppUserDetailsService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -20,20 +27,50 @@ import java.util.List;
 public class SecurityConfig {
 
     private final AppProperties appProperties;
-    private final GoogleOAuth2SuccessHandler googleOAuth2SuccessHandler;
+    private final AppUserDetailsService appUserDetailsService;
 
-    public SecurityConfig(AppProperties appProperties, GoogleOAuth2SuccessHandler googleOAuth2SuccessHandler) {
+    public SecurityConfig(AppProperties appProperties, AppUserDetailsService appUserDetailsService) {
         this.appProperties = appProperties;
-        this.googleOAuth2SuccessHandler = googleOAuth2SuccessHandler;
+        this.appUserDetailsService = appUserDetailsService;
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public SecurityContextRepository securityContextRepository() {
+        return new HttpSessionSecurityContextRepository();
+    }
+
+    @Bean
+    public DaoAuthenticationProvider daoAuthenticationProvider(PasswordEncoder passwordEncoder) {
+        DaoAuthenticationProvider daoAuthenticationProvider = new DaoAuthenticationProvider(appUserDetailsService);
+        daoAuthenticationProvider.setPasswordEncoder(passwordEncoder);
+        return daoAuthenticationProvider;
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration)
+            throws Exception {
+        return authenticationConfiguration.getAuthenticationManager();
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity httpSecurity,
+            DaoAuthenticationProvider daoAuthenticationProvider,
+            SecurityContextRepository securityContextRepository
+    ) throws Exception {
         httpSecurity
                 .cors(Customizer.withDefaults())
                 .csrf(csrfConfigurer -> csrfConfigurer.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+                .securityContext(securityContext -> securityContext.securityContextRepository(securityContextRepository))
+                .authenticationProvider(daoAuthenticationProvider)
                 .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/register").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/downloads").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll()
@@ -46,10 +83,9 @@ public class SecurityConfig {
                                 response.getWriter().write("{\"message\":\"Unauthorized\"}");
                                 return;
                             }
-                            response.sendRedirect("/oauth2/authorization/google");
+                            response.setStatus(401);
                         }
                 ))
-                .oauth2Login(oauth2 -> oauth2.successHandler(googleOAuth2SuccessHandler))
                 .logout(logout -> logout
                         .logoutUrl("/api/logout")
                         .logoutSuccessHandler((request, response, authentication) -> response.setStatus(204))

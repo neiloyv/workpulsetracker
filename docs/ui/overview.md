@@ -1,6 +1,6 @@
 # tracker-ui — overview
 
-React + Vite web client.
+React + Vite + Tailwind web client (WorkPulseTracker prototype).
 
 ## Requirements
 - Node.js 20+ and npm
@@ -14,24 +14,23 @@ npm run dev
 UI: `http://localhost:5173`  
 API proxy → `http://localhost:8080`
 
+## Stack
+- React 19, React Router 7
+- Tailwind CSS 3, Lucide icons, Recharts
+- Dark mode default (slate/navy + indigo accents), light toggle
+- Fonts: Sora + Manrope
+
 ## Pages
 | Route | Purpose |
 |---|---|
-| `/` | Landing: brand, Google login, download buttons (Win/macOS/Linux) |
-| `/auth/callback` | After Google OAuth, loads `/api/me`, routes to onboarding or org |
-| `/onboarding` | First-time: company name, first name, last name |
-| `/org` | Organization tabs: Statistics / Users / Settings |
+| `/` | Landing + auth card (Вход / Регистрация, личный / организация) |
+| `/app` | Dashboard analytics |
+| `/app/employees` | Staff registry (org + owner view only) |
 
-## Users tab
-- Add user → API creates member + agent key
-- Key shown once in UI alert; later only prefix is visible in the table
+## App chrome
+- Theme switcher, branch selector, role demo switcher (Руководитель / Сотрудник)
+- «Эмулировать активность агента»
+- Avatar menu: структура компании, stubs for billing/managers, logout
 
-## Settings tab
-- `idleTimeoutSeconds`, `timezone` (stored in `organization_setting`)
-
-## i18n
-- Files: `tracker-ui/i18n/en.json`, `uk.json`
-- Default language: English (`localStorage app.language`)
-
-## PlantUML
-See [`tracker-ui/docs/puml/`](../../tracker-ui/docs/puml/)
+## Export
+CSV download for filtered dashboard / personal app report (Excel/PDF — next iteration).

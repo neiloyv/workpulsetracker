@@ -6,8 +6,8 @@ Spring Boot API for the web product.
 - PostgreSQL (local)
 - **Hibernate / Spring Data JPA**
 - **Liquibase** migrations (`db/changelog/`)
-- Spring Security + Google OAuth2 Login
-- Session cookie for browser (`JSESSIONID`)
+- Spring Security session cookie (`JSESSIONID`)
+- Email + password auth (BCrypt)
 
 ## Database connection (local)
 
@@ -23,8 +23,15 @@ Spring Boot API for the web product.
 Same values are in [`.env.example`](../../.env.example).
 
 ### Start DB
-- Preferred: `docker compose up -d` (when Docker Desktop is running)
-- Or local PostgreSQL with the same user/db/password (already created on this machine if setup ran)
+```powershell
+docker compose up -d
+```
+
+После смены схемы (rename / init changelog) предпочтительно:
+```powershell
+docker compose down -v
+docker compose up -d
+```
 
 ## Run API
 ```powershell
@@ -32,32 +39,27 @@ cd D:\Projects\workpulsetracker
 .\gradlew.bat :tracker-server:bootRun
 ```
 
-Put Google OAuth credentials into `.env` / environment:
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET`
-
-Google Cloud Console (Web client):
-- Authorized redirect URI: `http://localhost:8080/login/oauth2/code/google`
-- Authorized JS origin: `http://localhost:5173`
-
-## Main API
+## Auth
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/api/downloads` | no | Download links for landing |
-| GET | `/api/me` | yes | Current user + onboarding flag |
-| POST | `/api/onboarding` | yes | Company + first/last name → create org as OWNER |
-| GET | `/api/organization` | yes | Org info |
-| GET/POST | `/api/organization/users` | yes | List / add users (add returns plaintext agent key once) |
-| GET/PUT | `/api/organization/settings` | yes | Org settings map |
-| GET | `/api/organization/stats` | yes | Stats stub (trackedSeconds = 0 until agent sync) |
-| POST | `/api/logout` | yes | Logout |
+| POST | `/api/auth/register` | no | PERSONAL / ORGANIZATION + session |
+| POST | `/api/auth/login` | no | email/password + session |
+| POST | `/api/logout` | yes | Invalidate session |
+| GET | `/api/me` | yes | Current user |
 
-Login entry: `/oauth2/authorization/google` → redirect to UI `/auth/callback`.
+## Main API
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/downloads` | Download links |
+| GET/POST | `/api/structure*` | Branches & departments |
+| GET/POST/PUT | `/api/employees*` | Staff registry |
+| GET | `/api/dashboard` | Worker hours summary |
+| GET | `/api/dashboard/users/{id}/apps` | App breakdown (+ Idle) |
+| POST | `/api/demo/simulate-activity` | Inject demo activity samples |
+| GET/PUT | `/api/organization/settings` | Org settings map |
 
-## Agent key
-- Generated as `tt_<hex>`
-- Stored as SHA-256 hash + short prefix
-- Plaintext returned only in `POST /api/organization/users` response (and owner also gets a key during onboarding, stored hashed)
+## Schema tables
+`organization`, `branch`, `department`, `app_user`, `agent_key`, `organization_setting`, `activity_sample`
 
 ## PlantUML
-See [`tracker-server/docs/puml/`](../../tracker-server/docs/puml/)
+See [`tracker-server/docs/puml/`](../../tracker-server/docs/puml/) — diagrams may be outdated vs email auth.

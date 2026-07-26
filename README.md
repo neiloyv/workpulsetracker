@@ -1,14 +1,14 @@
 # WorkPulseTracker
 
-Монорепозиторий автоматического тайм-трекера.
+Монорепозиторий автоматического тайм-трекера (B2B SaaS прототип).
 
 ## Модули
 | Модуль | Назначение |
 |---|---|
 | `tracker-agent` | Локальное десктоп-приложение (трекинг, UI, трей) |
 | `tracker-common` | Общий код (i18n и др.) |
-| `tracker-server` | Spring Boot API (Hibernate + Liquibase + Google OAuth) |
-| `tracker-ui` | React + Vite веб-кабинет |
+| `tracker-server` | Spring Boot API (email/password auth, org, dashboard) |
+| `tracker-ui` | React + Vite + Tailwind веб-кабинет |
 | `tracker-android` | Мобильное приложение (заготовка) |
 
 ## Документация
@@ -24,20 +24,26 @@
 | Password | `workpulsetracker_dev_password` |
 
 ```powershell
+docker compose down -v   # если схема менялась — чистый старт
 docker compose up -d
-# or use local PostgreSQL with the same credentials
 ```
 
 ## Быстрый старт
 ```powershell
-# Agent
-.\gradlew.bat :tracker-agent:run
-
 # API
 .\gradlew.bat :tracker-server:bootRun
 
-# Web UI (requires Node.js)
+# Web UI
 cd tracker-ui
 npm install
 npm run dev
 ```
+
+UI: http://localhost:5173  
+API: http://localhost:8080
+
+### Auth
+Email + пароль (без Google). На лендинге: Вход / Регистрация (личный аккаунт или организация).
+
+### Demo
+В шапке приложения: переключатель роли и кнопка «Эмулировать активность агента» — наполняет дашборд демо-данными.

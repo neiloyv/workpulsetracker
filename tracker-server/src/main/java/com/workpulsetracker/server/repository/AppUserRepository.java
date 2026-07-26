@@ -11,10 +11,18 @@ import java.util.UUID;
 
 public interface AppUserRepository extends JpaRepository<AppUserEntity, UUID> {
 
-    Optional<AppUserEntity> findByGoogleSub(String googleSub);
-
     @Query("select u from AppUserEntity u where lower(u.email) = lower(:email)")
     Optional<AppUserEntity> findByEmailIgnoreCase(@Param("email") String email);
 
     List<AppUserEntity> findByOrganizationIdOrderByCreatedAtAsc(UUID organizationId);
+
+    List<AppUserEntity> findByOrganizationIdAndBranchIdOrderByCreatedAtAsc(UUID organizationId, UUID branchId);
+
+    List<AppUserEntity> findByOrganizationIdAndDepartmentIdOrderByCreatedAtAsc(UUID organizationId, UUID departmentId);
+
+    List<AppUserEntity> findByOrganizationIdAndBranchIdAndDepartmentIdOrderByCreatedAtAsc(
+            UUID organizationId,
+            UUID branchId,
+            UUID departmentId
+    );
 }
