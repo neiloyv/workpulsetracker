@@ -69,6 +69,7 @@ public class EmployeeService {
             UUID branchId,
             UUID departmentId
     ) {
+        organizationService.requireOwner(currentUser);
         OrganizationEntity organizationEntity = organizationService.requireOrganization(currentUser);
         List<AppUserEntity> employees = findOrganizationEmployees(
                 organizationEntity.getId(),

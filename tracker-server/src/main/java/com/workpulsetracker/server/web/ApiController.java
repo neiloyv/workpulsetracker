@@ -5,7 +5,6 @@ import com.workpulsetracker.server.domain.AppUserEntity;
 import com.workpulsetracker.server.domain.DashboardPeriod;
 import com.workpulsetracker.server.security.AuthUserService;
 import com.workpulsetracker.server.service.DashboardService;
-import com.workpulsetracker.server.service.DemoService;
 import com.workpulsetracker.server.service.EmployeeService;
 import com.workpulsetracker.server.service.OrganizationService;
 import com.workpulsetracker.server.service.StructureService;
@@ -51,7 +50,6 @@ public class ApiController {
     private final StructureService structureService;
     private final EmployeeService employeeService;
     private final DashboardService dashboardService;
-    private final DemoService demoService;
     private final AppProperties appProperties;
 
     public ApiController(
@@ -60,7 +58,6 @@ public class ApiController {
             StructureService structureService,
             EmployeeService employeeService,
             DashboardService dashboardService,
-            DemoService demoService,
             AppProperties appProperties
     ) {
         this.authUserService = authUserService;
@@ -68,7 +65,6 @@ public class ApiController {
         this.structureService = structureService;
         this.employeeService = employeeService;
         this.dashboardService = dashboardService;
-        this.demoService = demoService;
         this.appProperties = appProperties;
     }
 
@@ -151,13 +147,6 @@ public class ApiController {
     ) {
         AppUserEntity currentUser = authUserService.requireCurrentUser(authentication);
         return dashboardService.getUserApps(currentUser, userId, period);
-    }
-
-    @PostMapping("/demo/simulate-activity")
-    public Map<String, Object> simulateActivity(Authentication authentication) {
-        AppUserEntity currentUser = authUserService.requireCurrentUser(authentication);
-        int insertedSamples = demoService.simulateActivity(currentUser);
-        return Map.of("insertedSamples", insertedSamples);
     }
 
     @GetMapping("/organization")

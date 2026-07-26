@@ -28,9 +28,10 @@ API proxy → `http://localhost:8080`
 | `/app/employees` | Staff registry (org + owner view only) |
 
 ## App chrome
-- Theme switcher, branch selector, role demo switcher (Руководитель / Сотрудник)
-- «Эмулировать активность агента»
-- Avatar menu: структура компании, stubs for billing/managers, logout
+- Theme switcher
+- Branch selector (organization owner only)
+- Employees tab + company structure (organization owner only)
+- Avatar menu: stubs for billing/managers, logout
 
 ## Export
 CSV download for filtered dashboard / personal app report (Excel/PDF — next iteration).

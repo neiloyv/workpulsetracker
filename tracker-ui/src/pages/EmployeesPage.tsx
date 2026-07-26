@@ -3,6 +3,7 @@ import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import { api, CreateEmployeeResult, Employee } from "../api";
 import { Modal } from "../components/Modal";
 import { ALL_BRANCHES, useApp } from "../context/AppContext";
+import { mapApiError } from "../utils/errors";
 import { initials } from "../utils/format";
 import { toast } from "../utils/toast";
 
@@ -38,28 +39,54 @@ export function EmployeesPage() {
   const [createdResult, setCreatedResult] = useState<CreateEmployeeResult | null>(null);
   const [copied, setCopied] = useState(false);
 
-  function loadEmployees() {
-    setLoading(true);
-    api
-      .getEmployees({
-        search: search.trim() || undefined,
-        branchId: selectedBranchId === ALL_BRANCHES ? undefined : selectedBranchId
-      })
-      .then(setEmployees)
-      .catch(() => toast("Не удалось загрузить сотрудников", "error"))
-      .finally(() => setLoading(false));
-  }
-
   useEffect(() => {
-    const handle = setTimeout(loadEmployees, 250);
-    return () => clearTimeout(handle);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let cancelled = false;
+    setLoading(true);
+    const handle = setTimeout(() => {
+      api
+        .getEmployees({
+          search: search.trim() || undefined,
+          branchId: selectedBranchId === ALL_BRANCHES ? undefined : selectedBranchId
+        })
+        .then((result) => {
+          if (!cancelled) {
+            setEmployees(result);
+          }
+        })
+        .catch((loadError) => {
+          if (!cancelled) {
+            toast(
+              mapApiError(loadError instanceof Error ? loadError.message : "", "Не удалось загрузить сотрудников"),
+              "error"
+            );
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setLoading(false);
+          }
+        });
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
   }, [search, selectedBranchId]);
 
   const departmentOptions = useMemo(() => {
     const branch = structure?.branches.find((item) => item.id === form.branchId);
     return branch?.departments ?? [];
   }, [structure, form.branchId]);
+
+  function reloadEmployees() {
+    api
+      .getEmployees({
+        search: search.trim() || undefined,
+        branchId: selectedBranchId === ALL_BRANCHES ? undefined : selectedBranchId
+      })
+      .then(setEmployees)
+      .catch(() => undefined);
+  }
 
   function openCreateModal() {
     setEditingId(null);
@@ -88,6 +115,14 @@ export function EmployeesPage() {
   }
 
   function closeModal() {
+    if (createdResult) {
+      return;
+    }
+    setModalOpen(false);
+    setCopied(false);
+  }
+
+  function acknowledgeCreatedCredentials() {
     setModalOpen(false);
     setCreatedResult(null);
     setCopied(false);
@@ -107,8 +142,8 @@ export function EmployeesPage() {
           departmentId: form.departmentId || null
         });
         toast("Данные сотрудника обновлены", "success");
-        closeModal();
-        loadEmployees();
+        setModalOpen(false);
+        reloadEmployees();
       } else {
         const result = await api.createEmployee({
           displayName: form.displayName.trim(),
@@ -119,10 +154,10 @@ export function EmployeesPage() {
           password: form.password.trim() || undefined
         });
         setCreatedResult(result);
-        loadEmployees();
+        reloadEmployees();
       }
     } catch (err) {
-      setError(err instanceof Error ? mapError(err.message) : "Не удалось сохранить сотрудника");
+      setError(mapApiError(err instanceof Error ? err.message : "", "Не удалось сохранить сотрудника"));
     } finally {
       setSaving(false);
     }
@@ -132,10 +167,13 @@ export function EmployeesPage() {
     if (!createdResult?.agentKey) {
       return;
     }
-    navigator.clipboard.writeText(createdResult.agentKey).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-    });
+    navigator.clipboard
+      .writeText(createdResult.agentKey)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1800);
+      })
+      .catch(() => toast("Не удалось скопировать ключ", "error"));
   }
 
   return (
@@ -178,7 +216,7 @@ export function EmployeesPage() {
                 <th className="px-5 py-3.5 font-semibold">Контакты</th>
                 <th className="px-5 py-3.5 font-semibold">Филиал / отдел</th>
                 <th className="px-5 py-3.5 font-semibold">Агент</th>
-                <th className="px-5 py-3.5 font-semibold text-right">Действия</th>
+                <th className="px-5 py-3.5 text-right font-semibold">Действия</th>
               </tr>
             </thead>
             <tbody>
@@ -225,7 +263,7 @@ export function EmployeesPage() {
                       {employee.agentInstalled ? (
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300">
                           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                          Установлен
+                          {employee.agentVersion ? `Установлен v${employee.agentVersion}` : "Установлен"}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500 dark:bg-white/5 dark:text-slate-400">
@@ -254,8 +292,13 @@ export function EmployeesPage() {
       <Modal
         open={modalOpen}
         onClose={closeModal}
+        closeLocked={Boolean(createdResult)}
         title={createdResult ? "Сотрудник добавлен" : editingId ? "Редактировать сотрудника" : "Новый сотрудник"}
-        subtitle={createdResult ? "Сохраните ключ агента — он больше не будет показан" : undefined}
+        subtitle={
+          createdResult
+            ? "Сохраните ключ и пароль сейчас — они больше не будут показаны"
+            : undefined
+        }
       >
         {createdResult ? (
           <div className="grid gap-4">
@@ -273,6 +316,7 @@ export function EmployeesPage() {
                     {createdResult.agentKey}
                   </code>
                   <button
+                    type="button"
                     onClick={onCopyKey}
                     className="shrink-0 rounded-lg border border-slate-200 p-1.5 text-slate-500 transition hover:text-brand-600 dark:border-white/10 dark:text-slate-400"
                   >
@@ -286,22 +330,23 @@ export function EmployeesPage() {
                 <div className="mb-1.5 text-sm font-medium text-slate-600 dark:text-slate-300">
                   Временный пароль
                 </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-800 dark:border-white/10 dark:bg-white/5 dark:text-slate-100">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 font-mono text-sm text-slate-800 dark:border-white/10 dark:bg-white/5 dark:text-slate-100">
                   {createdResult.temporaryPassword}
                 </div>
               </div>
             )}
             <button
-              onClick={closeModal}
+              type="button"
+              onClick={acknowledgeCreatedCredentials}
               className="mt-1 w-full rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 py-2.5 text-sm font-semibold text-white shadow-glow transition hover:brightness-110"
             >
-              Готово
+              Я сохранил данные
             </button>
           </div>
         ) : (
           <form className="grid gap-4" onSubmit={onSubmit}>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Имя">
+              <Field label="Имя / Alias">
                 <input
                   required
                   value={form.displayName}
@@ -331,11 +376,13 @@ export function EmployeesPage() {
               {!editingId && (
                 <Field label="Пароль">
                   <input
-                    type="text"
+                    type="password"
+                    minLength={8}
                     value={form.password}
                     onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
-                    placeholder="Авто-генерация"
+                    placeholder="Авто, если пусто (мин. 8)"
                     className={inputClass}
+                    autoComplete="new-password"
                   />
                 </Field>
               )}
@@ -412,13 +459,6 @@ function Badge({ children, accent }: { children: ReactNode; accent?: boolean }) 
       {children}
     </span>
   );
-}
-
-function mapError(message: string): string {
-  if (message.toLowerCase().includes("already exists")) {
-    return "Сотрудник с таким email уже существует";
-  }
-  return message;
 }
 
 const inputClass =

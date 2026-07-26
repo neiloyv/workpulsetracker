@@ -53,9 +53,8 @@ cd D:\Projects\workpulsetracker
 | GET | `/api/downloads` | Download links |
 | GET/POST | `/api/structure*` | Branches & departments |
 | GET/POST/PUT | `/api/employees*` | Staff registry |
-| GET | `/api/dashboard` | Worker hours summary |
-| GET | `/api/dashboard/users/{id}/apps` | App breakdown (+ Idle) |
-| POST | `/api/demo/simulate-activity` | Inject demo activity samples |
+| GET | `/api/dashboard` | Worker hours (owner: team, member: self) |
+| GET | `/api/dashboard/users/{id}/apps` | App breakdown (+ Idle), owner or self |
 | GET/PUT | `/api/organization/settings` | Org settings map |
 
 ## Schema tables

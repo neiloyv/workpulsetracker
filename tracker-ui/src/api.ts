@@ -1,16 +1,23 @@
+export const SESSION_EXPIRED_EVENT = "wpt:session-expired";
+
 const API_BASE = "";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers);
+  if (!headers.has("Content-Type") && init?.body) {
+    headers.set("Content-Type", "application/json");
+  }
+
   const response = await fetch(`${API_BASE}${path}`, {
+    ...init,
     credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {})
-    },
-    ...init
+    headers
   });
 
   if (response.status === 401) {
+    if (!path.startsWith("/api/auth/")) {
+      window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT));
+    }
     throw new Error("UNAUTHORIZED");
   }
 
@@ -36,6 +43,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export type AccountType = "PERSONAL" | "ORGANIZATION";
+export type UserRole = "OWNER" | "MEMBER";
 
 export type Me = {
   id: string;
@@ -44,7 +52,7 @@ export type Me = {
   firstName: string | null;
   lastName: string | null;
   phone: string | null;
-  role: string;
+  role: UserRole | string;
   accountType: AccountType;
   onboarded: boolean;
   organizationId: string | null;
@@ -158,7 +166,7 @@ export type UpdateEmployeePayload = {
   departmentId?: string | null;
 };
 
-export type DashboardFilters = {
+export type ListFilters = {
   search?: string;
   departmentId?: string;
   branchId?: string;
@@ -202,7 +210,7 @@ export const api = {
       body: JSON.stringify({ branchId, name })
     }),
 
-  getEmployees: (filters: DashboardFilters = {}) =>
+  getEmployees: (filters: ListFilters = {}) =>
     request<Employee[]>(`/api/employees${buildQuery(filters)}`),
 
   createEmployee: (payload: CreateEmployeePayload) =>
@@ -217,14 +225,11 @@ export const api = {
       body: JSON.stringify(payload)
     }),
 
-  getDashboard: (filters: DashboardFilters = {}) =>
+  getDashboard: (filters: ListFilters = {}) =>
     request<DashboardWorker[]>(`/api/dashboard${buildQuery(filters)}`),
 
   getUserApps: (userId: string, period: DashboardPeriod = "TODAY") =>
     request<AppUsage[]>(`/api/dashboard/users/${userId}/apps${buildQuery({ period })}`),
-
-  simulateActivity: () =>
-    request<{ insertedSamples: number }>("/api/demo/simulate-activity", { method: "POST" }),
 
   getOrganizationSettings: () => request<Record<string, string>>("/api/organization/settings"),
 

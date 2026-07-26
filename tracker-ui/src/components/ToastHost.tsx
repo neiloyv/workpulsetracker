@@ -9,9 +9,9 @@ const ICONS: Record<ToastEventDetail["variant"], typeof Info> = {
 };
 
 const ACCENTS: Record<ToastEventDetail["variant"], string> = {
-  info: "border-brand-400/40 text-brand-200",
-  success: "border-emerald-400/40 text-emerald-200",
-  error: "border-rose-400/40 text-rose-200"
+  info: "border-brand-300 text-brand-700 dark:border-brand-400/40 dark:text-brand-300",
+  success: "border-emerald-300 text-emerald-700 dark:border-emerald-400/40 dark:text-emerald-300",
+  error: "border-rose-300 text-rose-700 dark:border-rose-400/40 dark:text-rose-300"
 };
 
 export function ToastHost() {

@@ -2,13 +2,13 @@ import { Download, LayoutDashboard, Loader2, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api, DashboardWorker } from "../api";
 import { AnalyticsModal } from "../components/AnalyticsModal";
-import { ACTIVITY_SIMULATED_EVENT } from "../components/AppShell";
 import { ALL_BRANCHES, useApp } from "../context/AppContext";
+import { mapApiError } from "../utils/errors";
 import { exportCsv, formatDuration } from "../utils/format";
 import { toast } from "../utils/toast";
 
 export function DashboardPage() {
-  const { me, structure, selectedBranchId } = useApp();
+  const { me, structure, selectedBranchId, isOwner } = useApp();
   const [workers, setWorkers] = useState<DashboardWorker[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -16,6 +16,7 @@ export function DashboardPage() {
   const [selectedWorker, setSelectedWorker] = useState<DashboardWorker | null>(null);
 
   const isPersonal = me?.accountType === "PERSONAL";
+  const showTeamFilters = !isPersonal && isOwner;
 
   const departmentOptions = useMemo(() => {
     if (!structure) {
@@ -26,7 +27,11 @@ export function DashboardPage() {
         ? structure.branches
         : structure.branches.filter((branch) => branch.id === selectedBranchId);
     return branches.flatMap((branch) =>
-      branch.departments.map((department) => ({ ...department, branchName: branch.name }))
+      branch.departments.map((department) => ({
+        ...department,
+        label:
+          selectedBranchId === ALL_BRANCHES ? `${department.name} (${branch.name})` : department.name
+      }))
     );
   }, [structure, selectedBranchId]);
 
@@ -40,18 +45,18 @@ export function DashboardPage() {
     const handle = setTimeout(() => {
       api
         .getDashboard({
-          search: search.trim() || undefined,
-          branchId: selectedBranchId === ALL_BRANCHES ? undefined : selectedBranchId,
-          departmentId: departmentId === "ALL" ? undefined : departmentId
+          search: showTeamFilters ? search.trim() || undefined : undefined,
+          branchId: showTeamFilters && selectedBranchId !== ALL_BRANCHES ? selectedBranchId : undefined,
+          departmentId: showTeamFilters && departmentId !== "ALL" ? departmentId : undefined
         })
         .then((result) => {
           if (!cancelled) {
             setWorkers(result);
           }
         })
-        .catch(() => {
+        .catch((error) => {
           if (!cancelled) {
-            toast("Не удалось загрузить дашборд", "error");
+            toast(mapApiError(error instanceof Error ? error.message : "", "Не удалось загрузить дашборд"), "error");
           }
         })
         .finally(() => {
@@ -64,19 +69,7 @@ export function DashboardPage() {
       cancelled = true;
       clearTimeout(handle);
     };
-  }, [search, departmentId, selectedBranchId]);
-
-  useEffect(() => {
-    function onSimulated() {
-      api.getDashboard({
-        search: search.trim() || undefined,
-        branchId: selectedBranchId === ALL_BRANCHES ? undefined : selectedBranchId,
-        departmentId: departmentId === "ALL" ? undefined : departmentId
-      }).then(setWorkers).catch(() => undefined);
-    }
-    window.addEventListener(ACTIVITY_SIMULATED_EVENT, onSimulated);
-    return () => window.removeEventListener(ACTIVITY_SIMULATED_EVENT, onSimulated);
-  }, [search, departmentId, selectedBranchId]);
+  }, [search, departmentId, selectedBranchId, showTeamFilters]);
 
   function onExport() {
     if (workers.length === 0) {
@@ -109,7 +102,7 @@ export function DashboardPage() {
             Дашборд
           </div>
           <h1 className="mt-1 font-display text-2xl font-bold text-slate-900 dark:text-white">
-            Активность команды
+            {showTeamFilters ? "Активность команды" : "Моя активность"}
           </h1>
         </div>
         <button
@@ -121,17 +114,17 @@ export function DashboardPage() {
         </button>
       </div>
 
-      <div className="mb-5 flex flex-wrap gap-3">
-        <div className="relative flex-1 min-w-[220px]">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Поиск по имени или email"
-            className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3.5 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-white/10 dark:bg-white/5 dark:text-white"
-          />
-        </div>
-        {!isPersonal && (
+      {showTeamFilters && (
+        <div className="mb-5 flex flex-wrap gap-3">
+          <div className="relative min-w-[220px] flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Поиск по имени или email"
+              className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3.5 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-white/10 dark:bg-white/5 dark:text-white"
+            />
+          </div>
           <select
             value={departmentId}
             onChange={(e) => setDepartmentId(e.target.value)}
@@ -140,12 +133,12 @@ export function DashboardPage() {
             <option value="ALL">Все отделы</option>
             {departmentOptions.map((department) => (
               <option key={department.id} value={department.id}>
-                {department.name}
+                {department.label}
               </option>
             ))}
           </select>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card dark:border-white/10 dark:bg-white/[0.03]">
         <div className="overflow-x-auto">
@@ -171,7 +164,7 @@ export function DashboardPage() {
               ) : workers.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-5 py-12 text-center text-slate-400">
-                    Ничего не найдено
+                    Пока нет данных активности. Они появятся после синхронизации агента.
                   </td>
                 </tr>
               ) : (
@@ -227,7 +220,7 @@ function AgentBadge({ installed, version }: { installed: boolean; version: strin
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300">
         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-        {version ? `v${version}` : "Активен"}
+        {version ? `Установлен v${version}` : "Установлен"}
       </span>
     );
   }

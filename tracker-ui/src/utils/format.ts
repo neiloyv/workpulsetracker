@@ -5,15 +5,12 @@ export function formatDuration(seconds: number): string {
   return `${hours}h ${minutes}m`;
 }
 
-export function formatHoursMinutes(seconds: number): string {
-  const safeSeconds = Math.max(0, Math.floor(seconds || 0));
-  const hours = Math.floor(safeSeconds / 3600);
-  const minutes = Math.floor((safeSeconds % 3600) / 60);
-  return `${hours}:${String(minutes).padStart(2, "0")}`;
-}
-
 function csvEscape(value: unknown): string {
-  const stringValue = value === null || value === undefined ? "" : String(value);
+  let stringValue = value === null || value === undefined ? "" : String(value);
+  // Mitigate spreadsheet formula injection when opening CSV in Excel
+  if (/^[=+\-@]/.test(stringValue)) {
+    stringValue = `'${stringValue}`;
+  }
   if (/[",\n;]/.test(stringValue)) {
     return `"${stringValue.replace(/"/g, '""')}"`;
   }

@@ -2,6 +2,7 @@ import { Building2, ChevronDown, ChevronRight, FolderTree, Plus } from "lucide-r
 import { FormEvent, useState } from "react";
 import { api } from "../api";
 import { useApp } from "../context/AppContext";
+import { mapApiError } from "../utils/errors";
 import { toast } from "../utils/toast";
 import { Modal } from "./Modal";
 
@@ -38,7 +39,7 @@ export function StructureModal({ open, onClose }: StructureModalProps) {
       await refreshStructure();
       toast("Филиал добавлен", "success");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось создать филиал");
+      setError(mapApiError(err instanceof Error ? err.message : "", "Не удалось создать филиал"));
     } finally {
       setBusy(false);
     }
@@ -59,7 +60,7 @@ export function StructureModal({ open, onClose }: StructureModalProps) {
       await refreshStructure();
       toast("Отдел добавлен", "success");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось создать отдел");
+      setError(mapApiError(err instanceof Error ? err.message : "", "Не удалось создать отдел"));
     } finally {
       setBusy(false);
     }

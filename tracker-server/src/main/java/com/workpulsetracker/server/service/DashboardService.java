@@ -5,6 +5,7 @@ import com.workpulsetracker.server.domain.AppUserEntity;
 import com.workpulsetracker.server.domain.BranchEntity;
 import com.workpulsetracker.server.domain.DashboardPeriod;
 import com.workpulsetracker.server.domain.DepartmentEntity;
+import com.workpulsetracker.server.domain.UserRole;
 import com.workpulsetracker.server.repository.ActivitySampleRepository;
 import com.workpulsetracker.server.repository.AppUserRepository;
 import com.workpulsetracker.server.repository.BranchRepository;
@@ -143,7 +144,8 @@ public class DashboardService {
             UUID departmentId
     ) {
         if (currentUser.getAccountType() == AccountType.PERSONAL
-                || Objects.isNull(currentUser.getOrganizationId())) {
+                || Objects.isNull(currentUser.getOrganizationId())
+                || currentUser.getRole() != UserRole.OWNER) {
             return List.of(currentUser);
         }
         List<AppUserEntity> organizationUsers = resolveOrganizationUsers(
@@ -194,7 +196,8 @@ public class DashboardService {
         if (Objects.equals(currentUser.getId(), targetUser.getId())) {
             return;
         }
-        if (currentUser.getAccountType() == AccountType.ORGANIZATION
+        if (currentUser.getRole() == UserRole.OWNER
+                && currentUser.getAccountType() == AccountType.ORGANIZATION
                 && Objects.nonNull(currentUser.getOrganizationId())
                 && Objects.equals(currentUser.getOrganizationId(), targetUser.getOrganizationId())) {
             return;

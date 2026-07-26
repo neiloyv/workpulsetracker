@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { useApp } from "../context/AppContext";
 import { useTheme } from "../context/ThemeContext";
+import { mapApiError } from "../utils/errors";
 
 type AuthTab = "login" | "register";
 type RegisterKind = "PERSONAL" | "ORGANIZATION";
@@ -58,7 +59,7 @@ export function LandingPage() {
       setMe(result);
       navigate("/app");
     } catch (err) {
-      setError(err instanceof Error ? mapError(err.message) : "Не удалось войти");
+      setError(mapApiError(err instanceof Error ? err.message : "", "Не удалось войти"));
     } finally {
       setLoading(false);
     }
@@ -79,7 +80,7 @@ export function LandingPage() {
       setMe(result);
       navigate("/app");
     } catch (err) {
-      setError(err instanceof Error ? mapError(err.message) : "Не удалось зарегистрироваться");
+      setError(mapApiError(err instanceof Error ? err.message : "", "Не удалось зарегистрироваться"));
     } finally {
       setLoading(false);
     }
@@ -289,13 +290,6 @@ function ErrorBanner({ message }: { message: string }) {
       {message}
     </div>
   );
-}
-
-function mapError(message: string): string {
-  if (message === "UNAUTHORIZED") {
-    return "Неверный email или пароль";
-  }
-  return message;
 }
 
 const inputClass =

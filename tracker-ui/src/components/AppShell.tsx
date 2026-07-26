@@ -9,23 +9,19 @@ import {
   ShieldCheck,
   Sun,
   User,
-  Users,
-  Zap
+  Users
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { api } from "../api";
-import { ALL_BRANCHES, useApp, ViewMode } from "../context/AppContext";
+import { ALL_BRANCHES, useApp } from "../context/AppContext";
 import { useTheme } from "../context/ThemeContext";
 import { initials } from "../utils/format";
 import { toast } from "../utils/toast";
 import { StructureModal } from "./StructureModal";
 import { ToastHost } from "./ToastHost";
 
-export const ACTIVITY_SIMULATED_EVENT = "wpt:activity-simulated";
-
 export function AppShell() {
-  const { me, logout, viewMode, setViewMode, selectedBranchId, setSelectedBranchId, structure } = useApp();
+  const { me, logout, isOwner, selectedBranchId, setSelectedBranchId, structure } = useApp();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
@@ -33,7 +29,6 @@ export function AppShell() {
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [branchMenuOpen, setBranchMenuOpen] = useState(false);
   const [structureOpen, setStructureOpen] = useState(false);
-  const [simulating, setSimulating] = useState(false);
   const avatarRef = useRef<HTMLDivElement>(null);
   const branchRef = useRef<HTMLDivElement>(null);
 
@@ -55,32 +50,13 @@ export function AppShell() {
   }
 
   const isPersonal = me.accountType === "PERSONAL";
-  const showEmployeesTab = !isPersonal && viewMode === "OWNER";
+  const showEmployeesTab = !isPersonal && isOwner;
+  const showBranchSelector = !isPersonal && isOwner && Boolean(structure);
   const activeBranch = structure?.branches.find((branch) => branch.id === selectedBranchId);
 
   async function onLogout() {
     await logout();
     navigate("/");
-  }
-
-  async function onSimulate() {
-    setSimulating(true);
-    try {
-      const result = await api.simulateActivity();
-      toast(`Активность агента обновлена (${result.insertedSamples} записей)`, "success");
-      window.dispatchEvent(new CustomEvent(ACTIVITY_SIMULATED_EVENT));
-    } catch {
-      toast("Не удалось эмулировать активность", "error");
-    } finally {
-      setSimulating(false);
-    }
-  }
-
-  function onViewModeChange(mode: ViewMode) {
-    setViewMode(mode);
-    if (mode === "EMPLOYEE" && location.pathname !== "/app") {
-      navigate("/app");
-    }
   }
 
   return (
@@ -108,7 +84,7 @@ export function AppShell() {
 
           <div className="flex-1" />
 
-          {!isPersonal && structure && (
+          {showBranchSelector && structure && (
             <div className="relative hidden sm:block" ref={branchRef}>
               <button
                 onClick={() => setBranchMenuOpen((prev) => !prev)}
@@ -144,38 +120,6 @@ export function AppShell() {
             </div>
           )}
 
-          <div className="hidden items-center gap-1 rounded-xl bg-slate-100 p-1 dark:bg-white/5 lg:flex">
-            <button
-              onClick={() => onViewModeChange("OWNER")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                viewMode === "OWNER"
-                  ? "bg-white text-slate-900 shadow-sm dark:bg-white/10 dark:text-white"
-                  : "text-slate-500 dark:text-slate-400"
-              }`}
-            >
-              Руководитель
-            </button>
-            <button
-              onClick={() => onViewModeChange("EMPLOYEE")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                viewMode === "EMPLOYEE"
-                  ? "bg-white text-slate-900 shadow-sm dark:bg-white/10 dark:text-white"
-                  : "text-slate-500 dark:text-slate-400"
-              }`}
-            >
-              Сотрудник
-            </button>
-          </div>
-
-          <button
-            onClick={onSimulate}
-            disabled={simulating}
-            className="hidden items-center gap-1.5 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 px-3.5 py-2 text-sm font-semibold text-white shadow-glow transition hover:brightness-110 disabled:opacity-60 sm:flex"
-          >
-            <Zap className={`h-4 w-4 ${simulating ? "animate-pulse" : ""}`} />
-            Эмулировать активность
-          </button>
-
           <button
             onClick={toggleTheme}
             className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:text-brand-600 dark:border-white/10 dark:text-slate-300 dark:hover:text-brand-300"
@@ -207,7 +151,7 @@ export function AppShell() {
                     window.alert(`${me.displayName}\n${me.email}\nРоль: ${me.role}`);
                   }}
                 />
-                {!isPersonal && (
+                {isOwner && !isPersonal && (
                   <AvatarMenuItem
                     icon={Building2}
                     label="Структура компании"
@@ -217,7 +161,7 @@ export function AppShell() {
                     }}
                   />
                 )}
-                {!isPersonal && (
+                {isOwner && !isPersonal && (
                   <AvatarMenuItem
                     icon={ShieldCheck}
                     label="Менеджеры и доступ"
@@ -259,7 +203,9 @@ export function AppShell() {
         <Outlet />
       </main>
 
-      <StructureModal open={structureOpen} onClose={() => setStructureOpen(false)} />
+      {isOwner && !isPersonal && (
+        <StructureModal open={structureOpen} onClose={() => setStructureOpen(false)} />
+      )}
       <ToastHost />
     </div>
   );

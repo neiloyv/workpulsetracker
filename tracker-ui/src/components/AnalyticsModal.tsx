@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api, AppUsage, DashboardPeriod, DashboardWorker } from "../api";
 import { exportCsv, formatDuration } from "../utils/format";
+import { mapApiError } from "../utils/errors";
 import { toast } from "../utils/toast";
 import { Modal } from "./Modal";
 
@@ -46,9 +47,13 @@ export function AnalyticsModal({ worker, onClose }: AnalyticsModalProps) {
           setUsage(result);
         }
       })
-      .catch(() => {
+      .catch((error) => {
         if (!cancelled) {
           setUsage([]);
+          toast(
+            mapApiError(error instanceof Error ? error.message : "", "Не удалось загрузить аналитику"),
+            "error"
+          );
         }
       })
       .finally(() => {

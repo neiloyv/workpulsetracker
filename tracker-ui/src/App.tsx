@@ -32,9 +32,9 @@ function RequireAuth({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-function RequireOwnerView({ children }: { children: ReactNode }) {
-  const { me, viewMode } = useApp();
-  if (me?.accountType === "PERSONAL" || viewMode === "EMPLOYEE") {
+function RequireOwner({ children }: { children: ReactNode }) {
+  const { me, isOwner } = useApp();
+  if (me?.accountType === "PERSONAL" || !isOwner) {
     return <Navigate to="/app" replace />;
   }
   return <>{children}</>;
@@ -62,9 +62,9 @@ export default function App() {
         <Route
           path="employees"
           element={
-            <RequireOwnerView>
+            <RequireOwner>
               <EmployeesPage />
-            </RequireOwnerView>
+            </RequireOwner>
           }
         />
       </Route>

@@ -44,6 +44,7 @@ public class StructureService {
 
     @Transactional(readOnly = true)
     public StructureResponse getStructure(AppUserEntity currentUser) {
+        organizationService.requireOwner(currentUser);
         OrganizationEntity organizationEntity = organizationService.requireOrganization(currentUser);
         List<BranchEntity> branches =
                 branchRepository.findByOrganizationIdOrderByCreatedAtAsc(organizationEntity.getId());
