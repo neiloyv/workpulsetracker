@@ -4,11 +4,11 @@ services:
     container_name: workpulsetracker-postgres
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "5435:5432"
     environment:
       POSTGRES_DB: workpulsetracker
       POSTGRES_USER: workpulsetracker
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-workpulsetracker_dev_password}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-workpulsetracker}
     volumes:
       - workpulsetracker_pg_data:/var/lib/postgresql/data
     healthcheck:

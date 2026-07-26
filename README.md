@@ -18,10 +18,10 @@
 | Field | Value |
 |---|---|
 | Host | `localhost` |
-| Port | `5432` |
+| Port | `5435` |
 | Database | `workpulsetracker` |
 | Username | `workpulsetracker` |
-| Password | `workpulsetracker_dev_password` |
+| Password | `workpulsetracker` |
 
 ```powershell
 docker compose down -v   # если схема менялась — чистый старт
