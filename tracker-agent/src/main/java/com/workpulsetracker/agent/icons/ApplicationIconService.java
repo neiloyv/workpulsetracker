@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import com.workpulsetracker.agent.storage.LocalDataDirectory;
+import com.workpulsetracker.agent.util.ApplicationNameNormalizer;
 import com.workpulsetracker.common.i18n.MessageCodes;
 import com.workpulsetracker.common.i18n.Messages;
 import org.apache.commons.lang3.StringUtils;
@@ -86,7 +87,10 @@ public final class ApplicationIconService {
                 }
                 loadedExecutablePaths.entrySet().stream()
                         .filter(entry -> StringUtils.isNotBlank(entry.getKey()) && StringUtils.isNotBlank(entry.getValue()))
-                        .forEach(entry -> executablePathByApplicationName.put(entry.getKey().trim(), entry.getValue().trim()));
+                        .forEach(entry -> executablePathByApplicationName.put(
+                                ApplicationNameNormalizer.normalize(entry.getKey()),
+                                entry.getValue().trim()
+                        ));
             }
         } catch (IOException exception) {
             logger.warn("Failed to load executable-paths.json: {}", exception.getMessage());
@@ -103,7 +107,7 @@ public final class ApplicationIconService {
         if (StringUtils.isBlank(applicationName) || StringUtils.isBlank(executablePath)) {
             return false;
         }
-        String normalizedApplicationName = applicationName.trim();
+        String normalizedApplicationName = ApplicationNameNormalizer.normalize(applicationName);
         String normalizedExecutablePath = executablePath.trim();
         String previousExecutablePath = executablePathByApplicationName.put(
                 normalizedApplicationName,
@@ -120,7 +124,7 @@ public final class ApplicationIconService {
         if (StringUtils.isBlank(applicationName) || isOthersCategory(applicationName)) {
             return fallbackIcon;
         }
-        String normalizedApplicationName = applicationName.trim();
+        String normalizedApplicationName = ApplicationNameNormalizer.normalize(applicationName);
         ImageIcon cachedIcon = iconByApplicationName.get(normalizedApplicationName);
         if (Objects.nonNull(cachedIcon)) {
             return cachedIcon;

@@ -17,13 +17,8 @@ import javax.swing.JTable;
 import javax.swing.UIManager;
 import javax.swing.table.JTableHeader;
 import java.awt.Color;
-import java.awt.Dialog;
 import java.awt.Font;
-import java.awt.Frame;
 import java.awt.Window;
-import java.awt.event.ComponentAdapter;
-import java.awt.event.ComponentEvent;
-import java.awt.geom.RoundRectangle2D;
 
 /**
  * Тёмная тема UI на FlatLaf. Палитра согласована с tracker-ui.
@@ -31,7 +26,6 @@ import java.awt.geom.RoundRectangle2D;
 public final class UiTheme {
 
     private static final Logger logger = LoggerFactory.getLogger(UiTheme.class);
-    private static final int WINDOW_CORNER_ARC = 24;
 
     public static final Color BACKGROUND = new Color(0x0A, 0x0A, 0x14);
     public static final Color SURFACE = new Color(0x14, 0x14, 0x22);
@@ -49,7 +43,8 @@ public final class UiTheme {
 
     public static void install() {
         try {
-            FlatLaf.setUseNativeWindowDecorations(false);
+            // Native decorations keep OS resize borders (left/right/top/bottom) working.
+            FlatLaf.setUseNativeWindowDecorations(true);
             JFrame.setDefaultLookAndFeelDecorated(true);
             JDialog.setDefaultLookAndFeelDecorated(true);
             FlatDarkLaf.setup();
@@ -100,67 +95,19 @@ public final class UiTheme {
     }
 
     /**
-     * Скругляет углы окна (нужны FlatLaf-декорации + undecorated frame).
+     * Настраивает декорации окна FlatLaf с возможностью ресайза по краям.
+     * Не форсируем setUndecorated/setShape — иначе на Windows пропадает системный ресайз.
      */
     public static void installRoundedWindowCorners(Window window) {
-        enableSwingWindowDecorations(window);
-        window.addComponentListener(new ComponentAdapter() {
-            @Override
-            public void componentResized(ComponentEvent componentEvent) {
-                applyRoundedWindowShape(window);
-            }
-        });
-        applyRoundedWindowShape(window);
-    }
-
-    private static void enableSwingWindowDecorations(Window window) {
         if (window instanceof JFrame frame) {
-            if (!frame.isUndecorated() && !frame.isDisplayable()) {
-                frame.setUndecorated(true);
-            }
+            frame.setResizable(true);
             frame.getRootPane().setWindowDecorationStyle(JRootPane.FRAME);
             return;
         }
         if (window instanceof JDialog dialog) {
-            if (!dialog.isUndecorated() && !dialog.isDisplayable()) {
-                dialog.setUndecorated(true);
-            }
+            dialog.setResizable(true);
             dialog.getRootPane().setWindowDecorationStyle(JRootPane.PLAIN_DIALOG);
         }
-    }
-
-    private static void applyRoundedWindowShape(Window window) {
-        if (!canApplyWindowShape(window)) {
-            return;
-        }
-        int windowWidth = window.getWidth();
-        int windowHeight = window.getHeight();
-        if (windowWidth <= 0 || windowHeight <= 0) {
-            return;
-        }
-        if (window instanceof Frame frame
-                && (frame.getExtendedState() & Frame.MAXIMIZED_BOTH) == Frame.MAXIMIZED_BOTH) {
-            window.setShape(null);
-            return;
-        }
-        window.setShape(new RoundRectangle2D.Double(
-                0,
-                0,
-                windowWidth,
-                windowHeight,
-                WINDOW_CORNER_ARC,
-                WINDOW_CORNER_ARC
-        ));
-    }
-
-    private static boolean canApplyWindowShape(Window window) {
-        if (window instanceof Frame frame) {
-            return frame.isUndecorated();
-        }
-        if (window instanceof Dialog dialog) {
-            return dialog.isUndecorated();
-        }
-        return true;
     }
 
     public static void stylePrimaryButton(JButton button) {
@@ -197,6 +144,25 @@ public final class UiTheme {
                         + "hoverBackground: #1A1A2B;"
                         + "pressedBackground: #1A1A2B;"
                         + "margin: 8,18,8,18");
+    }
+
+    public static void styleCompactSecondaryButton(JButton button) {
+        button.setFocusPainted(false);
+        button.putClientProperty(FlatClientProperties.STYLE,
+                "arc: 999;"
+                        + "background: #141422;"
+                        + "foreground: #EDEDF6;"
+                        + "borderColor: #2F2F47;"
+                        + "hoverBackground: #1A1A2B;"
+                        + "pressedBackground: #1A1A2B;"
+                        + "margin: 6,14,6,14");
+    }
+
+    public static void styleToggleSwitch(javax.swing.JCheckBox checkBox) {
+        checkBox.setOpaque(false);
+        checkBox.setFocusPainted(false);
+        checkBox.setText("");
+        checkBox.putClientProperty(FlatClientProperties.STYLE_CLASS, "toggleSwitch");
     }
 
     public static void styleSurfaceCard(JComponent component) {

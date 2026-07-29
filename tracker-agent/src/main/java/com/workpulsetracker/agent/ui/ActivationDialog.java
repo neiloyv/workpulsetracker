@@ -1,5 +1,6 @@
 package com.workpulsetracker.agent.ui;
 
+import com.workpulsetracker.agent.api.AgentAccessClient;
 import com.workpulsetracker.common.i18n.MessageCodes;
 import com.workpulsetracker.common.i18n.Messages;
 import org.apache.commons.lang3.StringUtils;
@@ -13,6 +14,7 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPasswordField;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import java.awt.BorderLayout;
@@ -22,18 +24,21 @@ import java.awt.FlowLayout;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Первый запуск: ввод ключа привязки к веб-аккаунту или работа только локально.
+ * Первый запуск: ввод email и access key для привязки к веб-аккаунту.
+ * Без успешной активации приложение не запускается.
  */
 public final class ActivationDialog extends JDialog {
 
+    private final AgentAccessClient agentAccessClient;
     private final AtomicBoolean confirmed = new AtomicBoolean(false);
-    private final JTextField activationKeyTextField = new JTextField();
-    private boolean localOnlySelected;
+    private final JTextField emailTextField = new JTextField();
+    private final JPasswordField accessKeyPasswordField = new JPasswordField();
 
-    public ActivationDialog(JFrame ownerFrame) {
+    public ActivationDialog(JFrame ownerFrame, AgentAccessClient agentAccessClient) {
         super(ownerFrame, Messages.get(MessageCodes.UI_ACTIVATION_TITLE), true);
+        this.agentAccessClient = agentAccessClient;
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
-        setMinimumSize(new Dimension(440, 280));
+        setMinimumSize(new Dimension(440, 320));
         setLocationRelativeTo(ownerFrame);
         buildContent();
         pack();
@@ -62,30 +67,37 @@ public final class ActivationDialog extends JDialog {
         descriptionLabel.setVerticalAlignment(SwingConstants.TOP);
         UiTheme.styleMutedLabel(descriptionLabel);
 
+        JLabel emailLabel = new JLabel(Messages.get(MessageCodes.UI_ACTIVATION_EMAIL_LABEL));
+        emailLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        UiTheme.styleMutedLabel(emailLabel);
+
+        emailTextField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+        emailTextField.setAlignmentX(Component.LEFT_ALIGNMENT);
+
         JLabel keyLabel = new JLabel(Messages.get(MessageCodes.UI_ACTIVATION_KEY_LABEL));
         keyLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         UiTheme.styleMutedLabel(keyLabel);
 
-        activationKeyTextField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
-        activationKeyTextField.setAlignmentX(Component.LEFT_ALIGNMENT);
+        accessKeyPasswordField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+        accessKeyPasswordField.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         cardPanel.add(titleLabel);
         cardPanel.add(Box.createVerticalStrut(8));
         cardPanel.add(descriptionLabel);
         cardPanel.add(Box.createVerticalStrut(14));
+        cardPanel.add(emailLabel);
+        cardPanel.add(Box.createVerticalStrut(6));
+        cardPanel.add(emailTextField);
+        cardPanel.add(Box.createVerticalStrut(12));
         cardPanel.add(keyLabel);
         cardPanel.add(Box.createVerticalStrut(6));
-        cardPanel.add(activationKeyTextField);
+        cardPanel.add(accessKeyPasswordField);
 
         JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         buttonsPanel.setOpaque(false);
-        JButton localOnlyButton = new JButton(Messages.get(MessageCodes.UI_ACTIVATION_LOCAL_ONLY));
         JButton activateButton = new JButton(Messages.get(MessageCodes.UI_ACTIVATION_ACTIVATE));
-        UiTheme.styleSecondaryButton(localOnlyButton);
         UiTheme.stylePrimaryButton(activateButton);
         activateButton.addActionListener(actionEvent -> onActivate());
-        localOnlyButton.addActionListener(actionEvent -> onLocalOnly());
-        buttonsPanel.add(localOnlyButton);
         buttonsPanel.add(activateButton);
 
         rootPanel.add(cardPanel, BorderLayout.CENTER);
@@ -94,25 +106,31 @@ public final class ActivationDialog extends JDialog {
     }
 
     private void onActivate() {
-        String activationKey = activationKeyTextField.getText();
-        if (StringUtils.isBlank(activationKey)) {
-            JOptionPane.showMessageDialog(
-                    this,
-                    Messages.get(MessageCodes.UI_ACTIVATION_KEY_REQUIRED),
-                    Messages.get(MessageCodes.UI_ACTIVATION_TITLE),
-                    JOptionPane.WARNING_MESSAGE
-            );
+        String email = emailTextField.getText();
+        String accessKey = new String(accessKeyPasswordField.getPassword());
+        if (StringUtils.isBlank(email)) {
+            showWarning(Messages.get(MessageCodes.UI_ACTIVATION_EMAIL_REQUIRED));
             return;
         }
-        localOnlySelected = false;
+        if (StringUtils.isBlank(accessKey)) {
+            showWarning(Messages.get(MessageCodes.UI_ACTIVATION_KEY_REQUIRED));
+            return;
+        }
+        if (!agentAccessClient.validateAccess(email.trim(), accessKey.trim())) {
+            showWarning(Messages.get(MessageCodes.UI_ACTIVATION_INVALID));
+            return;
+        }
         confirmed.set(true);
         dispose();
     }
 
-    private void onLocalOnly() {
-        localOnlySelected = true;
-        confirmed.set(true);
-        dispose();
+    private void showWarning(String message) {
+        JOptionPane.showMessageDialog(
+                this,
+                message,
+                Messages.get(MessageCodes.UI_ACTIVATION_TITLE),
+                JOptionPane.WARNING_MESSAGE
+        );
     }
 
     public boolean showAndWait() {
@@ -120,11 +138,11 @@ public final class ActivationDialog extends JDialog {
         return confirmed.get();
     }
 
-    public boolean isLocalOnlySelected() {
-        return localOnlySelected;
+    public String getEmail() {
+        return emailTextField.getText().trim();
     }
 
-    public String getActivationKey() {
-        return activationKeyTextField.getText().trim();
+    public String getAccessKey() {
+        return new String(accessKeyPasswordField.getPassword()).trim();
     }
 }

@@ -25,6 +25,7 @@ public final class TrackerMainFrame extends JFrame {
     private final MainPanel mainPanel;
     private final StatisticsPanel statisticsPanel;
     private final SettingsPanel settingsPanel;
+    private final AccountPanel accountPanel;
     private final JTabbedPane tabbedPane = new JTabbedPane();
     private final TrayService trayService;
     private final Timer refreshTimer;
@@ -40,7 +41,7 @@ public final class TrackerMainFrame extends JFrame {
         super(Messages.get(MessageCodes.UI_APP_TITLE));
         this.exitAction = exitAction;
         this.mainPanel = new MainPanel(trackingEngine, statisticsService, userSettings);
-        this.statisticsPanel = new StatisticsPanel(statisticsService, userSettings);
+        this.statisticsPanel = new StatisticsPanel(statisticsService, userSettings, userSettingsStore);
         this.settingsPanel = new SettingsPanel(
                 userSettings,
                 userSettingsStore,
@@ -48,10 +49,16 @@ public final class TrackerMainFrame extends JFrame {
                 this::onAutoStartSettingChanged,
                 this::refreshPanels
         );
+        this.accountPanel = new AccountPanel(
+                userSettings,
+                userSettingsStore,
+                this::refreshPanels
+        );
         this.trayService = new TrayService(this, exitAction);
 
         setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
-        setMinimumSize(new Dimension(1100, 720));
+        setResizable(true);
+        setMinimumSize(new Dimension(900, 600));
         setSize(1100, 760);
         getContentPane().setBackground(UiTheme.BACKGROUND);
         setLocationRelativeTo(null);
@@ -71,6 +78,7 @@ public final class TrackerMainFrame extends JFrame {
         tabbedPane.addTab(Messages.get(MessageCodes.UI_TAB_MAIN), mainPanel);
         tabbedPane.addTab(Messages.get(MessageCodes.UI_TAB_STATISTICS), statisticsPanel);
         tabbedPane.addTab(Messages.get(MessageCodes.UI_TAB_SETTINGS), settingsPanel);
+        tabbedPane.addTab(Messages.get(MessageCodes.UI_TAB_ACCOUNT), accountPanel);
         tabbedPane.addChangeListener(changeEvent -> {
             if (tabbedPane.getSelectedComponent() == statisticsPanel) {
                 statisticsPanel.refresh();
@@ -119,9 +127,11 @@ public final class TrackerMainFrame extends JFrame {
         tabbedPane.setTitleAt(0, Messages.get(MessageCodes.UI_TAB_MAIN));
         tabbedPane.setTitleAt(1, Messages.get(MessageCodes.UI_TAB_STATISTICS));
         tabbedPane.setTitleAt(2, Messages.get(MessageCodes.UI_TAB_SETTINGS));
+        tabbedPane.setTitleAt(3, Messages.get(MessageCodes.UI_TAB_ACCOUNT));
         mainPanel.retranslate();
         statisticsPanel.retranslate();
         settingsPanel.retranslate();
+        accountPanel.retranslate();
         trayService.retranslate();
     }
 

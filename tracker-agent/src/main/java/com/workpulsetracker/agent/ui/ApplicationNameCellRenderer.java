@@ -39,7 +39,17 @@ public final class ApplicationNameCellRenderer extends DefaultTableCellRenderer 
         );
         String applicationName = Objects.nonNull(value) ? String.valueOf(value) : "";
         label.setText(applicationName);
-        label.setIcon(ApplicationIconService.getInstance().getIcon(applicationName));
+        boolean totalRow = table.getModel() instanceof ApplicationUsageTableModel usageTableModel
+                && usageTableModel.isTotalRow(row)
+                || table.getModel() instanceof ApplicationUsageMatrixTableModel matrixTableModel
+                && matrixTableModel.isTotalRow(row);
+        if (totalRow) {
+            label.setIcon(null);
+            label.setFont(label.getFont().deriveFont(java.awt.Font.BOLD));
+        } else {
+            label.setIcon(ApplicationIconService.getInstance().getIcon(applicationName));
+            label.setFont(table.getFont());
+        }
         return label;
     }
 }

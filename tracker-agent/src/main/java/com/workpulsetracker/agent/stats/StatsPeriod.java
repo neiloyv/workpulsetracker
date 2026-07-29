@@ -8,5 +8,6 @@ public enum StatsPeriod {
     WEEK,
     MONTH,
     YEAR,
-    ALL_TIME
+    ALL_TIME,
+    CUSTOM
 }

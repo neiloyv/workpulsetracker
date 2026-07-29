@@ -1,34 +1,37 @@
 package com.workpulsetracker.agent.report;
 
-import com.workpulsetracker.agent.stats.ApplicationUsageFilter;
 import com.workpulsetracker.agent.stats.ApplicationUsageMatrix;
-import com.workpulsetracker.agent.stats.ApplicationUsageSummary;
 import com.workpulsetracker.agent.stats.StatisticsService;
-import com.workpulsetracker.agent.stats.StatisticsSnapshot;
-import com.workpulsetracker.agent.stats.StatsPeriod;
 import com.workpulsetracker.agent.util.DurationFormatter;
 import com.workpulsetracker.common.i18n.MessageCodes;
 import com.workpulsetracker.common.i18n.Messages;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.poi.ss.usermodel.ClientAnchor;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Drawing;
 import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
+import org.apache.poi.ss.usermodel.Picture;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Objects;
 
 /**
- * Excel-отчёт по статистике: отдельный лист на каждый период.
+ * Excel-отчёт: лист на период; таблицы (для месяца — по неделям) + круговая диаграмма в конце.
  */
 public final class StatisticsExcelReportWriter {
+
+    private static final Logger logger = LoggerFactory.getLogger(StatisticsExcelReportWriter.class);
 
     private final StatisticsService statisticsService;
     private final int minorUsageThresholdMinutes;
@@ -42,42 +45,26 @@ public final class StatisticsExcelReportWriter {
         Objects.requireNonNull(reportFilePath);
         try (Workbook workbook = new XSSFWorkbook();
              OutputStream outputStream = Files.newOutputStream(reportFilePath)) {
-            CellStyle titleCellStyle = createBoldCellStyle(workbook, 14);
-            CellStyle headerCellStyle = createBoldCellStyle(workbook, 11);
-            CellStyle sectionCellStyle = createBoldCellStyle(workbook, 12);
+            CellStyle titleCellStyle = createBoldCellStyle(workbook, 14, HorizontalAlignment.LEFT);
+            CellStyle sectionCellStyle = createBoldCellStyle(workbook, 12, HorizontalAlignment.LEFT);
+            CellStyle headerCellStyle = createBoldCellStyle(workbook, 11, HorizontalAlignment.CENTER);
+            CellStyle bodyCenterCellStyle = createCellStyle(workbook, 11, HorizontalAlignment.CENTER);
+            CellStyle bodyLeftCellStyle = createCellStyle(workbook, 11, HorizontalAlignment.LEFT);
+            CellStyle totalLeftCellStyle = createBoldCellStyle(workbook, 11, HorizontalAlignment.LEFT);
+            CellStyle totalCenterCellStyle = createBoldCellStyle(workbook, 11, HorizontalAlignment.CENTER);
 
-            writePeriodSheet(
-                    workbook,
-                    StatsPeriod.WEEK,
-                    Messages.get(MessageCodes.UI_STATS_PERIOD_WEEK),
-                    titleCellStyle,
-                    headerCellStyle,
-                    sectionCellStyle
-            );
-            writePeriodSheet(
-                    workbook,
-                    StatsPeriod.MONTH,
-                    Messages.get(MessageCodes.UI_STATS_PERIOD_MONTH),
-                    titleCellStyle,
-                    headerCellStyle,
-                    sectionCellStyle
-            );
-            writePeriodSheet(
-                    workbook,
-                    StatsPeriod.YEAR,
-                    Messages.get(MessageCodes.UI_STATS_PERIOD_YEAR),
-                    titleCellStyle,
-                    headerCellStyle,
-                    sectionCellStyle
-            );
-            writePeriodSheet(
-                    workbook,
-                    StatsPeriod.ALL_TIME,
-                    Messages.get(MessageCodes.UI_STATS_PERIOD_ALL),
-                    titleCellStyle,
-                    headerCellStyle,
-                    sectionCellStyle
-            );
+            StatisticsReportSection.buildAll(statisticsService, minorUsageThresholdMinutes)
+                    .forEach(statisticsReportSection -> writePeriodSheet(
+                            workbook,
+                            statisticsReportSection,
+                            titleCellStyle,
+                            sectionCellStyle,
+                            headerCellStyle,
+                            bodyLeftCellStyle,
+                            bodyCenterCellStyle,
+                            totalLeftCellStyle,
+                            totalCenterCellStyle
+                    ));
 
             workbook.write(outputStream);
         }
@@ -85,119 +72,236 @@ public final class StatisticsExcelReportWriter {
 
     private void writePeriodSheet(
             Workbook workbook,
-            StatsPeriod statsPeriod,
-            String periodTitle,
+            StatisticsReportSection statisticsReportSection,
             CellStyle titleCellStyle,
+            CellStyle sectionCellStyle,
             CellStyle headerCellStyle,
-            CellStyle sectionCellStyle
+            CellStyle bodyLeftCellStyle,
+            CellStyle bodyCenterCellStyle,
+            CellStyle totalLeftCellStyle,
+            CellStyle totalCenterCellStyle
     ) {
-        Sheet sheet = workbook.createSheet(sanitizeSheetName(periodTitle));
-        StatisticsSnapshot statisticsSnapshot = statisticsService.buildSnapshot(statsPeriod);
-        List<ApplicationUsageSummary> applicationUsageSummaries = ApplicationUsageFilter.groupMinorApplications(
-                statisticsSnapshot.getApplicationUsageSummaries(),
-                minorUsageThresholdMinutes
-        );
-        ApplicationUsageMatrix applicationUsageMatrix = ApplicationUsageFilter.groupMinorApplications(
-                statisticsService.buildApplicationUsageMatrix(statsPeriod),
-                minorUsageThresholdMinutes
-        );
-
+        Sheet sheet = workbook.createSheet(sanitizeSheetName(statisticsReportSection.getPeriodTitle()));
         int rowIndex = 0;
-        Row titleRow = sheet.createRow(rowIndex++);
-        createCell(titleRow, 0, periodTitle, titleCellStyle);
 
-        Row totalRow = sheet.createRow(rowIndex++);
+        Row titleRow = sheet.createRow(rowIndex++);
         createCell(
-                totalRow,
+                titleRow,
                 0,
-                Messages.get(MessageCodes.UI_STATS_TOTAL) + " "
-                        + DurationFormatter.formatHoursMinutes(statisticsSnapshot.getTotalActiveSeconds()),
-                null
+                statisticsReportSection.getPeriodTitle()
+                        + "  "
+                        + Messages.get(MessageCodes.UI_STATS_TOTAL)
+                        + " "
+                        + DurationFormatter.formatHoursMinutes(statisticsReportSection.getTotalActiveSeconds()),
+                titleCellStyle
         );
 
-        rowIndex++;
-        Row summarySectionRow = sheet.createRow(rowIndex++);
-        createCell(summarySectionRow, 0, Messages.get(MessageCodes.UI_STATS_BY_APP), sectionCellStyle);
-
-        Row summaryHeaderRow = sheet.createRow(rowIndex++);
-        createCell(summaryHeaderRow, 0, Messages.get(MessageCodes.UI_TABLE_APPLICATION), headerCellStyle);
-        createCell(summaryHeaderRow, 1, Messages.get(MessageCodes.UI_TABLE_TIME), headerCellStyle);
-
-        if (applicationUsageSummaries.isEmpty()) {
-            Row emptyRow = sheet.createRow(rowIndex++);
-            createCell(emptyRow, 0, Messages.get(MessageCodes.UI_STATS_EMPTY), null);
-        } else {
-            for (ApplicationUsageSummary applicationUsageSummary : applicationUsageSummaries) {
-                Row dataRow = sheet.createRow(rowIndex++);
-                createCell(dataRow, 0, applicationUsageSummary.getApplicationName(), null);
-                createCell(
-                        dataRow,
-                        1,
-                        DurationFormatter.formatHoursMinutesWithPercent(
-                                applicationUsageSummary.getDurationSeconds(),
-                                statisticsSnapshot.getTotalActiveSeconds()
-                        ),
-                        null
-                );
+        int maxColumnCount = 2;
+        for (StatisticsReportTable reportTable : statisticsReportSection.getReportTables()) {
+            rowIndex++;
+            if (reportTable.hasTitle()) {
+                Row weekTitleRow = sheet.createRow(rowIndex++);
+                createCell(weekTitleRow, 0, reportTable.getTitle(), sectionCellStyle);
             }
+            rowIndex = writeMatrixTable(
+                    sheet,
+                    rowIndex,
+                    reportTable.getApplicationUsageMatrix(),
+                    headerCellStyle,
+                    bodyLeftCellStyle,
+                    bodyCenterCellStyle,
+                    totalLeftCellStyle,
+                    totalCenterCellStyle
+            );
+            maxColumnCount = Math.max(
+                    maxColumnCount,
+                    2 + reportTable.getApplicationUsageMatrix().getPeriodBuckets().size()
+            );
+        }
+
+        for (int columnIndex = 0; columnIndex < maxColumnCount; columnIndex++) {
+            sheet.autoSizeColumn(columnIndex);
         }
 
         rowIndex++;
-        Row matrixSectionRow = sheet.createRow(rowIndex++);
-        createCell(matrixSectionRow, 0, Messages.get(MessageCodes.UI_STATS_MATRIX), sectionCellStyle);
+        addPieChart(workbook, sheet, statisticsReportSection, rowIndex);
+    }
 
-        Row matrixHeaderRow = sheet.createRow(rowIndex++);
-        createCell(matrixHeaderRow, 0, Messages.get(MessageCodes.UI_TABLE_APPLICATION), headerCellStyle);
+    private int writeMatrixTable(
+            Sheet sheet,
+            int startRowIndex,
+            ApplicationUsageMatrix applicationUsageMatrix,
+            CellStyle headerCellStyle,
+            CellStyle bodyLeftCellStyle,
+            CellStyle bodyCenterCellStyle,
+            CellStyle totalLeftCellStyle,
+            CellStyle totalCenterCellStyle
+    ) {
+        int rowIndex = startRowIndex;
+        Row headerRow = sheet.createRow(rowIndex++);
+        createCell(headerRow, 0, Messages.get(MessageCodes.UI_TABLE_APPLICATION), headerCellStyle);
+        createCell(headerRow, 1, Messages.get(MessageCodes.UI_TABLE_TOTAL), headerCellStyle);
         for (int bucketIndex = 0; bucketIndex < applicationUsageMatrix.getPeriodBuckets().size(); bucketIndex++) {
             createCell(
-                    matrixHeaderRow,
-                    bucketIndex + 1,
+                    headerRow,
+                    bucketIndex + 2,
                     applicationUsageMatrix.getPeriodBuckets().get(bucketIndex).getLabel(),
                     headerCellStyle
             );
         }
 
         if (applicationUsageMatrix.getApplicationNames().isEmpty()) {
-            Row emptyMatrixRow = sheet.createRow(rowIndex++);
-            createCell(emptyMatrixRow, 0, Messages.get(MessageCodes.UI_STATS_EMPTY), null);
-        } else {
-            for (int applicationIndex = 0;
-                 applicationIndex < applicationUsageMatrix.getApplicationNames().size();
-                 applicationIndex++) {
-                Row dataRow = sheet.createRow(rowIndex++);
-                createCell(
-                        dataRow,
-                        0,
-                        applicationUsageMatrix.getApplicationNames().get(applicationIndex),
-                        null
-                );
-                for (int bucketIndex = 0;
-                     bucketIndex < applicationUsageMatrix.getPeriodBuckets().size();
-                     bucketIndex++) {
-                    long durationSeconds = applicationUsageMatrix.getDurationSeconds(applicationIndex, bucketIndex);
-                    String cellValue = durationSeconds <= 0L
-                            ? "—"
-                            : DurationFormatter.formatHoursMinutesWithPercent(
-                            durationSeconds,
-                            applicationUsageMatrix.getTotalActiveSeconds()
-                    );
-                    createCell(dataRow, bucketIndex + 1, cellValue, null);
-                }
-            }
+            Row emptyRow = sheet.createRow(rowIndex++);
+            createCell(emptyRow, 0, Messages.get(MessageCodes.UI_STATS_EMPTY), bodyLeftCellStyle);
+            return rowIndex;
         }
 
-        int columnCount = Math.max(2, 1 + applicationUsageMatrix.getPeriodBuckets().size());
-        for (int columnIndex = 0; columnIndex < columnCount; columnIndex++) {
-            sheet.autoSizeColumn(columnIndex);
+        for (int applicationIndex = 0;
+             applicationIndex < applicationUsageMatrix.getApplicationNames().size();
+             applicationIndex++) {
+            Row dataRow = sheet.createRow(rowIndex++);
+            writeApplicationRow(
+                    dataRow,
+                    applicationUsageMatrix,
+                    applicationIndex,
+                    bodyLeftCellStyle,
+                    bodyCenterCellStyle
+            );
+        }
+        Row footerTotalRow = sheet.createRow(rowIndex++);
+        writeTotalRow(
+                footerTotalRow,
+                applicationUsageMatrix,
+                totalLeftCellStyle,
+                totalCenterCellStyle
+        );
+        return rowIndex;
+    }
+
+    private void addPieChart(
+            Workbook workbook,
+            Sheet sheet,
+            StatisticsReportSection statisticsReportSection,
+            int startRowIndex
+    ) {
+        try {
+            byte[] pieChartPngBytes = ApplicationUsagePieChartImageRenderer.renderPng(
+                    statisticsReportSection.getApplicationUsageSummaries(),
+                    statisticsReportSection.getTotalActiveSeconds()
+            );
+            int pictureIndex = workbook.addPicture(pieChartPngBytes, Workbook.PICTURE_TYPE_PNG);
+            Drawing<?> drawing = sheet.createDrawingPatriarch();
+            ClientAnchor clientAnchor = workbook.getCreationHelper().createClientAnchor();
+            clientAnchor.setAnchorType(ClientAnchor.AnchorType.MOVE_AND_RESIZE);
+            clientAnchor.setCol1(0);
+            clientAnchor.setRow1(startRowIndex);
+            Picture picture = drawing.createPicture(clientAnchor, pictureIndex);
+            picture.resize();
+        } catch (IOException ioException) {
+            logger.warn("Failed to embed pie chart into Excel sheet {}: {}",
+                    statisticsReportSection.getPeriodTitle(),
+                    ioException.getMessage());
         }
     }
 
-    private static CellStyle createBoldCellStyle(Workbook workbook, int fontSize) {
+    private void writeApplicationRow(
+            Row dataRow,
+            ApplicationUsageMatrix applicationUsageMatrix,
+            int applicationIndex,
+            CellStyle bodyLeftCellStyle,
+            CellStyle bodyCenterCellStyle
+    ) {
+        createCell(
+                dataRow,
+                0,
+                applicationUsageMatrix.getApplicationNames().get(applicationIndex),
+                bodyLeftCellStyle
+        );
+        createCell(
+                dataRow,
+                1,
+                formatDurationCell(
+                        applicationUsageMatrix.getApplicationTotalSeconds(applicationIndex),
+                        applicationUsageMatrix.getTotalActiveSeconds()
+                ),
+                bodyCenterCellStyle
+        );
+        for (int bucketIndex = 0; bucketIndex < applicationUsageMatrix.getPeriodBuckets().size(); bucketIndex++) {
+            createCell(
+                    dataRow,
+                    bucketIndex + 2,
+                    formatDurationCell(
+                            applicationUsageMatrix.getDurationSeconds(applicationIndex, bucketIndex),
+                            applicationUsageMatrix.getTotalActiveSeconds()
+                    ),
+                    bodyCenterCellStyle
+            );
+        }
+    }
+
+    private void writeTotalRow(
+            Row dataRow,
+            ApplicationUsageMatrix applicationUsageMatrix,
+            CellStyle totalLeftCellStyle,
+            CellStyle totalCenterCellStyle
+    ) {
+        createCell(dataRow, 0, Messages.get(MessageCodes.UI_TABLE_TOTAL), totalLeftCellStyle);
+        createCell(
+                dataRow,
+                1,
+                formatDurationCell(
+                        applicationUsageMatrix.getTotalActiveSeconds(),
+                        applicationUsageMatrix.getTotalActiveSeconds()
+                ),
+                totalCenterCellStyle
+        );
+        for (int bucketIndex = 0; bucketIndex < applicationUsageMatrix.getPeriodBuckets().size(); bucketIndex++) {
+            long bucketTotalSeconds = 0L;
+            for (int applicationIndex = 0;
+                 applicationIndex < applicationUsageMatrix.getApplicationNames().size();
+                 applicationIndex++) {
+                bucketTotalSeconds += applicationUsageMatrix.getDurationSeconds(applicationIndex, bucketIndex);
+            }
+            createCell(
+                    dataRow,
+                    bucketIndex + 2,
+                    formatDurationCell(bucketTotalSeconds, applicationUsageMatrix.getTotalActiveSeconds()),
+                    totalCenterCellStyle
+            );
+        }
+    }
+
+    private static String formatDurationCell(long durationSeconds, long totalActiveSeconds) {
+        if (durationSeconds <= 0L) {
+            return "—";
+        }
+        return DurationFormatter.formatHoursMinutesWithPercent(durationSeconds, totalActiveSeconds);
+    }
+
+    private static CellStyle createBoldCellStyle(
+            Workbook workbook,
+            int fontSize,
+            HorizontalAlignment horizontalAlignment
+    ) {
         Font font = workbook.createFont();
         font.setBold(true);
         font.setFontHeightInPoints((short) fontSize);
         CellStyle cellStyle = workbook.createCellStyle();
         cellStyle.setFont(font);
+        cellStyle.setAlignment(horizontalAlignment);
+        return cellStyle;
+    }
+
+    private static CellStyle createCellStyle(
+            Workbook workbook,
+            int fontSize,
+            HorizontalAlignment horizontalAlignment
+    ) {
+        Font font = workbook.createFont();
+        font.setFontHeightInPoints((short) fontSize);
+        CellStyle cellStyle = workbook.createCellStyle();
+        cellStyle.setFont(font);
+        cellStyle.setAlignment(horizontalAlignment);
         return cellStyle;
     }
 

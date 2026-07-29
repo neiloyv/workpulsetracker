@@ -1,5 +1,6 @@
 package com.workpulsetracker.agent.buffer;
 
+import com.workpulsetracker.agent.util.ApplicationNameNormalizer;
 import org.apache.commons.lang3.StringUtils;
 
 import java.time.Duration;
@@ -26,7 +27,9 @@ public final class ActivityInterval {
     ) {
         this.startInstant = startInstant;
         this.endInstant = endInstant;
-        this.applicationName = StringUtils.isNotBlank(applicationName) ? applicationName : "unknown";
+        this.applicationName = StringUtils.isNotBlank(applicationName)
+                ? ApplicationNameNormalizer.normalize(applicationName)
+                : "unknown";
         this.windowTitle = StringUtils.isNotBlank(windowTitle) ? windowTitle : "";
         this.idle = idle;
     }

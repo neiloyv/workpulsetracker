@@ -13,10 +13,12 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
+import javax.swing.SwingConstants;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -25,7 +27,7 @@ import java.util.Objects;
 import java.util.function.Consumer;
 
 /**
- * Вкладка настроек: язык, автостарт и порог «Others».
+ * Вкладка настроек: язык и параметры трекинга.
  */
 public final class SettingsPanel extends JPanel {
 
@@ -37,12 +39,14 @@ public final class SettingsPanel extends JPanel {
 
     private final JLabel settingsTitleLabel = new JLabel();
     private final JLabel languageLabel = new JLabel();
+    private final JLabel trackingTitleLabel = new JLabel();
+    private final JLabel autoStartTitleLabel = new JLabel();
     private final JLabel autoStartHintLabel = new JLabel();
     private final JLabel minorThresholdLabel = new JLabel();
     private final JLabel minorThresholdHintLabel = new JLabel();
     private final JLabel minorThresholdUnitLabel = new JLabel();
     private final JComboBox<LanguageItem> languageComboBox = new JComboBox<>();
-    private final JCheckBox autoStartCheckBox = new JCheckBox();
+    private final JCheckBox autoStartToggle = new JCheckBox();
     private final JSpinner minorThresholdSpinner = new JSpinner(
             new SpinnerNumberModel(ApplicationUsageFilter.DEFAULT_MINOR_USAGE_THRESHOLD_MINUTES, 0, 24 * 60, 1)
     );
@@ -61,7 +65,7 @@ public final class SettingsPanel extends JPanel {
         this.languageChangeListener = languageChangeListener;
         this.autoStartChangeListener = autoStartChangeListener;
         this.settingsChangedListener = settingsChangedListener;
-        setLayout(new BorderLayout());
+        setLayout(new BorderLayout(0, 12));
         setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
         setBackground(UiTheme.BACKGROUND);
         buildContent();
@@ -69,12 +73,11 @@ public final class SettingsPanel extends JPanel {
     }
 
     private void buildContent() {
+        settingsTitleLabel.setFont(settingsTitleLabel.getFont().deriveFont(java.awt.Font.BOLD, 16f));
+        settingsTitleLabel.setForeground(UiTheme.TEXT_PRIMARY);
+
         settingsCard.setLayout(new BoxLayout(settingsCard, BoxLayout.Y_AXIS));
         UiTheme.styleSurfaceCard(settingsCard);
-
-        settingsTitleLabel.setFont(settingsTitleLabel.getFont().deriveFont(java.awt.Font.BOLD, 16f));
-        settingsTitleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        settingsTitleLabel.setForeground(UiTheme.TEXT_PRIMARY);
 
         languageLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         UiTheme.styleMutedLabel(languageLabel);
@@ -84,67 +87,103 @@ public final class SettingsPanel extends JPanel {
         languageComboBox.addItem(new LanguageItem(AppLanguage.UKRAINIAN, MessageCodes.UI_SETTINGS_LANGUAGE_UK));
         languageComboBox.addActionListener(actionEvent -> onLanguageChanged());
 
-        autoStartCheckBox.setAlignmentX(Component.LEFT_ALIGNMENT);
-        autoStartCheckBox.setOpaque(false);
-        autoStartCheckBox.setForeground(UiTheme.TEXT_PRIMARY);
-        autoStartCheckBox.addActionListener(actionEvent -> onAutoStartChanged());
+        trackingTitleLabel.setFont(trackingTitleLabel.getFont().deriveFont(java.awt.Font.BOLD, 14f));
+        trackingTitleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        trackingTitleLabel.setForeground(UiTheme.TEXT_PRIMARY);
 
-        autoStartHintLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        autoStartTitleLabel.setForeground(UiTheme.TEXT_PRIMARY);
         UiTheme.styleMutedLabel(autoStartHintLabel);
+        UiTheme.styleToggleSwitch(autoStartToggle);
+        autoStartToggle.addActionListener(actionEvent -> onAutoStartChanged());
+        JPanel autoStartRow = createSettingRow(
+                createStackedTextPanel(autoStartTitleLabel, autoStartHintLabel),
+                autoStartToggle
+        );
 
-        minorThresholdLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        UiTheme.styleMutedLabel(minorThresholdLabel);
-        UiTheme.styleMutedLabel(minorThresholdUnitLabel);
-
-        minorThresholdSpinner.setAlignmentX(Component.LEFT_ALIGNMENT);
-        minorThresholdSpinner.setMaximumSize(new Dimension(120, 32));
-        minorThresholdSpinner.addChangeListener(changeEvent -> onMinorThresholdChanged());
-
-        JPanel minorThresholdRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        minorThresholdRow.setOpaque(false);
-        minorThresholdRow.setAlignmentX(Component.LEFT_ALIGNMENT);
-        minorThresholdRow.add(minorThresholdSpinner);
-        minorThresholdRow.add(minorThresholdUnitLabel);
-
-        minorThresholdHintLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        minorThresholdLabel.setForeground(UiTheme.TEXT_PRIMARY);
         UiTheme.styleMutedLabel(minorThresholdHintLabel);
+        UiTheme.styleMutedLabel(minorThresholdUnitLabel);
+        minorThresholdSpinner.setMaximumSize(new Dimension(96, 32));
+        minorThresholdSpinner.setPreferredSize(new Dimension(96, 32));
+        minorThresholdSpinner.addChangeListener(changeEvent -> onMinorThresholdChanged());
+        JPanel minorThresholdControlPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        minorThresholdControlPanel.setOpaque(false);
+        minorThresholdControlPanel.add(minorThresholdSpinner);
+        minorThresholdControlPanel.add(minorThresholdUnitLabel);
+        JPanel minorThresholdRow = createSettingRow(
+                createStackedTextPanel(minorThresholdLabel, minorThresholdHintLabel),
+                minorThresholdControlPanel
+        );
 
-        settingsCard.add(settingsTitleLabel);
-        settingsCard.add(Box.createVerticalStrut(16));
         settingsCard.add(languageLabel);
         settingsCard.add(Box.createVerticalStrut(6));
         settingsCard.add(languageComboBox);
         settingsCard.add(Box.createVerticalStrut(16));
-        settingsCard.add(autoStartCheckBox);
-        settingsCard.add(Box.createVerticalStrut(6));
-        settingsCard.add(autoStartHintLabel);
+        settingsCard.add(createDivider());
         settingsCard.add(Box.createVerticalStrut(16));
-        settingsCard.add(minorThresholdLabel);
-        settingsCard.add(Box.createVerticalStrut(6));
+        settingsCard.add(trackingTitleLabel);
+        settingsCard.add(Box.createVerticalStrut(14));
+        settingsCard.add(autoStartRow);
+        settingsCard.add(Box.createVerticalStrut(16));
+        settingsCard.add(createDivider());
+        settingsCard.add(Box.createVerticalStrut(16));
         settingsCard.add(minorThresholdRow);
-        settingsCard.add(Box.createVerticalStrut(6));
-        settingsCard.add(minorThresholdHintLabel);
 
-        JPanel wrapperPanel = new JPanel(new BorderLayout());
-        wrapperPanel.setOpaque(false);
-        wrapperPanel.add(settingsCard, BorderLayout.NORTH);
-        add(wrapperPanel, BorderLayout.CENTER);
+        add(settingsTitleLabel, BorderLayout.NORTH);
+        add(settingsCard, BorderLayout.CENTER);
         retranslate();
+    }
+
+    private JPanel createStackedTextPanel(JLabel titleLabel, JLabel hintLabel) {
+        JPanel textPanel = new JPanel();
+        textPanel.setOpaque(false);
+        textPanel.setLayout(new BoxLayout(textPanel, BoxLayout.Y_AXIS));
+        titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        hintLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        hintLabel.setVerticalAlignment(SwingConstants.TOP);
+        textPanel.add(titleLabel);
+        textPanel.add(Box.createVerticalStrut(4));
+        textPanel.add(hintLabel);
+        return textPanel;
+    }
+
+    private JPanel createSettingRow(JComponent leftComponent, JComponent rightComponent) {
+        JPanel rowPanel = new JPanel(new BorderLayout(16, 0));
+        rowPanel.setOpaque(false);
+        rowPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        rowPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 96));
+        rowPanel.add(leftComponent, BorderLayout.CENTER);
+        JPanel rightWrapper = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        rightWrapper.setOpaque(false);
+        rightWrapper.add(rightComponent);
+        rowPanel.add(rightWrapper, BorderLayout.EAST);
+        return rowPanel;
+    }
+
+    private JPanel createDivider() {
+        JPanel dividerPanel = new JPanel();
+        dividerPanel.setOpaque(true);
+        dividerPanel.setBackground(UiTheme.BORDER);
+        dividerPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+        dividerPanel.setPreferredSize(new Dimension(1, 1));
+        dividerPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return dividerPanel;
     }
 
     public void retranslate() {
         settingsTitleLabel.setText(Messages.get(MessageCodes.UI_SETTINGS_TITLE));
         languageLabel.setText(Messages.get(MessageCodes.UI_SETTINGS_LANGUAGE));
-        autoStartCheckBox.setText(Messages.get(MessageCodes.UI_SETTINGS_AUTO_START));
+        trackingTitleLabel.setText(Messages.get(MessageCodes.UI_SETTINGS_TRACKING));
+        autoStartTitleLabel.setText(Messages.get(MessageCodes.UI_SETTINGS_AUTO_START));
         autoStartHintLabel.setText(
-                "<html><body style='width:360px'>"
+                "<html><body style='width:420px'>"
                         + Messages.get(MessageCodes.UI_SETTINGS_AUTO_START_HINT)
                         + "</body></html>"
         );
         minorThresholdLabel.setText(Messages.get(MessageCodes.UI_SETTINGS_MINOR_THRESHOLD));
         minorThresholdUnitLabel.setText(Messages.get(MessageCodes.UI_SETTINGS_MINOR_THRESHOLD_UNIT));
         minorThresholdHintLabel.setText(
-                "<html><body style='width:360px'>"
+                "<html><body style='width:420px'>"
                         + Messages.get(MessageCodes.UI_SETTINGS_MINOR_THRESHOLD_HINT)
                         + "</body></html>"
         );
@@ -155,18 +194,20 @@ public final class SettingsPanel extends JPanel {
         setBackground(UiTheme.BACKGROUND);
         UiTheme.styleSurfaceCard(settingsCard);
         settingsTitleLabel.setForeground(UiTheme.TEXT_PRIMARY);
-        autoStartCheckBox.setForeground(UiTheme.TEXT_PRIMARY);
+        trackingTitleLabel.setForeground(UiTheme.TEXT_PRIMARY);
+        autoStartTitleLabel.setForeground(UiTheme.TEXT_PRIMARY);
+        minorThresholdLabel.setForeground(UiTheme.TEXT_PRIMARY);
         UiTheme.styleMutedLabel(languageLabel);
         UiTheme.styleMutedLabel(autoStartHintLabel);
-        UiTheme.styleMutedLabel(minorThresholdLabel);
-        UiTheme.styleMutedLabel(minorThresholdUnitLabel);
         UiTheme.styleMutedLabel(minorThresholdHintLabel);
+        UiTheme.styleMutedLabel(minorThresholdUnitLabel);
+        UiTheme.styleToggleSwitch(autoStartToggle);
     }
 
     private void syncControlsFromSettings() {
         suppressChangeEvents = true;
         selectLanguage(userSettings.getLanguage());
-        autoStartCheckBox.setSelected(userSettings.isAutoStartTracking());
+        autoStartToggle.setSelected(userSettings.isAutoStartTracking());
         minorThresholdSpinner.setValue(userSettings.getMinorUsageThresholdMinutes());
         suppressChangeEvents = false;
     }
@@ -199,7 +240,7 @@ public final class SettingsPanel extends JPanel {
         if (suppressChangeEvents) {
             return;
         }
-        boolean autoStartTracking = autoStartCheckBox.isSelected();
+        boolean autoStartTracking = autoStartToggle.isSelected();
         userSettings.setAutoStartTracking(autoStartTracking);
         userSettingsStore.save(userSettings);
         autoStartChangeListener.accept(autoStartTracking);

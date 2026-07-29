@@ -16,6 +16,7 @@ public final class MessageCodes {
     public static final String UI_TAB_MAIN = "ui.tab.main";
     public static final String UI_TAB_STATISTICS = "ui.tab.statistics";
     public static final String UI_TAB_SETTINGS = "ui.tab.settings";
+    public static final String UI_TAB_ACCOUNT = "ui.tab.account";
 
     public static final String UI_MAIN_WORK_TIME = "ui.main.work.time";
     public static final String UI_MAIN_START = "ui.main.start";
@@ -23,6 +24,7 @@ public final class MessageCodes {
     public static final String UI_MAIN_STATUS_RUNNING = "ui.main.status.running";
     public static final String UI_MAIN_STATUS_PAUSED = "ui.main.status.paused";
     public static final String UI_MAIN_APPLICATIONS_TODAY = "ui.main.applications.today";
+    public static final String UI_MAIN_USAGE_CHART = "ui.main.usage.chart";
     public static final String UI_MAIN_NO_APPLICATIONS = "ui.main.no.applications";
     public static final String UI_MAIN_SYNC = "ui.main.sync";
     public static final String UI_MAIN_SYNC_TOOLTIP = "ui.main.sync.tooltip";
@@ -32,6 +34,7 @@ public final class MessageCodes {
     public static final String UI_TABLE_APPLICATION = "ui.table.application";
     public static final String UI_TABLE_TIME = "ui.table.time";
     public static final String UI_TABLE_PERCENT = "ui.table.percent";
+    public static final String UI_TABLE_TOTAL = "ui.table.total";
 
     public static final String UI_STATS_PERIOD = "ui.stats.period";
     public static final String UI_STATS_PERIOD_DAY = "ui.stats.period.day";
@@ -39,6 +42,9 @@ public final class MessageCodes {
     public static final String UI_STATS_PERIOD_MONTH = "ui.stats.period.month";
     public static final String UI_STATS_PERIOD_YEAR = "ui.stats.period.year";
     public static final String UI_STATS_PERIOD_ALL = "ui.stats.period.all";
+    public static final String UI_STATS_PERIOD_CUSTOM = "ui.stats.period.custom";
+    public static final String UI_STATS_PERIOD_FROM = "ui.stats.period.from";
+    public static final String UI_STATS_PERIOD_TO = "ui.stats.period.to";
     public static final String UI_STATS_TOTAL = "ui.stats.total";
     public static final String UI_STATS_BY_DAY = "ui.stats.by.day";
     public static final String UI_STATS_BY_APP = "ui.stats.by.app";
@@ -53,6 +59,7 @@ public final class MessageCodes {
     public static final String UI_STATS_DOWNLOAD_FAILED = "ui.stats.download.failed";
 
     public static final String UI_SETTINGS_TITLE = "ui.settings.title";
+    public static final String UI_SETTINGS_TRACKING = "ui.settings.tracking";
     public static final String UI_SETTINGS_LANGUAGE = "ui.settings.language";
     public static final String UI_SETTINGS_LANGUAGE_EN = "ui.settings.language.en";
     public static final String UI_SETTINGS_LANGUAGE_UK = "ui.settings.language.uk";
@@ -64,13 +71,28 @@ public final class MessageCodes {
     public static final String UI_SETTINGS_THEME = "ui.settings.theme";
     public static final String UI_SETTINGS_THEME_DARK = "ui.settings.theme.dark";
     public static final String UI_SETTINGS_THEME_LIGHT = "ui.settings.theme.light";
+    public static final String UI_SETTINGS_ACCOUNT = "ui.settings.account";
+    public static final String UI_SETTINGS_EMAIL = "ui.settings.email";
+    public static final String UI_SETTINGS_EMAIL_EMPTY = "ui.settings.email.empty";
+    public static final String UI_SETTINGS_ACCESS_KEY = "ui.settings.access.key";
+    public static final String UI_SETTINGS_ACCESS_KEY_EMPTY = "ui.settings.access.key.empty";
+    public static final String UI_SETTINGS_ACCESS_KEY_HINT = "ui.settings.access.key.hint";
+    public static final String UI_SETTINGS_ACCESS_KEY_EDIT = "ui.settings.access.key.edit";
+    public static final String UI_SETTINGS_ACCESS_KEY_EDIT_TITLE = "ui.settings.access.key.edit.title";
+    public static final String UI_SETTINGS_ACCESS_KEY_SAVE = "ui.settings.access.key.save";
+    public static final String UI_SETTINGS_ACCESS_KEY_REQUIRED = "ui.settings.access.key.required";
+    public static final String UI_SETTINGS_ACCESS_KEY_UPDATED = "ui.settings.access.key.updated";
+    public static final String UI_ACCOUNT_TARIFF = "ui.account.tariff";
+    public static final String UI_ACCOUNT_TARIFF_FREE = "ui.account.tariff.free";
 
     public static final String UI_ACTIVATION_TITLE = "ui.activation.title";
     public static final String UI_ACTIVATION_DESCRIPTION = "ui.activation.description";
+    public static final String UI_ACTIVATION_EMAIL_LABEL = "ui.activation.email.label";
+    public static final String UI_ACTIVATION_EMAIL_REQUIRED = "ui.activation.email.required";
     public static final String UI_ACTIVATION_KEY_LABEL = "ui.activation.key.label";
     public static final String UI_ACTIVATION_ACTIVATE = "ui.activation.activate";
-    public static final String UI_ACTIVATION_LOCAL_ONLY = "ui.activation.local.only";
     public static final String UI_ACTIVATION_KEY_REQUIRED = "ui.activation.key.required";
+    public static final String UI_ACTIVATION_INVALID = "ui.activation.invalid";
 
     public static final String UI_TRAY_OPEN = "ui.tray.open";
     public static final String UI_TRAY_EXIT = "ui.tray.exit";

@@ -45,7 +45,15 @@ public final class StatisticsService {
     }
 
     public StatisticsSnapshot buildSnapshot(StatsPeriod statsPeriod) {
-        InstantRange instantRange = resolveInstantRange(statsPeriod);
+        return buildSnapshot(statsPeriod, null, null);
+    }
+
+    public StatisticsSnapshot buildSnapshot(
+            StatsPeriod statsPeriod,
+            LocalDate rangeStartDate,
+            LocalDate rangeEndDate
+    ) {
+        InstantRange instantRange = resolveInstantRange(statsPeriod, rangeStartDate, rangeEndDate);
         List<ActivityInterval> relevantIntervals = collectClippedActiveIntervals(instantRange);
 
         long totalActiveSeconds = relevantIntervals.stream()
@@ -77,7 +85,15 @@ public final class StatisticsService {
      * Матрица: приложения × колонки периода (дни / недели / месяцы / годы).
      */
     public ApplicationUsageMatrix buildApplicationUsageMatrix(StatsPeriod statsPeriod) {
-        List<PeriodBucket> periodBuckets = buildPeriodBuckets(statsPeriod);
+        return buildApplicationUsageMatrix(statsPeriod, null, null);
+    }
+
+    public ApplicationUsageMatrix buildApplicationUsageMatrix(
+            StatsPeriod statsPeriod,
+            LocalDate rangeStartDate,
+            LocalDate rangeEndDate
+    ) {
+        List<PeriodBucket> periodBuckets = buildPeriodBuckets(statsPeriod, rangeStartDate, rangeEndDate);
         if (periodBuckets.isEmpty()) {
             return ApplicationUsageMatrix.empty(statsPeriod, periodBuckets);
         }
@@ -176,7 +192,11 @@ public final class StatisticsService {
         return activityIntervals;
     }
 
-    private List<PeriodBucket> buildPeriodBuckets(StatsPeriod statsPeriod) {
+    private List<PeriodBucket> buildPeriodBuckets(
+            StatsPeriod statsPeriod,
+            LocalDate rangeStartDate,
+            LocalDate rangeEndDate
+    ) {
         ZonedDateTime now = ZonedDateTime.now(zoneId);
         LocalDate today = now.toLocalDate();
         Locale locale = UserLocaleContext.getLanguage().toLocale();
@@ -191,7 +211,43 @@ public final class StatisticsService {
             case MONTH -> buildMonthWeekBuckets(today, now, locale);
             case YEAR -> buildYearMonthBuckets(today, now, locale);
             case ALL_TIME -> buildAllTimeYearBuckets(now);
+            case CUSTOM -> buildCustomDayBuckets(rangeStartDate, rangeEndDate, today, now, locale);
         };
+    }
+
+    private List<PeriodBucket> buildCustomDayBuckets(
+            LocalDate rangeStartDate,
+            LocalDate rangeEndDate,
+            LocalDate today,
+            ZonedDateTime now,
+            Locale locale
+    ) {
+        if (Objects.isNull(rangeStartDate) || Objects.isNull(rangeEndDate)) {
+            return List.of();
+        }
+        LocalDate normalizedStartDate = rangeStartDate.isAfter(rangeEndDate) ? rangeEndDate : rangeStartDate;
+        LocalDate normalizedEndDate = rangeStartDate.isAfter(rangeEndDate) ? rangeStartDate : rangeEndDate;
+        if (normalizedEndDate.isAfter(today)) {
+            normalizedEndDate = today;
+        }
+        if (normalizedStartDate.isAfter(normalizedEndDate)) {
+            return List.of();
+        }
+
+        List<PeriodBucket> periodBuckets = new ArrayList<>();
+        LocalDate bucketDate = normalizedStartDate;
+        while (!bucketDate.isAfter(normalizedEndDate)) {
+            Instant startInclusive = bucketDate.atStartOfDay(zoneId).toInstant();
+            Instant endExclusive = bucketDate.equals(today)
+                    ? now.toInstant()
+                    : bucketDate.plusDays(1).atStartOfDay(zoneId).toInstant();
+            String label = bucketDate.getDayOfWeek().getDisplayName(TextStyle.SHORT, locale)
+                    + " "
+                    + bucketDate.format(DateTimeFormatter.ofPattern("dd.MM", locale));
+            periodBuckets.add(new PeriodBucket(label, startInclusive, endExclusive));
+            bucketDate = bucketDate.plusDays(1);
+        }
+        return periodBuckets;
     }
 
     private List<PeriodBucket> buildWeekDayBuckets(LocalDate today, ZonedDateTime now, Locale locale) {
@@ -235,6 +291,42 @@ public final class StatisticsService {
             weekNumber++;
         }
         return periodBuckets;
+    }
+
+    /**
+     * Недели текущего месяца до сегодня (пн–вс, обрезанные границами месяца) — для недельных таблиц отчёта.
+     */
+    public List<MonthWeekRange> listCurrentMonthWeekRanges() {
+        LocalDate today = ZonedDateTime.now(zoneId).toLocalDate();
+        Locale locale = UserLocaleContext.getLanguage().toLocale();
+        YearMonth yearMonth = YearMonth.from(today);
+        LocalDate monthStartDate = yearMonth.atDay(1);
+        LocalDate monthEndDate = yearMonth.atEndOfMonth();
+        List<MonthWeekRange> monthWeekRanges = new ArrayList<>();
+
+        LocalDate bucketStartDate = monthStartDate;
+        int weekNumber = 1;
+        while (!bucketStartDate.isAfter(monthEndDate)) {
+            LocalDate weekEndDate = bucketStartDate.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+            if (weekEndDate.isAfter(monthEndDate)) {
+                weekEndDate = monthEndDate;
+            }
+            if (!bucketStartDate.isAfter(today)) {
+                LocalDate clippedEndDate = weekEndDate.isAfter(today) ? today : weekEndDate;
+                monthWeekRanges.add(new MonthWeekRange(
+                        weekNumber,
+                        bucketStartDate,
+                        clippedEndDate,
+                        formatWeekBucketLabel(weekNumber, bucketStartDate, weekEndDate, locale)
+                ));
+            }
+            bucketStartDate = weekEndDate.plusDays(1);
+            weekNumber++;
+        }
+        return monthWeekRanges;
+    }
+
+    public record MonthWeekRange(int weekNumber, LocalDate startDate, LocalDate endDate, String label) {
     }
 
     private String formatWeekBucketLabel(int weekNumber, LocalDate startDate, LocalDate endDate, Locale locale) {
@@ -283,7 +375,11 @@ public final class StatisticsService {
                 .collect(Collectors.toList());
     }
 
-    private InstantRange resolveInstantRange(StatsPeriod statsPeriod) {
+    private InstantRange resolveInstantRange(
+            StatsPeriod statsPeriod,
+            LocalDate rangeStartDate,
+            LocalDate rangeEndDate
+    ) {
         ZonedDateTime now = ZonedDateTime.now(zoneId);
         LocalDate today = now.toLocalDate();
         return switch (statsPeriod) {
@@ -307,6 +403,23 @@ public final class StatisticsService {
                     now.toInstant()
             );
             case ALL_TIME -> new InstantRange(Instant.EPOCH, now.toInstant());
+            case CUSTOM -> {
+                if (Objects.isNull(rangeStartDate) || Objects.isNull(rangeEndDate)) {
+                    yield new InstantRange(now.toInstant(), now.toInstant());
+                }
+                LocalDate normalizedStartDate = rangeStartDate.isAfter(rangeEndDate) ? rangeEndDate : rangeStartDate;
+                LocalDate normalizedEndDate = rangeStartDate.isAfter(rangeEndDate) ? rangeStartDate : rangeEndDate;
+                if (normalizedEndDate.isAfter(today)) {
+                    normalizedEndDate = today;
+                }
+                Instant endExclusive = normalizedEndDate.equals(today)
+                        ? now.toInstant()
+                        : normalizedEndDate.plusDays(1).atStartOfDay(zoneId).toInstant();
+                yield new InstantRange(
+                        normalizedStartDate.atStartOfDay(zoneId).toInstant(),
+                        endExclusive
+                );
+            }
         };
     }
 

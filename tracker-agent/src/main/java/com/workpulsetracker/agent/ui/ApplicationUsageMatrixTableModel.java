@@ -10,14 +10,21 @@ import javax.swing.table.AbstractTableModel;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.IntStream;
 
 /**
- * Матрица статистики: приложение × колонки периода (время + процент в ячейке).
+ * Единая таблица статистики:
+ * приложение | итог за период | разбивка (дни / недели / месяцы / годы).
+ * Строка Total — внизу.
  */
 public final class ApplicationUsageMatrixTableModel extends AbstractTableModel {
 
+    private static final int APPLICATION_COLUMN_INDEX = 0;
+    private static final int PERIOD_TOTAL_COLUMN_INDEX = 1;
+
     private ApplicationUsageMatrix applicationUsageMatrix;
     private String applicationColumnName = Messages.get(MessageCodes.UI_TABLE_APPLICATION);
+    private String periodTotalColumnName = Messages.get(MessageCodes.UI_TABLE_TOTAL);
 
     public void setMatrix(ApplicationUsageMatrix applicationUsageMatrix) {
         this.applicationUsageMatrix = applicationUsageMatrix;
@@ -26,7 +33,12 @@ public final class ApplicationUsageMatrixTableModel extends AbstractTableModel {
 
     public void retranslate() {
         applicationColumnName = Messages.get(MessageCodes.UI_TABLE_APPLICATION);
+        periodTotalColumnName = Messages.get(MessageCodes.UI_TABLE_TOTAL);
         fireTableStructureChanged();
+    }
+
+    public boolean isTotalRow(int rowIndex) {
+        return !isEmpty() && rowIndex == getRowCount() - 1;
     }
 
     private List<PeriodBucket> getPeriodBuckets() {
@@ -45,20 +57,24 @@ public final class ApplicationUsageMatrixTableModel extends AbstractTableModel {
 
     @Override
     public int getRowCount() {
-        return getApplicationNames().size();
+        int applicationCount = getApplicationNames().size();
+        return applicationCount == 0 ? 0 : applicationCount + 1;
     }
 
     @Override
     public int getColumnCount() {
-        return 1 + getPeriodBuckets().size();
+        return 2 + getPeriodBuckets().size();
     }
 
     @Override
     public String getColumnName(int columnIndex) {
-        if (columnIndex == 0) {
+        if (columnIndex == APPLICATION_COLUMN_INDEX) {
             return applicationColumnName;
         }
-        return getPeriodBuckets().get(columnIndex - 1).getLabel();
+        if (columnIndex == PERIOD_TOTAL_COLUMN_INDEX) {
+            return periodTotalColumnName;
+        }
+        return getPeriodBuckets().get(columnIndex - 2).getLabel();
     }
 
     @Override
@@ -66,17 +82,54 @@ public final class ApplicationUsageMatrixTableModel extends AbstractTableModel {
         if (Objects.isNull(applicationUsageMatrix)) {
             return "";
         }
-        if (columnIndex == 0) {
-            return applicationUsageMatrix.getApplicationNames().get(rowIndex);
+        if (isTotalRow(rowIndex)) {
+            return getTotalRowValue(columnIndex);
         }
-        long durationSeconds = applicationUsageMatrix.getDurationSeconds(rowIndex, columnIndex - 1);
+        int applicationIndex = rowIndex;
+        if (columnIndex == APPLICATION_COLUMN_INDEX) {
+            return applicationUsageMatrix.getApplicationNames().get(applicationIndex);
+        }
+        if (columnIndex == PERIOD_TOTAL_COLUMN_INDEX) {
+            return formatDurationCell(
+                    applicationUsageMatrix.getApplicationTotalSeconds(applicationIndex),
+                    applicationUsageMatrix.getTotalActiveSeconds()
+            );
+        }
+        return formatDurationCell(
+                applicationUsageMatrix.getDurationSeconds(applicationIndex, columnIndex - 2),
+                applicationUsageMatrix.getTotalActiveSeconds()
+        );
+    }
+
+    private Object getTotalRowValue(int columnIndex) {
+        if (columnIndex == APPLICATION_COLUMN_INDEX) {
+            return Messages.get(MessageCodes.UI_TABLE_TOTAL);
+        }
+        if (columnIndex == PERIOD_TOTAL_COLUMN_INDEX) {
+            return formatDurationCell(
+                    applicationUsageMatrix.getTotalActiveSeconds(),
+                    applicationUsageMatrix.getTotalActiveSeconds()
+            );
+        }
+        return formatDurationCell(
+                getBucketTotalSeconds(columnIndex - 2),
+                applicationUsageMatrix.getTotalActiveSeconds()
+        );
+    }
+
+    private long getBucketTotalSeconds(int bucketIndex) {
+        return IntStream.range(0, getApplicationNames().size())
+                .mapToLong(applicationIndex ->
+                        applicationUsageMatrix.getDurationSeconds(applicationIndex, bucketIndex)
+                )
+                .sum();
+    }
+
+    private static String formatDurationCell(long durationSeconds, long totalActiveSeconds) {
         if (durationSeconds <= 0L) {
             return "—";
         }
-        return DurationFormatter.formatHoursMinutesWithPercent(
-                durationSeconds,
-                applicationUsageMatrix.getTotalActiveSeconds()
-        );
+        return DurationFormatter.formatHoursMinutesWithPercent(durationSeconds, totalActiveSeconds);
     }
 
     @Override

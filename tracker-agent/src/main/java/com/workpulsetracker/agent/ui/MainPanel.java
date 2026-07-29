@@ -15,7 +15,6 @@ import javax.swing.BoxLayout;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
@@ -24,12 +23,12 @@ import javax.swing.SwingUtilities;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
-import java.util.Collections;
+import java.awt.GridLayout;
 import java.util.List;
 import java.util.Objects;
 
 /**
- * Главная вкладка: Start/Pause, время работы, таблица приложений за сегодня, отправка на сервер.
+ * Главная вкладка: Start/Pause, время работы, таблица и круговая диаграмма за сегодня.
  */
 public final class MainPanel extends JPanel {
 
@@ -41,11 +40,13 @@ public final class MainPanel extends JPanel {
     private final JLabel workTimeValueLabel = new JLabel("0:00:00");
     private final JLabel statusValueLabel = new JLabel();
     private final JLabel applicationsCaptionLabel = new JLabel();
+    private final JLabel chartCaptionLabel = new JLabel();
     private final JButton startPauseButton = new JButton();
-    private final JButton syncButton = new JButton();
     private final ApplicationUsageTableModel applicationUsageTableModel = new ApplicationUsageTableModel();
     private final JTable applicationUsageTable = new JTable(applicationUsageTableModel);
+    private final ApplicationUsagePieChartPanel usagePieChartPanel = new ApplicationUsagePieChartPanel();
     private final JPanel applicationsPanel = new JPanel(new BorderLayout(4, 8));
+    private final JPanel chartPanel = new JPanel(new BorderLayout(4, 8));
 
     public MainPanel(
             TrackingEngine trackingEngine,
@@ -86,13 +87,8 @@ public final class MainPanel extends JPanel {
         startPauseButton.addActionListener(actionEvent -> onStartPauseClicked());
         UiTheme.stylePrimaryButton(startPauseButton);
 
-        syncButton.setAlignmentX(Component.CENTER_ALIGNMENT);
-        syncButton.setMaximumSize(new Dimension(220, 40));
-        syncButton.addActionListener(actionEvent -> onSyncClicked());
-        UiTheme.styleSecondaryButton(syncButton);
-
         heroPanel.add(logoLabel);
-        heroPanel.add(Box.createVerticalStrut(12));
+        heroPanel.add(Box.createVerticalStrut(16));
         heroPanel.add(workTimeCaptionLabel);
         heroPanel.add(Box.createVerticalStrut(8));
         heroPanel.add(workTimeValueLabel);
@@ -100,8 +96,6 @@ public final class MainPanel extends JPanel {
         heroPanel.add(statusValueLabel);
         heroPanel.add(Box.createVerticalStrut(18));
         heroPanel.add(startPauseButton);
-        heroPanel.add(Box.createVerticalStrut(10));
-        heroPanel.add(syncButton);
 
         UiTheme.styleSurfaceCard(applicationsPanel);
         UiTheme.styleMutedLabel(applicationsCaptionLabel);
@@ -111,14 +105,24 @@ public final class MainPanel extends JPanel {
         applicationsPanel.add(applicationsCaptionLabel, BorderLayout.NORTH);
         applicationsPanel.add(new JScrollPane(applicationUsageTable), BorderLayout.CENTER);
 
+        UiTheme.styleSurfaceCard(chartPanel);
+        UiTheme.styleMutedLabel(chartCaptionLabel);
+        chartPanel.add(chartCaptionLabel, BorderLayout.NORTH);
+        chartPanel.add(usagePieChartPanel, BorderLayout.CENTER);
+
+        JPanel bottomSplitPanel = new JPanel(new GridLayout(1, 2, 12, 0));
+        bottomSplitPanel.setOpaque(false);
+        bottomSplitPanel.add(applicationsPanel);
+        bottomSplitPanel.add(chartPanel);
+
         add(heroPanel, BorderLayout.NORTH);
-        add(applicationsPanel, BorderLayout.CENTER);
+        add(bottomSplitPanel, BorderLayout.CENTER);
         retranslate();
         applyAutoStartSetting(userSettings.isAutoStartTracking());
     }
 
     private JLabel createLogoLabel() {
-        ImageIcon logoIcon = UiImages.loadLogoIcon(44);
+        ImageIcon logoIcon = UiImages.loadLogoIcon(64);
         JLabel logoLabel = new JLabel();
         if (Objects.nonNull(logoIcon)) {
             logoLabel.setIcon(logoIcon);
@@ -134,7 +138,8 @@ public final class MainPanel extends JPanel {
     public void retranslate() {
         workTimeCaptionLabel.setText(Messages.get(MessageCodes.UI_MAIN_WORK_TIME));
         applicationsCaptionLabel.setText(Messages.get(MessageCodes.UI_MAIN_APPLICATIONS_TODAY));
-        syncButton.setText(Messages.get(MessageCodes.UI_MAIN_SYNC));
+        chartCaptionLabel.setText(Messages.get(MessageCodes.UI_MAIN_USAGE_CHART));
+        usagePieChartPanel.setEmptyMessage(Messages.get(MessageCodes.UI_MAIN_NO_APPLICATIONS));
         applicationUsageTableModel.retranslate();
         ApplicationUsageTableModel.configureColumnWidths(applicationUsageTable);
         ApplicationUsageTableModel.configureColumnAlignment(applicationUsageTable);
@@ -144,13 +149,14 @@ public final class MainPanel extends JPanel {
     public void applyTheme() {
         setBackground(UiTheme.BACKGROUND);
         UiTheme.styleSurfaceCard(applicationsPanel);
+        UiTheme.styleSurfaceCard(chartPanel);
         UiTheme.styleMutedLabel(workTimeCaptionLabel);
         UiTheme.styleMutedLabel(statusValueLabel);
         UiTheme.styleMutedLabel(applicationsCaptionLabel);
+        UiTheme.styleMutedLabel(chartCaptionLabel);
         UiTheme.styleTimerLabel(workTimeValueLabel);
         UiTheme.styleUsageTable(applicationUsageTable);
         ApplicationUsageTableModel.configureColumnAlignment(applicationUsageTable);
-        UiTheme.styleSecondaryButton(syncButton);
         refresh();
     }
 
@@ -191,27 +197,12 @@ public final class MainPanel extends JPanel {
                         : Messages.get(MessageCodes.UI_MAIN_STATUS_PAUSED)
         );
 
-        boolean syncEnabled = userSettings.isServerSyncEnabled();
-        syncButton.setEnabled(syncEnabled);
-        syncButton.setToolTipText(
-                syncEnabled
-                        ? Messages.get(MessageCodes.UI_MAIN_SYNC_TOOLTIP)
-                        : Messages.get(MessageCodes.UI_MAIN_SYNC_DISABLED_TOOLTIP)
-        );
-
         List<ApplicationUsageSummary> applicationUsageSummaries = ApplicationUsageFilter.groupMinorApplications(
                 statisticsService.buildTodayApplicationUsage(),
                 userSettings.getMinorUsageThresholdMinutes()
         );
         applicationUsageTableModel.setRows(applicationUsageSummaries, todayActiveSeconds);
-        if (applicationUsageTableModel.isEmpty()) {
-            applicationUsageTableModel.setRows(
-                    Collections.singletonList(
-                            new ApplicationUsageSummary(Messages.get(MessageCodes.UI_MAIN_NO_APPLICATIONS), 0L)
-                    ),
-                    0L
-            );
-        }
+        usagePieChartPanel.setUsageData(applicationUsageSummaries, todayActiveSeconds);
         ApplicationUsageTableModel.configureColumnAlignment(applicationUsageTable);
     }
 
@@ -222,14 +213,5 @@ public final class MainPanel extends JPanel {
             trackingEngine.startTracking();
         }
         refresh();
-    }
-
-    private void onSyncClicked() {
-        JOptionPane.showMessageDialog(
-                this,
-                Messages.get(MessageCodes.UI_MAIN_SYNC_NOT_IMPLEMENTED),
-                Messages.get(MessageCodes.UI_MAIN_SYNC),
-                JOptionPane.INFORMATION_MESSAGE
-        );
     }
 }

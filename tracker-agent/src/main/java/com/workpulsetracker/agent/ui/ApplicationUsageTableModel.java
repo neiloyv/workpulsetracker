@@ -17,7 +17,8 @@ import java.util.Objects;
 /**
  * Таблица использования приложений.
  * DETAILED — приложение / время / % (главная вкладка).
- * COMPACT — приложение / {@code H:MM (N%)} (статистика).
+ * COMPACT — приложение / {@code H:MM (N%)}.
+ * Строка Total — внизу.
  */
 public final class ApplicationUsageTableModel extends AbstractTableModel {
 
@@ -54,6 +55,10 @@ public final class ApplicationUsageTableModel extends AbstractTableModel {
         fireTableStructureChanged();
     }
 
+    public boolean isTotalRow(int rowIndex) {
+        return rowIndex == getRowCount() - 1;
+    }
+
     private String[] buildColumnNames() {
         if (displayMode == DisplayMode.COMPACT) {
             return new String[]{
@@ -70,7 +75,7 @@ public final class ApplicationUsageTableModel extends AbstractTableModel {
 
     @Override
     public int getRowCount() {
-        return applicationUsageSummaries.size();
+        return applicationUsageSummaries.size() + 1;
     }
 
     @Override
@@ -85,6 +90,9 @@ public final class ApplicationUsageTableModel extends AbstractTableModel {
 
     @Override
     public Object getValueAt(int rowIndex, int columnIndex) {
+        if (isTotalRow(rowIndex)) {
+            return getTotalRowValue(columnIndex);
+        }
         ApplicationUsageSummary applicationUsageSummary = applicationUsageSummaries.get(rowIndex);
         if (displayMode == DisplayMode.COMPACT) {
             return switch (columnIndex) {
@@ -103,6 +111,25 @@ public final class ApplicationUsageTableModel extends AbstractTableModel {
                     applicationUsageSummary.getDurationSeconds(),
                     totalActiveSeconds
             ) + "%";
+            default -> "";
+        };
+    }
+
+    private Object getTotalRowValue(int columnIndex) {
+        if (displayMode == DisplayMode.COMPACT) {
+            return switch (columnIndex) {
+                case 0 -> Messages.get(MessageCodes.UI_TABLE_TOTAL);
+                case 1 -> DurationFormatter.formatHoursMinutesWithPercent(
+                        totalActiveSeconds,
+                        totalActiveSeconds
+                );
+                default -> "";
+            };
+        }
+        return switch (columnIndex) {
+            case 0 -> Messages.get(MessageCodes.UI_TABLE_TOTAL);
+            case 1 -> DurationFormatter.formatSeconds(totalActiveSeconds);
+            case 2 -> PercentageCalculator.calculatePercentage(totalActiveSeconds, totalActiveSeconds) + "%";
             default -> "";
         };
     }
@@ -139,7 +166,27 @@ public final class ApplicationUsageTableModel extends AbstractTableModel {
 
         DefaultTableCellRenderer leftCellRenderer = new ApplicationNameCellRenderer();
 
-        DefaultTableCellRenderer centerCellRenderer = new DefaultTableCellRenderer();
+        DefaultTableCellRenderer centerCellRenderer = new DefaultTableCellRenderer() {
+            @Override
+            public java.awt.Component getTableCellRendererComponent(
+                    JTable valueTable,
+                    Object value,
+                    boolean isSelected,
+                    boolean hasFocus,
+                    int row,
+                    int column
+            ) {
+                java.awt.Component component = super.getTableCellRendererComponent(
+                        valueTable, value, isSelected, hasFocus, row, column
+                );
+                if (component instanceof javax.swing.JLabel label
+                        && valueTable.getModel() instanceof ApplicationUsageTableModel tableModel
+                        && tableModel.isTotalRow(row)) {
+                    label.setFont(label.getFont().deriveFont(java.awt.Font.BOLD));
+                }
+                return component;
+            }
+        };
         centerCellRenderer.setHorizontalAlignment(SwingConstants.CENTER);
         centerCellRenderer.setVerticalAlignment(SwingConstants.CENTER);
 

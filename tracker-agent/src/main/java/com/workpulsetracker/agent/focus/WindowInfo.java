@@ -1,5 +1,6 @@
 package com.workpulsetracker.agent.focus;
 
+import com.workpulsetracker.agent.util.ApplicationNameNormalizer;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.Objects;
@@ -18,7 +19,9 @@ public final class WindowInfo {
     }
 
     public WindowInfo(String processName, String windowTitle, String processImagePath) {
-        this.processName = StringUtils.isNotBlank(processName) ? processName.trim() : "unknown";
+        this.processName = StringUtils.isNotBlank(processName)
+                ? ApplicationNameNormalizer.normalize(processName)
+                : "unknown";
         this.windowTitle = StringUtils.isNotBlank(windowTitle) ? windowTitle.trim() : "";
         this.processImagePath = StringUtils.isNotBlank(processImagePath) ? processImagePath.trim() : null;
     }

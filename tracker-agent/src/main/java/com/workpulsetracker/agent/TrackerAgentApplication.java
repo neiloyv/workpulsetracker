@@ -1,5 +1,6 @@
 package com.workpulsetracker.agent;
 
+import com.workpulsetracker.agent.api.AgentAccessClient;
 import com.workpulsetracker.agent.buffer.DataBuffer;
 import com.workpulsetracker.agent.config.AgentConfig;
 import com.workpulsetracker.agent.icons.ApplicationIconService;
@@ -78,17 +79,14 @@ public final class TrackerAgentApplication {
         trackerMainFrameHolder[0] = trackerMainFrame;
 
         if (!userSettings.isSetupCompleted()) {
-            ActivationDialog activationDialog = new ActivationDialog(trackerMainFrame);
+            AgentAccessClient agentAccessClient = new AgentAccessClient();
+            ActivationDialog activationDialog = new ActivationDialog(trackerMainFrame, agentAccessClient);
             boolean confirmed = activationDialog.showAndWait();
             if (!confirmed) {
                 exitAction.run();
                 return;
             }
-            if (activationDialog.isLocalOnlySelected()) {
-                userSettings.applyLocalOnlyMode();
-            } else {
-                userSettings.applyActivationKey(activationDialog.getActivationKey());
-            }
+            userSettings.applyCredentials(activationDialog.getEmail(), activationDialog.getAccessKey());
             userSettingsStore.save(userSettings);
             trackerMainFrame.refreshPanels();
         }
