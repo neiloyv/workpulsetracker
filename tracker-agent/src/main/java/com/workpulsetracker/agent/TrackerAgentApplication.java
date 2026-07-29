@@ -74,6 +74,7 @@ public final class TrackerAgentApplication {
                 statisticsService,
                 userSettings,
                 userSettingsStore,
+                activityStore,
                 exitAction
         );
         trackerMainFrameHolder[0] = trackerMainFrame;

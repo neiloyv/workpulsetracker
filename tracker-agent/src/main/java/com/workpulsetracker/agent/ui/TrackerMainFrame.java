@@ -1,11 +1,13 @@
 package com.workpulsetracker.agent.ui;
 
 import com.workpulsetracker.agent.stats.StatisticsService;
+import com.workpulsetracker.agent.storage.ActivityStore;
 import com.workpulsetracker.agent.storage.UserSettings;
 import com.workpulsetracker.agent.storage.UserSettingsStore;
 import com.workpulsetracker.agent.tracking.TrackingEngine;
 import com.workpulsetracker.common.i18n.MessageCodes;
 import com.workpulsetracker.common.i18n.Messages;
+import com.workpulsetracker.common.i18n.UserLocaleContext;
 
 import javax.swing.JFrame;
 import javax.swing.JTabbedPane;
@@ -24,8 +26,10 @@ public final class TrackerMainFrame extends JFrame {
 
     private final MainPanel mainPanel;
     private final StatisticsPanel statisticsPanel;
+    private final PomodoroPanel pomodoroPanel;
     private final SettingsPanel settingsPanel;
     private final AccountPanel accountPanel;
+    private final UserSettings userSettings;
     private final JTabbedPane tabbedPane = new JTabbedPane();
     private final TrayService trayService;
     private final Timer refreshTimer;
@@ -36,25 +40,35 @@ public final class TrackerMainFrame extends JFrame {
             StatisticsService statisticsService,
             UserSettings userSettings,
             UserSettingsStore userSettingsStore,
+            ActivityStore activityStore,
             Runnable exitAction
     ) {
         super(Messages.get(MessageCodes.UI_APP_TITLE));
         this.exitAction = exitAction;
+        this.userSettings = userSettings;
         this.mainPanel = new MainPanel(trackingEngine, statisticsService, userSettings);
         this.statisticsPanel = new StatisticsPanel(statisticsService, userSettings, userSettingsStore);
+        this.trayService = new TrayService(this, exitAction);
+        this.pomodoroPanel = new PomodoroPanel(
+                userSettings,
+                userSettingsStore,
+                trayService::showNotification
+        );
         this.settingsPanel = new SettingsPanel(
                 userSettings,
                 userSettingsStore,
+                activityStore,
+                trackingEngine,
                 appLanguage -> retranslateUi(),
                 this::onAutoStartSettingChanged,
-                this::refreshPanels
+                this::refreshPanels,
+                this::onLocalDataRestored
         );
         this.accountPanel = new AccountPanel(
                 userSettings,
                 userSettingsStore,
                 this::refreshPanels
         );
-        this.trayService = new TrayService(this, exitAction);
 
         setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
         setResizable(true);
@@ -77,6 +91,7 @@ public final class TrackerMainFrame extends JFrame {
 
         tabbedPane.addTab(Messages.get(MessageCodes.UI_TAB_MAIN), mainPanel);
         tabbedPane.addTab(Messages.get(MessageCodes.UI_TAB_STATISTICS), statisticsPanel);
+        tabbedPane.addTab(Messages.get(MessageCodes.UI_TAB_POMODORO), pomodoroPanel);
         tabbedPane.addTab(Messages.get(MessageCodes.UI_TAB_SETTINGS), settingsPanel);
         tabbedPane.addTab(Messages.get(MessageCodes.UI_TAB_ACCOUNT), accountPanel);
         tabbedPane.addChangeListener(changeEvent -> {
@@ -93,12 +108,14 @@ public final class TrackerMainFrame extends JFrame {
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent windowEvent) {
-                hideToTray();
+                requestExit();
             }
 
             @Override
             public void windowIconified(WindowEvent windowEvent) {
-                hideToTray();
+                if (userSettings.isMinimizeToTray()) {
+                    hideToTray();
+                }
             }
         });
     }
@@ -122,14 +139,26 @@ public final class TrackerMainFrame extends JFrame {
         mainPanel.applyAutoStartSetting(autoStartTracking);
     }
 
+    private void onLocalDataRestored() {
+        UserLocaleContext.setLanguage(userSettings.getLanguage());
+        settingsPanel.reloadFromSettings();
+        pomodoroPanel.reloadFromSettings();
+        accountPanel.retranslate();
+        mainPanel.applyAutoStartSetting(userSettings.isAutoStartTracking());
+        retranslateUi();
+        refreshPanels();
+    }
+
     public void retranslateUi() {
         setTitle(Messages.get(MessageCodes.UI_APP_TITLE));
         tabbedPane.setTitleAt(0, Messages.get(MessageCodes.UI_TAB_MAIN));
         tabbedPane.setTitleAt(1, Messages.get(MessageCodes.UI_TAB_STATISTICS));
-        tabbedPane.setTitleAt(2, Messages.get(MessageCodes.UI_TAB_SETTINGS));
-        tabbedPane.setTitleAt(3, Messages.get(MessageCodes.UI_TAB_ACCOUNT));
+        tabbedPane.setTitleAt(2, Messages.get(MessageCodes.UI_TAB_POMODORO));
+        tabbedPane.setTitleAt(3, Messages.get(MessageCodes.UI_TAB_SETTINGS));
+        tabbedPane.setTitleAt(4, Messages.get(MessageCodes.UI_TAB_ACCOUNT));
         mainPanel.retranslate();
         statisticsPanel.retranslate();
+        pomodoroPanel.retranslate();
         settingsPanel.retranslate();
         accountPanel.retranslate();
         trayService.retranslate();
@@ -137,6 +166,7 @@ public final class TrackerMainFrame extends JFrame {
 
     public void shutdownUi() {
         refreshTimer.stop();
+        pomodoroPanel.shutdown();
         trayService.uninstall();
         dispose();
     }

@@ -13,6 +13,7 @@ import com.workpulsetracker.agent.focus.WindowInfo;
 import com.workpulsetracker.agent.idle.IdleDetector;
 import com.workpulsetracker.agent.idle.TrackerStatus;
 import com.workpulsetracker.agent.storage.ActivityStore;
+import com.workpulsetracker.agent.util.TrackedApplicationNameResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -141,8 +142,9 @@ public final class TrackingEngine implements AutoCloseable {
             return;
         }
         boolean idle = trackerStatus == TrackerStatus.IDLE;
-        String applicationName = Objects.nonNull(windowInfo) ? windowInfo.getProcessName() : "unknown";
+        String processName = Objects.nonNull(windowInfo) ? windowInfo.getProcessName() : "unknown";
         String windowTitle = Objects.nonNull(windowInfo) ? windowInfo.getWindowTitle() : "";
+        String applicationName = TrackedApplicationNameResolver.resolve(processName, windowTitle);
         dataBuffer.startInterval(applicationName, windowTitle, idle);
     }
 

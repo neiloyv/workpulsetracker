@@ -29,18 +29,6 @@ import java.util.stream.IntStream;
 public final class ApplicationUsagePieChartPanel extends JPanel {
 
     private static final int MIN_LABEL_PERCENTAGE = 4;
-    private static final Color[] SLICE_COLORS = {
-            new Color(0x74, 0x58, 0xFF),
-            new Color(0x22, 0xC5, 0x5E),
-            new Color(0xF5, 0x9E, 0x0B),
-            new Color(0x3B, 0x82, 0xF6),
-            new Color(0xEC, 0x48, 0x99),
-            new Color(0x14, 0xB8, 0xA6),
-            new Color(0xF9, 0x73, 0x16),
-            new Color(0x8B, 0x5C, 0xF6),
-            new Color(0xEF, 0x44, 0x44),
-            new Color(0x06, 0xB6, 0xD4)
-    };
 
     private List<ApplicationUsageSummary> applicationUsageSummaries = Collections.emptyList();
     private long totalActiveSeconds;
@@ -120,7 +108,7 @@ public final class ApplicationUsagePieChartPanel extends JPanel {
                 .mapToObj(index -> new Slice(
                         positiveSummaries.get(index).getApplicationName(),
                         percentages.get(index),
-                        SLICE_COLORS[index % SLICE_COLORS.length]
+                        ApplicationUsageColorPalette.colorForIndex(index)
                 ))
                 .collect(Collectors.toList());
     }
@@ -229,12 +217,12 @@ public final class ApplicationUsagePieChartPanel extends JPanel {
     }
 
     private void paintLegend(Graphics2D graphics2D, List<Slice> slices, int legendLeft, int legendWidth) {
-        int rowHeight = 20;
+        int rowHeight = 22;
         int availableHeight = getHeight() - 8;
         int maxRows = Math.max(1, availableHeight / rowHeight);
         int legendTop = Math.max(4, (getHeight() - Math.min(slices.size(), maxRows) * rowHeight) / 2);
 
-        graphics2D.setFont(getFont().deriveFont(Font.PLAIN, 11f));
+        graphics2D.setFont(getFont().deriveFont(Font.PLAIN, 13f));
         FontMetrics fontMetrics = graphics2D.getFontMetrics();
 
         for (int sliceIndex = 0; sliceIndex < slices.size() && sliceIndex < maxRows; sliceIndex++) {

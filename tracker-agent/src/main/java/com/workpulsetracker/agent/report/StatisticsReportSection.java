@@ -1,6 +1,8 @@
 package com.workpulsetracker.agent.report;
 
+import com.workpulsetracker.agent.stats.ApplicationUsageBrowserGrouper;
 import com.workpulsetracker.agent.stats.ApplicationUsageFilter;
+import com.workpulsetracker.agent.stats.ApplicationUsageGroup;
 import com.workpulsetracker.agent.stats.ApplicationUsageMatrix;
 import com.workpulsetracker.agent.stats.ApplicationUsageSummary;
 import com.workpulsetracker.agent.stats.StatisticsService;
@@ -61,10 +63,12 @@ public final class StatisticsReportSection {
             int minorUsageThresholdMinutes
     ) {
         StatisticsSnapshot statisticsSnapshot = statisticsService.buildSnapshot(statsPeriod);
-        List<ApplicationUsageSummary> applicationUsageSummaries = ApplicationUsageFilter.groupMinorApplications(
-                statisticsSnapshot.getApplicationUsageSummaries(),
-                minorUsageThresholdMinutes
-        );
+        List<ApplicationUsageSummary> applicationUsageSummaries = ApplicationUsageFilter.groupMinorApplicationGroups(
+                        ApplicationUsageBrowserGrouper.group(statisticsSnapshot.getApplicationUsageSummaries()),
+                        minorUsageThresholdMinutes
+                ).stream()
+                .map(ApplicationUsageGroup::toSummary)
+                .collect(Collectors.toList());
         List<StatisticsReportTable> reportTables = buildReportTables(
                 statisticsService,
                 statsPeriod,
@@ -89,10 +93,12 @@ public final class StatisticsReportSection {
                     .map(monthWeekRange -> new StatisticsReportTable(
                             monthWeekRange.label(),
                             ApplicationUsageFilter.groupMinorApplications(
-                                    statisticsService.buildApplicationUsageMatrix(
-                                            StatsPeriod.CUSTOM,
-                                            monthWeekRange.startDate(),
-                                            monthWeekRange.endDate()
+                                    ApplicationUsageBrowserGrouper.collapseBrowserApplications(
+                                            statisticsService.buildApplicationUsageMatrix(
+                                                    StatsPeriod.CUSTOM,
+                                                    monthWeekRange.startDate(),
+                                                    monthWeekRange.endDate()
+                                            )
                                     ),
                                     minorUsageThresholdMinutes
                             )
@@ -100,7 +106,9 @@ public final class StatisticsReportSection {
                     .collect(Collectors.toList());
         }
         ApplicationUsageMatrix applicationUsageMatrix = ApplicationUsageFilter.groupMinorApplications(
-                statisticsService.buildApplicationUsageMatrix(statsPeriod),
+                ApplicationUsageBrowserGrouper.collapseBrowserApplications(
+                        statisticsService.buildApplicationUsageMatrix(statsPeriod)
+                ),
                 minorUsageThresholdMinutes
         );
         return List.of(new StatisticsReportTable(null, applicationUsageMatrix));

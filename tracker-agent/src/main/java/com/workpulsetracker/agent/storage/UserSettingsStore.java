@@ -62,4 +62,13 @@ public final class UserSettingsStore {
             logger.error("Failed to save settings.json: {}", exception.getMessage(), exception);
         }
     }
+
+    /**
+     * Перечитывает settings.json в уже существующий экземпляр (после импорта бэкапа).
+     */
+    public void reloadInto(UserSettings userSettings) {
+        Objects.requireNonNull(userSettings);
+        UserSettings loadedUserSettings = loadOrCreateDefault();
+        userSettings.copyFrom(loadedUserSettings);
+    }
 }

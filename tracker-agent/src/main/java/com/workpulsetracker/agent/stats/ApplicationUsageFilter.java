@@ -53,6 +53,42 @@ public final class ApplicationUsageFilter {
         return List.copyOf(majorApplicationUsageSummaries);
     }
 
+    /**
+     * Фильтр minor по суммарному времени группы (браузер целиком, а не каждая вкладка).
+     */
+    public static List<ApplicationUsageGroup> groupMinorApplicationGroups(
+            List<ApplicationUsageGroup> applicationUsageGroups,
+            int minorUsageThresholdMinutes
+    ) {
+        if (Objects.isNull(applicationUsageGroups) || applicationUsageGroups.isEmpty()) {
+            return List.of();
+        }
+
+        long minorUsageThresholdSeconds = toThresholdSeconds(minorUsageThresholdMinutes);
+        List<ApplicationUsageGroup> majorApplicationUsageGroups = applicationUsageGroups.stream()
+                .filter(applicationUsageGroup -> isMajorApplication(
+                        applicationUsageGroup.getDurationSeconds(),
+                        minorUsageThresholdSeconds
+                ))
+                .collect(Collectors.toCollection(ArrayList::new));
+
+        long othersDurationSeconds = applicationUsageGroups.stream()
+                .filter(applicationUsageGroup -> !isMajorApplication(
+                        applicationUsageGroup.getDurationSeconds(),
+                        minorUsageThresholdSeconds
+                ))
+                .mapToLong(ApplicationUsageGroup::getDurationSeconds)
+                .sum();
+
+        if (othersDurationSeconds > 0L) {
+            majorApplicationUsageGroups.add(ApplicationUsageGroup.leaf(
+                    Messages.get(MessageCodes.UI_STATS_OTHERS),
+                    othersDurationSeconds
+            ));
+        }
+        return List.copyOf(majorApplicationUsageGroups);
+    }
+
     public static ApplicationUsageMatrix groupMinorApplications(
             ApplicationUsageMatrix applicationUsageMatrix,
             int minorUsageThresholdMinutes

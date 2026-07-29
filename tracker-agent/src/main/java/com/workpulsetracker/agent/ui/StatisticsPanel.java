@@ -3,6 +3,7 @@ package com.workpulsetracker.agent.ui;
 import com.workpulsetracker.agent.report.StatisticsExcelReportWriter;
 import com.workpulsetracker.agent.report.StatisticsPdfReportWriter;
 import com.workpulsetracker.agent.report.StatisticsReportFormat;
+import com.workpulsetracker.agent.stats.ApplicationUsageBrowserGrouper;
 import com.workpulsetracker.agent.stats.ApplicationUsageFilter;
 import com.workpulsetracker.agent.stats.ApplicationUsageMatrix;
 import com.workpulsetracker.agent.stats.StatisticsService;
@@ -281,7 +282,9 @@ public final class StatisticsPanel extends JPanel {
         );
 
         ApplicationUsageMatrix applicationUsageMatrix = ApplicationUsageFilter.groupMinorApplications(
-                statisticsService.buildApplicationUsageMatrix(statsPeriod, rangeStartDate, rangeEndDate),
+                ApplicationUsageBrowserGrouper.collapseBrowserApplications(
+                        statisticsService.buildApplicationUsageMatrix(statsPeriod, rangeStartDate, rangeEndDate)
+                ),
                 userSettings.getMinorUsageThresholdMinutes()
         );
         statisticsTableModel.setMatrix(applicationUsageMatrix);

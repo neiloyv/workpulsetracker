@@ -8,6 +8,7 @@ import com.workpulsetracker.common.i18n.UserLocaleContext;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.YearMonth;
 import java.time.ZoneId;
@@ -160,6 +161,75 @@ public final class StatisticsService {
 
     public long buildTodayActiveSeconds() {
         return buildSnapshot(StatsPeriod.DAY).getTotalActiveSeconds();
+    }
+
+    /**
+     * Таймлайн активных (non-idle) интервалов за сегодня для главной панели.
+     */
+    public DayActivityTimeline buildTodayActivityTimeline() {
+        InstantRange instantRange = resolveInstantRange(StatsPeriod.DAY, null, null);
+        LocalDateTime rangeStartDateTime = LocalDateTime.ofInstant(instantRange.startInclusive(), zoneId);
+        LocalDateTime rangeEndDateTime = LocalDateTime.ofInstant(instantRange.endExclusive(), zoneId);
+
+        List<ActivityInterval> clippedIntervals = collectClippedActiveIntervals(instantRange).stream()
+                .sorted(Comparator.comparing(ActivityInterval::getStartInstant))
+                .collect(Collectors.toList());
+        if (clippedIntervals.isEmpty()) {
+            return DayActivityTimeline.empty(rangeStartDateTime, rangeEndDateTime);
+        }
+
+        List<DayActivityTimelineSegment> timelineSegments = new ArrayList<>();
+        ActivityInterval mergeCandidate = clippedIntervals.get(0);
+        for (int intervalIndex = 1; intervalIndex < clippedIntervals.size(); intervalIndex++) {
+            ActivityInterval nextInterval = clippedIntervals.get(intervalIndex);
+            if (canMergeTimelineIntervals(mergeCandidate, nextInterval)) {
+                mergeCandidate = new ActivityInterval(
+                        mergeCandidate.getStartInstant(),
+                        nextInterval.getEndInstant(),
+                        mergeCandidate.getApplicationName(),
+                        mergeCandidate.getWindowTitle(),
+                        false
+                );
+            } else {
+                timelineSegments.add(toTimelineSegment(mergeCandidate));
+                mergeCandidate = nextInterval;
+            }
+        }
+        timelineSegments.add(toTimelineSegment(mergeCandidate));
+
+        LocalDateTime activityRangeStartDateTime = timelineSegments.get(0).getStartDateTime();
+        LocalDateTime activityRangeEndDateTime = timelineSegments.stream()
+                .map(DayActivityTimelineSegment::getEndDateTime)
+                .max(LocalDateTime::compareTo)
+                .orElse(activityRangeStartDateTime);
+        if (!activityRangeStartDateTime.isBefore(activityRangeEndDateTime)) {
+            activityRangeEndDateTime = activityRangeStartDateTime.plusMinutes(1L);
+        }
+        return new DayActivityTimeline(activityRangeStartDateTime, activityRangeEndDateTime, timelineSegments);
+    }
+
+    private DayActivityTimelineSegment toTimelineSegment(ActivityInterval activityInterval) {
+        Instant endInstant = Objects.nonNull(activityInterval.getEndInstant())
+                ? activityInterval.getEndInstant()
+                : Instant.now();
+        return new DayActivityTimelineSegment(
+                activityInterval.getApplicationName(),
+                LocalDateTime.ofInstant(activityInterval.getStartInstant(), zoneId),
+                LocalDateTime.ofInstant(endInstant, zoneId)
+        );
+    }
+
+    private static boolean canMergeTimelineIntervals(
+            ActivityInterval leftInterval,
+            ActivityInterval rightInterval
+    ) {
+        if (!Objects.equals(leftInterval.getApplicationName(), rightInterval.getApplicationName())) {
+            return false;
+        }
+        Instant leftEndInstant = Objects.nonNull(leftInterval.getEndInstant())
+                ? leftInterval.getEndInstant()
+                : Instant.now();
+        return !rightInterval.getStartInstant().isAfter(leftEndInstant.plusSeconds(1L));
     }
 
     private List<ApplicationUsageSummary> buildApplicationUsageSummaries(List<ActivityInterval> activityIntervals) {

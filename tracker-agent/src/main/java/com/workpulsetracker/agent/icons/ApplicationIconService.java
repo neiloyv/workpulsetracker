@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import com.workpulsetracker.agent.storage.LocalDataDirectory;
 import com.workpulsetracker.agent.util.ApplicationNameNormalizer;
+import com.workpulsetracker.agent.util.TrackedApplicationNameResolver;
 import com.workpulsetracker.common.i18n.MessageCodes;
 import com.workpulsetracker.common.i18n.Messages;
 import org.apache.commons.lang3.StringUtils;
@@ -124,13 +125,13 @@ public final class ApplicationIconService {
         if (StringUtils.isBlank(applicationName) || isOthersCategory(applicationName)) {
             return fallbackIcon;
         }
-        String normalizedApplicationName = ApplicationNameNormalizer.normalize(applicationName);
-        ImageIcon cachedIcon = iconByApplicationName.get(normalizedApplicationName);
+        String baseApplicationName = TrackedApplicationNameResolver.extractBaseApplicationName(applicationName);
+        ImageIcon cachedIcon = iconByApplicationName.get(baseApplicationName);
         if (Objects.nonNull(cachedIcon)) {
             return cachedIcon;
         }
-        ImageIcon loadedIcon = loadIcon(normalizedApplicationName);
-        iconByApplicationName.put(normalizedApplicationName, loadedIcon);
+        ImageIcon loadedIcon = loadIcon(baseApplicationName);
+        iconByApplicationName.put(baseApplicationName, loadedIcon);
         return loadedIcon;
     }
 

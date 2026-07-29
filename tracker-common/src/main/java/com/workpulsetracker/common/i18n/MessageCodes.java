@@ -15,6 +15,7 @@ public final class MessageCodes {
     public static final String UI_APP_TITLE = "ui.app.title";
     public static final String UI_TAB_MAIN = "ui.tab.main";
     public static final String UI_TAB_STATISTICS = "ui.tab.statistics";
+    public static final String UI_TAB_POMODORO = "ui.tab.pomodoro";
     public static final String UI_TAB_SETTINGS = "ui.tab.settings";
     public static final String UI_TAB_ACCOUNT = "ui.tab.account";
 
@@ -26,6 +27,7 @@ public final class MessageCodes {
     public static final String UI_MAIN_APPLICATIONS_TODAY = "ui.main.applications.today";
     public static final String UI_MAIN_USAGE_CHART = "ui.main.usage.chart";
     public static final String UI_MAIN_NO_APPLICATIONS = "ui.main.no.applications";
+    public static final String UI_MAIN_TIMELINE_TODAY = "ui.main.timeline.today";
     public static final String UI_MAIN_SYNC = "ui.main.sync";
     public static final String UI_MAIN_SYNC_TOOLTIP = "ui.main.sync.tooltip";
     public static final String UI_MAIN_SYNC_DISABLED_TOOLTIP = "ui.main.sync.disabled.tooltip";
@@ -68,6 +70,22 @@ public final class MessageCodes {
     public static final String UI_SETTINGS_MINOR_THRESHOLD = "ui.settings.minor.threshold";
     public static final String UI_SETTINGS_MINOR_THRESHOLD_HINT = "ui.settings.minor.threshold.hint";
     public static final String UI_SETTINGS_MINOR_THRESHOLD_UNIT = "ui.settings.minor.threshold.unit";
+    public static final String UI_SETTINGS_TIMELINE_VISIBLE = "ui.settings.timeline.visible";
+    public static final String UI_SETTINGS_TIMELINE_VISIBLE_HINT = "ui.settings.timeline.visible.hint";
+    public static final String UI_SETTINGS_MINIMIZE_TO_TRAY = "ui.settings.minimize.to.tray";
+    public static final String UI_SETTINGS_MINIMIZE_TO_TRAY_HINT = "ui.settings.minimize.to.tray.hint";
+    public static final String UI_SETTINGS_DATA = "ui.settings.data";
+    public static final String UI_SETTINGS_BACKUP_EXPORT = "ui.settings.backup.export";
+    public static final String UI_SETTINGS_BACKUP_IMPORT = "ui.settings.backup.import";
+    public static final String UI_SETTINGS_BACKUP_HINT = "ui.settings.backup.hint";
+    public static final String UI_SETTINGS_BACKUP_EXPORT_SUCCESS = "ui.settings.backup.export.success";
+    public static final String UI_SETTINGS_BACKUP_IMPORT_SUCCESS = "ui.settings.backup.import.success";
+    public static final String UI_SETTINGS_BACKUP_IMPORT_CONFIRM = "ui.settings.backup.import.confirm";
+    public static final String UI_SETTINGS_BACKUP_FAILED = "ui.settings.backup.failed";
+    public static final String UI_SETTINGS_SYNC = "ui.settings.sync";
+    public static final String UI_SETTINGS_SYNC_NOW = "ui.settings.sync.now";
+    public static final String UI_SETTINGS_SYNC_HINT = "ui.settings.sync.hint";
+    public static final String UI_SETTINGS_SYNC_NOT_IMPLEMENTED = "ui.settings.sync.not.implemented";
     public static final String UI_SETTINGS_THEME = "ui.settings.theme";
     public static final String UI_SETTINGS_THEME_DARK = "ui.settings.theme.dark";
     public static final String UI_SETTINGS_THEME_LIGHT = "ui.settings.theme.light";
@@ -93,6 +111,25 @@ public final class MessageCodes {
     public static final String UI_ACTIVATION_ACTIVATE = "ui.activation.activate";
     public static final String UI_ACTIVATION_KEY_REQUIRED = "ui.activation.key.required";
     public static final String UI_ACTIVATION_INVALID = "ui.activation.invalid";
+
+    public static final String UI_POMODORO_TITLE = "ui.pomodoro.title";
+    public static final String UI_POMODORO_ENABLE = "ui.pomodoro.enable";
+    public static final String UI_POMODORO_ENABLE_HINT = "ui.pomodoro.enable.hint";
+    public static final String UI_POMODORO_WORK = "ui.pomodoro.work";
+    public static final String UI_POMODORO_SHORT_BREAK = "ui.pomodoro.short.break";
+    public static final String UI_POMODORO_LONG_BREAK = "ui.pomodoro.long.break";
+    public static final String UI_POMODORO_SESSIONS_UNTIL_LONG = "ui.pomodoro.sessions.until.long";
+    public static final String UI_POMODORO_MINUTES = "ui.pomodoro.minutes";
+    public static final String UI_POMODORO_START = "ui.pomodoro.start";
+    public static final String UI_POMODORO_PAUSE = "ui.pomodoro.pause";
+    public static final String UI_POMODORO_SKIP = "ui.pomodoro.skip";
+    public static final String UI_POMODORO_PHASE_WORK = "ui.pomodoro.phase.work";
+    public static final String UI_POMODORO_PHASE_SHORT_BREAK = "ui.pomodoro.phase.short.break";
+    public static final String UI_POMODORO_PHASE_LONG_BREAK = "ui.pomodoro.phase.long.break";
+    public static final String UI_POMODORO_COMPLETED_TODAY = "ui.pomodoro.completed.today";
+    public static final String UI_POMODORO_NOTIFY_WORK_DONE = "ui.pomodoro.notify.work.done";
+    public static final String UI_POMODORO_NOTIFY_SHORT_BREAK_DONE = "ui.pomodoro.notify.short.break.done";
+    public static final String UI_POMODORO_NOTIFY_LONG_BREAK_DONE = "ui.pomodoro.notify.long.break.done";
 
     public static final String UI_TRAY_OPEN = "ui.tray.open";
     public static final String UI_TRAY_EXIT = "ui.tray.exit";

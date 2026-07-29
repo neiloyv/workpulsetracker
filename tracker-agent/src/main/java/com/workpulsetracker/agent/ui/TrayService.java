@@ -74,4 +74,15 @@ public final class TrayService {
         popupMenu.getItem(0).setLabel(Messages.get(MessageCodes.UI_TRAY_OPEN));
         popupMenu.getItem(1).setLabel(Messages.get(MessageCodes.UI_TRAY_EXIT));
     }
+
+    public void showNotification(String caption, String message) {
+        if (Objects.isNull(trayIcon)) {
+            return;
+        }
+        trayIcon.displayMessage(
+                Objects.requireNonNullElse(caption, Messages.get(MessageCodes.UI_APP_TITLE)),
+                Objects.requireNonNullElse(message, ""),
+                TrayIcon.MessageType.INFO
+        );
+    }
 }
