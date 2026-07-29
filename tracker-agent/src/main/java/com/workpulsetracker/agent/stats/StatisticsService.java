@@ -3,16 +3,27 @@ package com.workpulsetracker.agent.stats;
 import com.workpulsetracker.agent.buffer.ActivityInterval;
 import com.workpulsetracker.agent.buffer.DataBuffer;
 import com.workpulsetracker.agent.storage.ActivityStore;
+import com.workpulsetracker.common.i18n.UserLocaleContext;
 
+import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.Month;
+import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.TextStyle;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * Агрегация локальной статистики по сохранённым и текущим интервалам.
@@ -35,11 +46,7 @@ public final class StatisticsService {
 
     public StatisticsSnapshot buildSnapshot(StatsPeriod statsPeriod) {
         InstantRange instantRange = resolveInstantRange(statsPeriod);
-        List<ActivityInterval> relevantIntervals = collectActiveIntervals().stream()
-                .map(activityInterval -> clipToRange(activityInterval, instantRange))
-                .filter(Objects::nonNull)
-                .filter(activityInterval -> activityInterval.getDurationSeconds() > 0)
-                .collect(Collectors.toList());
+        List<ActivityInterval> relevantIntervals = collectClippedActiveIntervals(instantRange);
 
         long totalActiveSeconds = relevantIntervals.stream()
                 .mapToLong(ActivityInterval::getDurationSeconds)
@@ -56,22 +63,75 @@ public final class StatisticsService {
                 .sorted(Comparator.comparing(DailyUsageSummary::getDate).reversed())
                 .collect(Collectors.toList());
 
-        List<ApplicationUsageSummary> applicationUsageSummaries = relevantIntervals.stream()
-                .collect(Collectors.groupingBy(
-                        ActivityInterval::getApplicationName,
-                        Collectors.summingLong(ActivityInterval::getDurationSeconds)
-                ))
-                .entrySet()
-                .stream()
-                .map(entry -> new ApplicationUsageSummary(entry.getKey(), entry.getValue()))
-                .sorted(Comparator.comparingLong(ApplicationUsageSummary::getDurationSeconds).reversed())
-                .collect(Collectors.toList());
+        List<ApplicationUsageSummary> applicationUsageSummaries = buildApplicationUsageSummaries(relevantIntervals);
 
         return new StatisticsSnapshot(
                 statsPeriod,
                 totalActiveSeconds,
                 dailyUsageSummaries,
                 applicationUsageSummaries
+        );
+    }
+
+    /**
+     * Матрица: приложения × колонки периода (дни / недели / месяцы / годы).
+     */
+    public ApplicationUsageMatrix buildApplicationUsageMatrix(StatsPeriod statsPeriod) {
+        List<PeriodBucket> periodBuckets = buildPeriodBuckets(statsPeriod);
+        if (periodBuckets.isEmpty()) {
+            return ApplicationUsageMatrix.empty(statsPeriod, periodBuckets);
+        }
+
+        InstantRange instantRange = new InstantRange(
+                periodBuckets.get(0).getStartInclusive(),
+                periodBuckets.get(periodBuckets.size() - 1).getEndExclusive()
+        );
+        List<ActivityInterval> relevantIntervals = collectClippedActiveIntervals(instantRange);
+        List<ApplicationUsageSummary> applicationUsageSummaries = buildApplicationUsageSummaries(relevantIntervals);
+        if (applicationUsageSummaries.isEmpty()) {
+            return ApplicationUsageMatrix.empty(statsPeriod, periodBuckets);
+        }
+
+        List<String> applicationNames = applicationUsageSummaries.stream()
+                .map(ApplicationUsageSummary::getApplicationName)
+                .collect(Collectors.toList());
+        Map<String, Integer> applicationIndexByName = IntStream.range(0, applicationNames.size())
+                .boxed()
+                .collect(Collectors.toMap(applicationNames::get, applicationIndex -> applicationIndex, (left, right) -> left, LinkedHashMap::new));
+
+        long[][] durationSecondsByApplicationAndBucket = new long[applicationNames.size()][periodBuckets.size()];
+        long[] applicationTotalSeconds = new long[applicationNames.size()];
+        long totalActiveSeconds = 0L;
+
+        for (int bucketIndex = 0; bucketIndex < periodBuckets.size(); bucketIndex++) {
+            PeriodBucket periodBucket = periodBuckets.get(bucketIndex);
+            InstantRange bucketRange = new InstantRange(
+                    periodBucket.getStartInclusive(),
+                    periodBucket.getEndExclusive()
+            );
+            for (ActivityInterval activityInterval : relevantIntervals) {
+                ActivityInterval clippedActivityInterval = clipToRange(activityInterval, bucketRange);
+                if (Objects.isNull(clippedActivityInterval)) {
+                    continue;
+                }
+                Integer applicationIndex = applicationIndexByName.get(clippedActivityInterval.getApplicationName());
+                if (Objects.isNull(applicationIndex)) {
+                    continue;
+                }
+                long durationSeconds = clippedActivityInterval.getDurationSeconds();
+                durationSecondsByApplicationAndBucket[applicationIndex][bucketIndex] += durationSeconds;
+                applicationTotalSeconds[applicationIndex] += durationSeconds;
+                totalActiveSeconds += durationSeconds;
+            }
+        }
+
+        return new ApplicationUsageMatrix(
+                statsPeriod,
+                periodBuckets,
+                applicationNames,
+                durationSecondsByApplicationAndBucket,
+                applicationTotalSeconds,
+                totalActiveSeconds
         );
     }
 
@@ -86,6 +146,27 @@ public final class StatisticsService {
         return buildSnapshot(StatsPeriod.DAY).getTotalActiveSeconds();
     }
 
+    private List<ApplicationUsageSummary> buildApplicationUsageSummaries(List<ActivityInterval> activityIntervals) {
+        return activityIntervals.stream()
+                .collect(Collectors.groupingBy(
+                        ActivityInterval::getApplicationName,
+                        Collectors.summingLong(ActivityInterval::getDurationSeconds)
+                ))
+                .entrySet()
+                .stream()
+                .map(entry -> new ApplicationUsageSummary(entry.getKey(), entry.getValue()))
+                .sorted(Comparator.comparingLong(ApplicationUsageSummary::getDurationSeconds).reversed())
+                .collect(Collectors.toList());
+    }
+
+    private List<ActivityInterval> collectClippedActiveIntervals(InstantRange instantRange) {
+        return collectActiveIntervals().stream()
+                .map(activityInterval -> clipToRange(activityInterval, instantRange))
+                .filter(Objects::nonNull)
+                .filter(activityInterval -> activityInterval.getDurationSeconds() > 0)
+                .collect(Collectors.toList());
+    }
+
     private List<ActivityInterval> collectActiveIntervals() {
         List<ActivityInterval> activityIntervals = new ArrayList<>(activityStore.getAllIntervals());
         ActivityInterval currentActivityInterval = dataBuffer.getCurrentInterval();
@@ -95,23 +176,134 @@ public final class StatisticsService {
         return activityIntervals;
     }
 
+    private List<PeriodBucket> buildPeriodBuckets(StatsPeriod statsPeriod) {
+        ZonedDateTime now = ZonedDateTime.now(zoneId);
+        LocalDate today = now.toLocalDate();
+        Locale locale = UserLocaleContext.getLanguage().toLocale();
+
+        return switch (statsPeriod) {
+            case DAY -> List.of(new PeriodBucket(
+                    today.format(DateTimeFormatter.ofPattern("dd.MM", locale)),
+                    today.atStartOfDay(zoneId).toInstant(),
+                    now.toInstant()
+            ));
+            case WEEK -> buildWeekDayBuckets(today, now, locale);
+            case MONTH -> buildMonthWeekBuckets(today, now, locale);
+            case YEAR -> buildYearMonthBuckets(today, now, locale);
+            case ALL_TIME -> buildAllTimeYearBuckets(now);
+        };
+    }
+
+    private List<PeriodBucket> buildWeekDayBuckets(LocalDate today, ZonedDateTime now, Locale locale) {
+        LocalDate weekStartDate = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        return IntStream.range(0, 7)
+                .mapToObj(dayOffset -> {
+                    LocalDate bucketDate = weekStartDate.plusDays(dayOffset);
+                    Instant startInclusive = bucketDate.atStartOfDay(zoneId).toInstant();
+                    Instant endExclusive = bucketDate.equals(today)
+                            ? now.toInstant()
+                            : bucketDate.plusDays(1).atStartOfDay(zoneId).toInstant();
+                    String label = bucketDate.getDayOfWeek().getDisplayName(TextStyle.SHORT, locale)
+                            + " "
+                            + bucketDate.getDayOfMonth();
+                    return new PeriodBucket(label, startInclusive, endExclusive);
+                })
+                .collect(Collectors.toList());
+    }
+
+    private List<PeriodBucket> buildMonthWeekBuckets(LocalDate today, ZonedDateTime now, Locale locale) {
+        YearMonth yearMonth = YearMonth.from(today);
+        LocalDate monthStartDate = yearMonth.atDay(1);
+        LocalDate monthEndDate = yearMonth.atEndOfMonth();
+        List<PeriodBucket> periodBuckets = new ArrayList<>();
+
+        LocalDate bucketStartDate = monthStartDate;
+        int weekNumber = 1;
+        while (!bucketStartDate.isAfter(monthEndDate)) {
+            LocalDate weekEndDate = bucketStartDate.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+            if (weekEndDate.isAfter(monthEndDate)) {
+                weekEndDate = monthEndDate;
+            }
+            LocalDate exclusiveEndDate = weekEndDate.plusDays(1);
+            Instant startInclusive = bucketStartDate.atStartOfDay(zoneId).toInstant();
+            Instant endExclusive = exclusiveEndDate.isAfter(today)
+                    ? now.toInstant()
+                    : exclusiveEndDate.atStartOfDay(zoneId).toInstant();
+            String label = formatWeekBucketLabel(weekNumber, bucketStartDate, weekEndDate, locale);
+            periodBuckets.add(new PeriodBucket(label, startInclusive, endExclusive));
+            bucketStartDate = weekEndDate.plusDays(1);
+            weekNumber++;
+        }
+        return periodBuckets;
+    }
+
+    private String formatWeekBucketLabel(int weekNumber, LocalDate startDate, LocalDate endDate, Locale locale) {
+        DateTimeFormatter dayFormatter = DateTimeFormatter.ofPattern("d", locale);
+        return "W" + weekNumber + " (" + startDate.format(dayFormatter) + "–" + endDate.format(dayFormatter) + ")";
+    }
+
+    private List<PeriodBucket> buildYearMonthBuckets(LocalDate today, ZonedDateTime now, Locale locale) {
+        int year = today.getYear();
+        return IntStream.rangeClosed(1, 12)
+                .mapToObj(monthNumber -> {
+                    Month month = Month.of(monthNumber);
+                    YearMonth yearMonth = YearMonth.of(year, month);
+                    LocalDate monthStartDate = yearMonth.atDay(1);
+                    LocalDate monthEndExclusiveDate = monthStartDate.plusMonths(1);
+                    Instant startInclusive = monthStartDate.atStartOfDay(zoneId).toInstant();
+                    Instant endExclusive;
+                    if (yearMonth.getYear() == today.getYear() && yearMonth.getMonthValue() == today.getMonthValue()) {
+                        endExclusive = now.toInstant();
+                    } else if (monthStartDate.isAfter(today)) {
+                        endExclusive = startInclusive;
+                    } else {
+                        endExclusive = monthEndExclusiveDate.atStartOfDay(zoneId).toInstant();
+                    }
+                    String label = month.getDisplayName(TextStyle.SHORT, locale);
+                    return new PeriodBucket(label, startInclusive, endExclusive);
+                })
+                .collect(Collectors.toList());
+    }
+
+    private List<PeriodBucket> buildAllTimeYearBuckets(ZonedDateTime now) {
+        int currentYear = now.getYear();
+        int earliestYear = collectActiveIntervals().stream()
+                .map(activityInterval -> toLocalDate(activityInterval.getStartInstant()).getYear())
+                .min(Integer::compareTo)
+                .orElse(currentYear);
+        return IntStream.rangeClosed(earliestYear, currentYear)
+                .mapToObj(year -> {
+                    LocalDate yearStartDate = LocalDate.of(year, 1, 1);
+                    Instant startInclusive = yearStartDate.atStartOfDay(zoneId).toInstant();
+                    Instant endExclusive = year == currentYear
+                            ? now.toInstant()
+                            : yearStartDate.plusYears(1).atStartOfDay(zoneId).toInstant();
+                    return new PeriodBucket(String.valueOf(year), startInclusive, endExclusive);
+                })
+                .collect(Collectors.toList());
+    }
+
     private InstantRange resolveInstantRange(StatsPeriod statsPeriod) {
         ZonedDateTime now = ZonedDateTime.now(zoneId);
+        LocalDate today = now.toLocalDate();
         return switch (statsPeriod) {
             case DAY -> new InstantRange(
-                    now.toLocalDate().atStartOfDay(zoneId).toInstant(),
+                    today.atStartOfDay(zoneId).toInstant(),
                     now.toInstant()
             );
-            case WEEK -> new InstantRange(
-                    now.toLocalDate().minusDays(6).atStartOfDay(zoneId).toInstant(),
-                    now.toInstant()
-            );
+            case WEEK -> {
+                LocalDate weekStartDate = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+                yield new InstantRange(
+                        weekStartDate.atStartOfDay(zoneId).toInstant(),
+                        now.toInstant()
+                );
+            }
             case MONTH -> new InstantRange(
-                    now.toLocalDate().minusDays(29).atStartOfDay(zoneId).toInstant(),
+                    today.withDayOfMonth(1).atStartOfDay(zoneId).toInstant(),
                     now.toInstant()
             );
             case YEAR -> new InstantRange(
-                    now.toLocalDate().minusDays(364).atStartOfDay(zoneId).toInstant(),
+                    LocalDate.of(today.getYear(), 1, 1).atStartOfDay(zoneId).toInstant(),
                     now.toInstant()
             );
             case ALL_TIME -> new InstantRange(Instant.EPOCH, now.toInstant());

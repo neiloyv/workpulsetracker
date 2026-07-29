@@ -11,10 +11,16 @@ public final class WindowInfo {
 
     private final String processName;
     private final String windowTitle;
+    private final String processImagePath;
 
     public WindowInfo(String processName, String windowTitle) {
+        this(processName, windowTitle, null);
+    }
+
+    public WindowInfo(String processName, String windowTitle, String processImagePath) {
         this.processName = StringUtils.isNotBlank(processName) ? processName.trim() : "unknown";
         this.windowTitle = StringUtils.isNotBlank(windowTitle) ? windowTitle.trim() : "";
+        this.processImagePath = StringUtils.isNotBlank(processImagePath) ? processImagePath.trim() : null;
     }
 
     public String getProcessName() {
@@ -23,6 +29,10 @@ public final class WindowInfo {
 
     public String getWindowTitle() {
         return windowTitle;
+    }
+
+    public String getProcessImagePath() {
+        return processImagePath;
     }
 
     public boolean isSameWindow(WindowInfo otherWindowInfo) {

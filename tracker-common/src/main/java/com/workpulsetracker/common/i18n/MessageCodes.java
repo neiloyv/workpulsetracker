@@ -15,6 +15,7 @@ public final class MessageCodes {
     public static final String UI_APP_TITLE = "ui.app.title";
     public static final String UI_TAB_MAIN = "ui.tab.main";
     public static final String UI_TAB_STATISTICS = "ui.tab.statistics";
+    public static final String UI_TAB_SETTINGS = "ui.tab.settings";
 
     public static final String UI_MAIN_WORK_TIME = "ui.main.work.time";
     public static final String UI_MAIN_START = "ui.main.start";
@@ -28,6 +29,10 @@ public final class MessageCodes {
     public static final String UI_MAIN_SYNC_DISABLED_TOOLTIP = "ui.main.sync.disabled.tooltip";
     public static final String UI_MAIN_SYNC_NOT_IMPLEMENTED = "ui.main.sync.not.implemented";
 
+    public static final String UI_TABLE_APPLICATION = "ui.table.application";
+    public static final String UI_TABLE_TIME = "ui.table.time";
+    public static final String UI_TABLE_PERCENT = "ui.table.percent";
+
     public static final String UI_STATS_PERIOD = "ui.stats.period";
     public static final String UI_STATS_PERIOD_DAY = "ui.stats.period.day";
     public static final String UI_STATS_PERIOD_WEEK = "ui.stats.period.week";
@@ -37,7 +42,28 @@ public final class MessageCodes {
     public static final String UI_STATS_TOTAL = "ui.stats.total";
     public static final String UI_STATS_BY_DAY = "ui.stats.by.day";
     public static final String UI_STATS_BY_APP = "ui.stats.by.app";
+    public static final String UI_STATS_MATRIX = "ui.stats.matrix";
     public static final String UI_STATS_EMPTY = "ui.stats.empty";
+    public static final String UI_STATS_OTHERS = "ui.stats.others";
+    public static final String UI_STATS_DOWNLOAD_REPORT = "ui.stats.download.report";
+    public static final String UI_STATS_DOWNLOAD_FORMAT = "ui.stats.download.format";
+    public static final String UI_STATS_DOWNLOAD_FORMAT_EXCEL = "ui.stats.download.format.excel";
+    public static final String UI_STATS_DOWNLOAD_FORMAT_PDF = "ui.stats.download.format.pdf";
+    public static final String UI_STATS_DOWNLOAD_SUCCESS = "ui.stats.download.success";
+    public static final String UI_STATS_DOWNLOAD_FAILED = "ui.stats.download.failed";
+
+    public static final String UI_SETTINGS_TITLE = "ui.settings.title";
+    public static final String UI_SETTINGS_LANGUAGE = "ui.settings.language";
+    public static final String UI_SETTINGS_LANGUAGE_EN = "ui.settings.language.en";
+    public static final String UI_SETTINGS_LANGUAGE_UK = "ui.settings.language.uk";
+    public static final String UI_SETTINGS_AUTO_START = "ui.settings.auto.start";
+    public static final String UI_SETTINGS_AUTO_START_HINT = "ui.settings.auto.start.hint";
+    public static final String UI_SETTINGS_MINOR_THRESHOLD = "ui.settings.minor.threshold";
+    public static final String UI_SETTINGS_MINOR_THRESHOLD_HINT = "ui.settings.minor.threshold.hint";
+    public static final String UI_SETTINGS_MINOR_THRESHOLD_UNIT = "ui.settings.minor.threshold.unit";
+    public static final String UI_SETTINGS_THEME = "ui.settings.theme";
+    public static final String UI_SETTINGS_THEME_DARK = "ui.settings.theme.dark";
+    public static final String UI_SETTINGS_THEME_LIGHT = "ui.settings.theme.light";
 
     public static final String UI_ACTIVATION_TITLE = "ui.activation.title";
     public static final String UI_ACTIVATION_DESCRIPTION = "ui.activation.description";

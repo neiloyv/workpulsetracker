@@ -1,6 +1,7 @@
 package com.workpulsetracker.agent.ui;
 
 import com.workpulsetracker.agent.stats.ApplicationUsageSummary;
+import com.workpulsetracker.agent.stats.ApplicationUsageFilter;
 import com.workpulsetracker.agent.stats.StatisticsService;
 import com.workpulsetracker.agent.storage.UserSettings;
 import com.workpulsetracker.agent.tracking.TrackingEngine;
@@ -11,23 +12,24 @@ import com.workpulsetracker.common.i18n.Messages;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
-import javax.swing.DefaultListModel;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JLabel;
-import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JTable;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
+import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Objects;
 
 /**
- * Главная вкладка: Start/Pause, время работы, приложения за сегодня, отправка на сервер.
+ * Главная вкладка: Start/Pause, время работы, таблица приложений за сегодня, отправка на сервер.
  */
 public final class MainPanel extends JPanel {
 
@@ -38,10 +40,12 @@ public final class MainPanel extends JPanel {
     private final JLabel workTimeCaptionLabel = new JLabel();
     private final JLabel workTimeValueLabel = new JLabel("0:00:00");
     private final JLabel statusValueLabel = new JLabel();
+    private final JLabel applicationsCaptionLabel = new JLabel();
     private final JButton startPauseButton = new JButton();
     private final JButton syncButton = new JButton();
-    private final DefaultListModel<String> applicationListModel = new DefaultListModel<>();
-    private final JList<String> applicationList = new JList<>(applicationListModel);
+    private final ApplicationUsageTableModel applicationUsageTableModel = new ApplicationUsageTableModel();
+    private final JTable applicationUsageTable = new JTable(applicationUsageTableModel);
+    private final JPanel applicationsPanel = new JPanel(new BorderLayout(4, 8));
 
     public MainPanel(
             TrackingEngine trackingEngine,
@@ -63,7 +67,9 @@ public final class MainPanel extends JPanel {
         heroPanel.setOpaque(false);
         heroPanel.setLayout(new BoxLayout(heroPanel, BoxLayout.Y_AXIS));
 
-        workTimeCaptionLabel.setText(Messages.get(MessageCodes.UI_MAIN_WORK_TIME));
+        JLabel logoLabel = createLogoLabel();
+        logoLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
         workTimeCaptionLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         workTimeCaptionLabel.setHorizontalAlignment(SwingConstants.CENTER);
         UiTheme.styleMutedLabel(workTimeCaptionLabel);
@@ -80,13 +86,13 @@ public final class MainPanel extends JPanel {
         startPauseButton.addActionListener(actionEvent -> onStartPauseClicked());
         UiTheme.stylePrimaryButton(startPauseButton);
 
-        syncButton.setText(Messages.get(MessageCodes.UI_MAIN_SYNC));
         syncButton.setAlignmentX(Component.CENTER_ALIGNMENT);
         syncButton.setMaximumSize(new Dimension(220, 40));
         syncButton.addActionListener(actionEvent -> onSyncClicked());
         UiTheme.styleSecondaryButton(syncButton);
 
-        heroPanel.add(Box.createVerticalStrut(8));
+        heroPanel.add(logoLabel);
+        heroPanel.add(Box.createVerticalStrut(12));
         heroPanel.add(workTimeCaptionLabel);
         heroPanel.add(Box.createVerticalStrut(8));
         heroPanel.add(workTimeValueLabel);
@@ -97,16 +103,65 @@ public final class MainPanel extends JPanel {
         heroPanel.add(Box.createVerticalStrut(10));
         heroPanel.add(syncButton);
 
-        JPanel applicationsPanel = new JPanel(new BorderLayout(4, 8));
         UiTheme.styleSurfaceCard(applicationsPanel);
-        JLabel applicationsCaptionLabel = new JLabel(Messages.get(MessageCodes.UI_MAIN_APPLICATIONS_TODAY));
         UiTheme.styleMutedLabel(applicationsCaptionLabel);
-        applicationList.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
+        UiTheme.styleUsageTable(applicationUsageTable);
+        ApplicationUsageTableModel.configureColumnWidths(applicationUsageTable);
+        ApplicationUsageTableModel.configureColumnAlignment(applicationUsageTable);
         applicationsPanel.add(applicationsCaptionLabel, BorderLayout.NORTH);
-        applicationsPanel.add(new JScrollPane(applicationList), BorderLayout.CENTER);
+        applicationsPanel.add(new JScrollPane(applicationUsageTable), BorderLayout.CENTER);
 
         add(heroPanel, BorderLayout.NORTH);
         add(applicationsPanel, BorderLayout.CENTER);
+        retranslate();
+        applyAutoStartSetting(userSettings.isAutoStartTracking());
+    }
+
+    private JLabel createLogoLabel() {
+        ImageIcon logoIcon = UiImages.loadLogoIcon(44);
+        JLabel logoLabel = new JLabel();
+        if (Objects.nonNull(logoIcon)) {
+            logoLabel.setIcon(logoIcon);
+            logoLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        } else {
+            logoLabel.setText(Messages.get(MessageCodes.UI_APP_TITLE));
+            logoLabel.setForeground(UiTheme.TEXT_PRIMARY);
+            logoLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        }
+        return logoLabel;
+    }
+
+    public void retranslate() {
+        workTimeCaptionLabel.setText(Messages.get(MessageCodes.UI_MAIN_WORK_TIME));
+        applicationsCaptionLabel.setText(Messages.get(MessageCodes.UI_MAIN_APPLICATIONS_TODAY));
+        syncButton.setText(Messages.get(MessageCodes.UI_MAIN_SYNC));
+        applicationUsageTableModel.retranslate();
+        ApplicationUsageTableModel.configureColumnWidths(applicationUsageTable);
+        ApplicationUsageTableModel.configureColumnAlignment(applicationUsageTable);
+        refresh();
+    }
+
+    public void applyTheme() {
+        setBackground(UiTheme.BACKGROUND);
+        UiTheme.styleSurfaceCard(applicationsPanel);
+        UiTheme.styleMutedLabel(workTimeCaptionLabel);
+        UiTheme.styleMutedLabel(statusValueLabel);
+        UiTheme.styleMutedLabel(applicationsCaptionLabel);
+        UiTheme.styleTimerLabel(workTimeValueLabel);
+        UiTheme.styleUsageTable(applicationUsageTable);
+        ApplicationUsageTableModel.configureColumnAlignment(applicationUsageTable);
+        UiTheme.styleSecondaryButton(syncButton);
+        refresh();
+    }
+
+    public void applyAutoStartSetting(boolean autoStartTracking) {
+        startPauseButton.setVisible(!autoStartTracking);
+        if (autoStartTracking && !trackingEngine.isTrackingEnabled()) {
+            trackingEngine.startTracking();
+        }
+        revalidate();
+        repaint();
+        refresh();
     }
 
     public void refresh() {
@@ -144,20 +199,20 @@ public final class MainPanel extends JPanel {
                         : Messages.get(MessageCodes.UI_MAIN_SYNC_DISABLED_TOOLTIP)
         );
 
-        List<String> applicationLines = statisticsService.buildTodayApplicationUsage().stream()
-                .map(this::formatApplicationUsageLine)
-                .collect(Collectors.toList());
-        applicationListModel.clear();
-        applicationLines.forEach(applicationListModel::addElement);
-        if (applicationListModel.isEmpty()) {
-            applicationListModel.addElement(Messages.get(MessageCodes.UI_MAIN_NO_APPLICATIONS));
+        List<ApplicationUsageSummary> applicationUsageSummaries = ApplicationUsageFilter.groupMinorApplications(
+                statisticsService.buildTodayApplicationUsage(),
+                userSettings.getMinorUsageThresholdMinutes()
+        );
+        applicationUsageTableModel.setRows(applicationUsageSummaries, todayActiveSeconds);
+        if (applicationUsageTableModel.isEmpty()) {
+            applicationUsageTableModel.setRows(
+                    Collections.singletonList(
+                            new ApplicationUsageSummary(Messages.get(MessageCodes.UI_MAIN_NO_APPLICATIONS), 0L)
+                    ),
+                    0L
+            );
         }
-    }
-
-    private String formatApplicationUsageLine(ApplicationUsageSummary applicationUsageSummary) {
-        return applicationUsageSummary.getApplicationName()
-                + " — "
-                + DurationFormatter.formatSeconds(applicationUsageSummary.getDurationSeconds());
+        ApplicationUsageTableModel.configureColumnAlignment(applicationUsageTable);
     }
 
     private void onStartPauseClicked() {

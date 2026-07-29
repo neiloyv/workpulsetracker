@@ -2,6 +2,7 @@ package com.workpulsetracker.agent;
 
 import com.workpulsetracker.agent.buffer.DataBuffer;
 import com.workpulsetracker.agent.config.AgentConfig;
+import com.workpulsetracker.agent.icons.ApplicationIconService;
 import com.workpulsetracker.agent.stats.StatisticsService;
 import com.workpulsetracker.agent.storage.ActivityStore;
 import com.workpulsetracker.agent.storage.UserSettings;
@@ -50,6 +51,7 @@ public final class TrackerAgentApplication {
             userSettings.setLanguageCode(agentConfig.getLanguage().getCode());
         }
         UserLocaleContext.setLanguage(userSettings.getLanguage());
+        ApplicationIconService.getInstance().load();
 
         ActivityStore activityStore = new ActivityStore();
         activityStore.load();
@@ -70,6 +72,7 @@ public final class TrackerAgentApplication {
                 trackingEngine,
                 statisticsService,
                 userSettings,
+                userSettingsStore,
                 exitAction
         );
         trackerMainFrameHolder[0] = trackerMainFrame;
@@ -96,6 +99,10 @@ public final class TrackerAgentApplication {
         }, "tracker-agent-shutdown"));
 
         trackerMainFrame.setVisible(true);
+        if (userSettings.isAutoStartTracking()) {
+            trackingEngine.startTracking();
+            trackerMainFrame.refreshPanels();
+        }
         logger.info("tracker-agent UI started");
     }
 

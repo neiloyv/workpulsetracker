@@ -15,4 +15,22 @@ public final class DurationFormatter {
         long seconds = safeSeconds % 60L;
         return String.format("%d:%02d:%02d", hours, minutes, seconds);
     }
+
+    /**
+     * Формат для статистики: часы:минуты без секунд.
+     */
+    public static String formatHoursMinutes(long totalSeconds) {
+        long safeSeconds = Math.max(totalSeconds, 0L);
+        long hours = safeSeconds / 3600L;
+        long minutes = (safeSeconds % 3600L) / 60L;
+        return String.format("%d:%02d", hours, minutes);
+    }
+
+    /**
+     * Формат ячейки статистики: {@code H:MM (N%)}.
+     */
+    public static String formatHoursMinutesWithPercent(long durationSeconds, long totalActiveSeconds) {
+        int percentage = PercentageCalculator.calculatePercentage(durationSeconds, totalActiveSeconds);
+        return formatHoursMinutes(durationSeconds) + " (" + percentage + "%)";
+    }
 }

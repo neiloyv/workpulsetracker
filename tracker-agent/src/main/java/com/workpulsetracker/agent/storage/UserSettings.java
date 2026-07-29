@@ -14,6 +14,8 @@ public final class UserSettings {
     private String activationKey;
     private boolean localOnly = true;
     private boolean setupCompleted;
+    private boolean autoStartTracking;
+    private Integer minorUsageThresholdMinutes = 5;
 
     public String getLanguageCode() {
         return languageCode;
@@ -58,6 +60,25 @@ public final class UserSettings {
 
     public void setSetupCompleted(boolean setupCompleted) {
         this.setupCompleted = setupCompleted;
+    }
+
+    public boolean isAutoStartTracking() {
+        return autoStartTracking;
+    }
+
+    public void setAutoStartTracking(boolean autoStartTracking) {
+        this.autoStartTracking = autoStartTracking;
+    }
+
+    public int getMinorUsageThresholdMinutes() {
+        if (Objects.isNull(minorUsageThresholdMinutes) || minorUsageThresholdMinutes < 0) {
+            return 5;
+        }
+        return minorUsageThresholdMinutes;
+    }
+
+    public void setMinorUsageThresholdMinutes(int minorUsageThresholdMinutes) {
+        this.minorUsageThresholdMinutes = Math.max(minorUsageThresholdMinutes, 0);
     }
 
     public void applyLocalOnlyMode() {

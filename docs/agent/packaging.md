@@ -41,6 +41,27 @@ java -jar tracker-agent\build\libs\tracker-agent-0.1.0-SNAPSHOT-all.jar
 
 ---
 
+## 4) Portable (app-image) — без установки
+Папка с приложением и встроенной Java runtime. Java на машине не нужна.  
+Удобно для тестов: скопировал папку → запустил → удалил.
+
+```powershell
+.\gradlew :tracker-agent:jpackagePortable
+```
+
+Результат: `tracker-agent\build\jpackage-portable\`  
+На Windows внутри — папка приложения и `.exe` (имя как у `WorkPulseTracker Agent`).
+
+Запуск: двойной клик по `.exe` или из консоли:
+
+```powershell
+& "tracker-agent\build\jpackage-portable\WorkPulseTracker Agent\WorkPulseTracker Agent.exe"
+```
+
+Данные по-прежнему пишутся в `%USERPROFILE%\.workpulsetracker\` (не внутрь portable-папки).
+
+---
+
 ## Кратко
 
 | Цель | Команда |
@@ -48,8 +69,9 @@ java -jar tracker-agent\build\libs\tracker-agent-0.1.0-SNAPSHOT-all.jar
 | Разработка / проверка UI | `.\gradlew :tracker-agent:run` |
 | Готовый jar | `shadowJar` → `java -jar ...` |
 | Установщик Windows | `.\gradlew :tracker-agent:jpackageNative` |
+| Portable (без установки) | `.\gradlew :tracker-agent:jpackagePortable` |
 
 ## Связь с веб-лендингом
 Ссылки скачивания на сайте (`GET /api/downloads`) пока-заглушки из `.env`:
 `DOWNLOAD_WINDOWS_URL`, `DOWNLOAD_MACOS_URL`, `DOWNLOAD_LINUX_URL`.
-Позже сюда можно подставить артефакты `jpackageNative` / CI.
+Позже сюда можно подставить артефакты `jpackageNative` / `jpackagePortable` / CI.

@@ -12,6 +12,8 @@ dependencies {
     implementation("org.apache.commons:commons-lang3:3.17.0")
     implementation("com.google.code.gson:gson:2.11.0")
     implementation("com.formdev:flatlaf:3.5.4")
+    implementation("org.apache.poi:poi-ooxml:5.3.0")
+    implementation("com.github.librepdf:openpdf:1.3.43")
     implementation("org.slf4j:slf4j-api:2.0.16")
     implementation("ch.qos.logback:logback-classic:1.5.12")
 
@@ -49,10 +51,12 @@ tasks.build {
  * 1) shadowJar — один Fat JAR, запускается на Windows/macOS/Linux при наличии JDK/JRE 17+.
  * 2) jpackageNative — нативный установщик ТОЛЬКО для той ОС, на которой запускаешь задачу
  *    (Windows → .msi/.exe, macOS → .dmg/.pkg, Linux → .deb/.rpm).
- *    Кросс-компиляции у jpackage нет: Windows-установщик собирай на Windows и т.д.
+ * 3) jpackagePortable — portable app-image (папка с .exe/.app и встроенной runtime, без установки).
+ *    Кросс-компиляции у jpackage нет: Windows-артефакты собирай на Windows и т.д.
  */
 val jpackageInputDirectory = layout.buildDirectory.dir("jpackage-input")
 val jpackageOutputDirectory = layout.buildDirectory.dir("jpackage")
+val jpackagePortableOutputDirectory = layout.buildDirectory.dir("jpackage-portable")
 
 tasks.register<Copy>("prepareJpackageInput") {
     group = "distribution"
@@ -62,6 +66,28 @@ tasks.register<Copy>("prepareJpackageInput") {
     into(jpackageInputDirectory)
     rename { "tracker-agent.jar" }
 }
+
+fun jpackageExecutablePath(): String {
+    val operatingSystemName = System.getProperty("os.name").lowercase()
+    val javaHome = System.getProperty("java.home")
+    return if (operatingSystemName.contains("win")) {
+        "$javaHome\\bin\\jpackage.exe"
+    } else {
+        "$javaHome/bin/jpackage"
+    }
+}
+
+fun jpackageCommonArgs(packageType: String, destinationDirectory: java.io.File): List<String> = listOf(
+    "--name", appDisplayName,
+    "--app-version", packagedAppVersion,
+    "--vendor", appVendor,
+    "--input", jpackageInputDirectory.get().asFile.absolutePath,
+    "--main-jar", "tracker-agent.jar",
+    "--main-class", "com.workpulsetracker.agent.TrackerAgentApplication",
+    "--type", packageType,
+    "--dest", destinationDirectory.absolutePath,
+    "--description", "Local automatic time tracker agent"
+)
 
 tasks.register<Exec>("jpackageNative") {
     group = "distribution"
@@ -75,13 +101,6 @@ tasks.register<Exec>("jpackageNative") {
         else -> "deb"
     }
 
-    val javaHome = System.getProperty("java.home")
-    val jpackageExecutable = if (operatingSystemName.contains("win")) {
-        "$javaHome\\bin\\jpackage.exe"
-    } else {
-        "$javaHome/bin/jpackage"
-    }
-
     doFirst {
         val outputDirectory = jpackageOutputDirectory.get().asFile
         outputDirectory.mkdirs()
@@ -93,18 +112,25 @@ tasks.register<Exec>("jpackageNative") {
         )
     }
 
-    executable = jpackageExecutable
-    args(
-        listOf(
-            "--name", appDisplayName,
-            "--app-version", packagedAppVersion,
-            "--vendor", appVendor,
-            "--input", jpackageInputDirectory.get().asFile.absolutePath,
-            "--main-jar", "tracker-agent.jar",
-            "--main-class", "com.workpulsetracker.agent.TrackerAgentApplication",
-            "--type", packageType,
-            "--dest", jpackageOutputDirectory.get().asFile.absolutePath,
-            "--description", "Local automatic time tracker agent"
+    executable = jpackageExecutablePath()
+    args(jpackageCommonArgs(packageType, jpackageOutputDirectory.get().asFile))
+}
+
+tasks.register<Exec>("jpackagePortable") {
+    group = "distribution"
+    description = "Собирает portable app-image агента (папка с приложением и runtime, без установщика)"
+    dependsOn("prepareJpackageInput")
+
+    doFirst {
+        val outputDirectory = jpackagePortableOutputDirectory.get().asFile
+        outputDirectory.mkdirs()
+        logger.lifecycle(
+            "jpackage: type=app-image, input={}, output={}",
+            jpackageInputDirectory.get().asFile,
+            outputDirectory
         )
-    )
+    }
+
+    executable = jpackageExecutablePath()
+    args(jpackageCommonArgs("app-image", jpackagePortableOutputDirectory.get().asFile))
 }

@@ -37,6 +37,7 @@ public final class ActivationDialog extends JDialog {
         setLocationRelativeTo(ownerFrame);
         buildContent();
         pack();
+        UiTheme.installRoundedWindowCorners(this);
     }
 
     private void buildContent() {

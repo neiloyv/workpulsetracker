@@ -6,12 +6,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.awt.AWTException;
-import java.awt.Image;
 import java.awt.MenuItem;
 import java.awt.PopupMenu;
 import java.awt.SystemTray;
 import java.awt.TrayIcon;
-import java.awt.image.BufferedImage;
 import java.util.Objects;
 
 /**
@@ -45,7 +43,7 @@ public final class TrayService {
             popupMenu.add(exitMenuItem);
 
             trayIcon = new TrayIcon(
-                    createTrayImage(),
+                    UiImages.loadTrayIconImage(32),
                     Messages.get(MessageCodes.UI_APP_TITLE),
                     popupMenu
             );
@@ -64,14 +62,16 @@ public final class TrayService {
         }
     }
 
-    private Image createTrayImage() {
-        BufferedImage bufferedImage = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
-        for (int x = 0; x < 16; x++) {
-            for (int y = 0; y < 16; y++) {
-                boolean border = x == 0 || y == 0 || x == 15 || y == 15;
-                bufferedImage.setRGB(x, y, border ? 0xFF1F6FEB : 0xFF58A6FF);
-            }
+    public void retranslate() {
+        if (Objects.isNull(trayIcon)) {
+            return;
         }
-        return bufferedImage;
+        trayIcon.setToolTip(Messages.get(MessageCodes.UI_APP_TITLE));
+        PopupMenu popupMenu = trayIcon.getPopupMenu();
+        if (Objects.isNull(popupMenu) || popupMenu.getItemCount() < 2) {
+            return;
+        }
+        popupMenu.getItem(0).setLabel(Messages.get(MessageCodes.UI_TRAY_OPEN));
+        popupMenu.getItem(1).setLabel(Messages.get(MessageCodes.UI_TRAY_EXIT));
     }
 }

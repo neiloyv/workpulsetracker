@@ -24,4 +24,8 @@ public final class LocalDataDirectory {
     public static Path getIntervalsFilePath() {
         return getRootPath().resolve("intervals.json");
     }
+
+    public static Path getExecutablePathsFilePath() {
+        return getRootPath().resolve("executable-paths.json");
+    }
 }

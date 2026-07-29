@@ -2,6 +2,7 @@ package com.workpulsetracker.agent.ui;
 
 import com.workpulsetracker.agent.stats.StatisticsService;
 import com.workpulsetracker.agent.storage.UserSettings;
+import com.workpulsetracker.agent.storage.UserSettingsStore;
 import com.workpulsetracker.agent.tracking.TrackingEngine;
 import com.workpulsetracker.common.i18n.MessageCodes;
 import com.workpulsetracker.common.i18n.Messages;
@@ -23,6 +24,8 @@ public final class TrackerMainFrame extends JFrame {
 
     private final MainPanel mainPanel;
     private final StatisticsPanel statisticsPanel;
+    private final SettingsPanel settingsPanel;
+    private final JTabbedPane tabbedPane = new JTabbedPane();
     private final TrayService trayService;
     private final Timer refreshTimer;
     private final Runnable exitAction;
@@ -31,18 +34,28 @@ public final class TrackerMainFrame extends JFrame {
             TrackingEngine trackingEngine,
             StatisticsService statisticsService,
             UserSettings userSettings,
+            UserSettingsStore userSettingsStore,
             Runnable exitAction
     ) {
         super(Messages.get(MessageCodes.UI_APP_TITLE));
         this.exitAction = exitAction;
         this.mainPanel = new MainPanel(trackingEngine, statisticsService, userSettings);
-        this.statisticsPanel = new StatisticsPanel(statisticsService);
+        this.statisticsPanel = new StatisticsPanel(statisticsService, userSettings);
+        this.settingsPanel = new SettingsPanel(
+                userSettings,
+                userSettingsStore,
+                appLanguage -> retranslateUi(),
+                this::onAutoStartSettingChanged,
+                this::refreshPanels
+        );
         this.trayService = new TrayService(this, exitAction);
 
         setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
-        setMinimumSize(new Dimension(480, 560));
+        setMinimumSize(new Dimension(1100, 720));
+        setSize(1100, 760);
         getContentPane().setBackground(UiTheme.BACKGROUND);
         setLocationRelativeTo(null);
+        UiTheme.installRoundedWindowCorners(this);
         buildContent();
         wireWindowEvents();
         trayService.install();
@@ -53,14 +66,17 @@ public final class TrackerMainFrame extends JFrame {
     }
 
     private void buildContent() {
-        JTabbedPane tabbedPane = new JTabbedPane();
+        setIconImages(UiImages.loadWindowIconImages());
+
         tabbedPane.addTab(Messages.get(MessageCodes.UI_TAB_MAIN), mainPanel);
         tabbedPane.addTab(Messages.get(MessageCodes.UI_TAB_STATISTICS), statisticsPanel);
+        tabbedPane.addTab(Messages.get(MessageCodes.UI_TAB_SETTINGS), settingsPanel);
         tabbedPane.addChangeListener(changeEvent -> {
             if (tabbedPane.getSelectedComponent() == statisticsPanel) {
                 statisticsPanel.refresh();
             }
         });
+
         getContentPane().setLayout(new BorderLayout());
         getContentPane().add(tabbedPane, BorderLayout.CENTER);
     }
@@ -92,6 +108,21 @@ public final class TrackerMainFrame extends JFrame {
     public void refreshPanels() {
         mainPanel.refresh();
         statisticsPanel.refresh();
+    }
+
+    private void onAutoStartSettingChanged(boolean autoStartTracking) {
+        mainPanel.applyAutoStartSetting(autoStartTracking);
+    }
+
+    public void retranslateUi() {
+        setTitle(Messages.get(MessageCodes.UI_APP_TITLE));
+        tabbedPane.setTitleAt(0, Messages.get(MessageCodes.UI_TAB_MAIN));
+        tabbedPane.setTitleAt(1, Messages.get(MessageCodes.UI_TAB_STATISTICS));
+        tabbedPane.setTitleAt(2, Messages.get(MessageCodes.UI_TAB_SETTINGS));
+        mainPanel.retranslate();
+        statisticsPanel.retranslate();
+        settingsPanel.retranslate();
+        trayService.retranslate();
     }
 
     public void shutdownUi() {
