@@ -71,7 +71,7 @@ export function AgentPage() {
           Подключение трекера
         </h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Ключ уже отправлен на email. Скопируйте его сюда, если письмо не пришло.
+          Скачайте Windows-установщик, установите агент и вставьте access key.
         </p>
       </div>
 
@@ -128,21 +128,42 @@ export function AgentPage() {
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card dark:border-white/10 dark:bg-white/[0.03]">
-          <h2 className="font-display text-base font-semibold text-slate-900 dark:text-white">Как подключить</h2>
+          <h2 className="font-display text-base font-semibold text-slate-900 dark:text-white">
+            Скачать и установить
+          </h2>
           <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-slate-600 dark:text-slate-300">
-            <li>Скачайте агент для вашей ОС</li>
-            <li>Установите и откройте приложение</li>
-            <li>Вставьте access key из письма или скопированный выше</li>
-            <li>Дождитесь статуса «подключен» — данные появятся на дашборде</li>
+            <li>Скачайте Windows MSI-установщик</li>
+            <li>Запустите файл и завершите установку</li>
+            <li>Откройте WorkPulseTracker Agent</li>
+            <li>Вставьте access key и дождитесь статуса «подключен»</li>
           </ol>
 
-          {downloads && (
-            <div className="mt-5 flex flex-wrap gap-2">
-              <DownloadLink href={downloads.windowsUrl} label="Windows" />
-              <DownloadLink href={downloads.macosUrl} label="macOS" />
-              <DownloadLink href={downloads.linuxUrl} label="Linux" />
-            </div>
-          )}
+          <div className="mt-5 flex flex-wrap gap-2">
+            {downloads?.windowsAvailable ? (
+              <a
+                href={downloads.windowsUrl}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-glow transition hover:brightness-110"
+              >
+                <Download className="h-4 w-4" />
+                Скачать для Windows (.msi)
+              </a>
+            ) : (
+              <div className="rounded-xl border border-amber-300/50 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                Windows MSI ещё не опубликован на сервере. Соберите его командой
+                {" "}
+                <code className="rounded bg-black/5 px-1.5 py-0.5 text-xs dark:bg-white/10">
+                  .\gradlew :tracker-agent:publishWindowsMsi
+                </code>
+                {" "}
+                и перезапустите API.
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <SoonBadge label="macOS — скоро" />
+            <SoonBadge label="Linux — скоро" />
+          </div>
         </div>
       </div>
     </div>
@@ -164,17 +185,10 @@ function StatusPill({ ok, label }: { ok: boolean; label: string }) {
   );
 }
 
-function DownloadLink({ href, label }: { href: string; label: string }) {
-  if (!href) {
-    return null;
-  }
+function SoonBadge({ label }: { label: string }) {
   return (
-    <a
-      href={href}
-      className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3.5 py-2 text-sm font-semibold text-slate-600 transition hover:border-brand-400 hover:text-brand-600 dark:border-white/10 dark:text-slate-300 dark:hover:text-brand-300"
-    >
-      <Download className="h-4 w-4" />
+    <span className="inline-flex items-center rounded-xl border border-slate-200 px-3.5 py-2 text-sm font-semibold text-slate-400 dark:border-white/10 dark:text-slate-500">
       {label}
-    </a>
+    </span>
   );
 }

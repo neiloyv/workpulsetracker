@@ -2,7 +2,10 @@ package com.workpulsetracker.server.web.dto;
 
 public record DownloadsResponse(
         String windowsUrl,
+        boolean windowsAvailable,
         String macosUrl,
-        String linuxUrl
+        boolean macosAvailable,
+        String linuxUrl,
+        boolean linuxAvailable
 ) {
 }

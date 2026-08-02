@@ -38,6 +38,10 @@ logs/
 tracker-ui/node_modules/
 tracker-ui/dist/
 
+# Published agent installers (built locally / CI)
+downloads/*
+!downloads/.gitkeep
+
 # Android (future)
 tracker-android/.gradle/
 tracker-android/local.properties
