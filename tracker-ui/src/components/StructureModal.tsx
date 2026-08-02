@@ -123,7 +123,7 @@ export function StructureModal({ open, onClose }: StructureModalProps) {
                       value={newDepartmentName}
                       onChange={(e) => setNewDepartmentName(e.target.value)}
                       placeholder="Название отдела"
-                      className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm outline-none focus:border-brand-500 dark:border-white/10 dark:bg-white/5 dark:text-white"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm outline-none focus:border-brand-500 dark:border-white/10 dark:bg-slate-900 dark:text-slate-100"
                     />
                     <button
                       disabled={busy}
@@ -162,7 +162,7 @@ export function StructureModal({ open, onClose }: StructureModalProps) {
               value={newBranchName}
               onChange={(e) => setNewBranchName(e.target.value)}
               placeholder="Название филиала"
-              className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm outline-none focus:border-brand-500 dark:border-white/10 dark:bg-white/5 dark:text-white"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm outline-none focus:border-brand-500 dark:border-white/10 dark:bg-slate-900 dark:text-slate-100"
             />
             <button
               disabled={busy}

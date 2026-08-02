@@ -20,6 +20,19 @@
   --muted: 158 158 181;
 }
 
+/* Native <select> popup: keep readable contrast in dark theme */
+.dark select {
+  color-scheme: dark;
+  background-color: rgb(15 23 42); /* slate-900 */
+  color: rgb(241 245 249); /* slate-100 */
+}
+
+.dark select option,
+.dark select optgroup {
+  background-color: rgb(15 23 42);
+  color: rgb(241 245 249);
+}
+
 * {
   box-sizing: border-box;
 }

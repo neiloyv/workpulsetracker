@@ -42,6 +42,15 @@ npm run dev
 UI: http://localhost:5173  
 API: http://localhost:8080
 
+### Windows-агент (MSI) для скачивания из UI
+На Windows (нужны JDK 17+ с jpackage и WiX):
+
+```powershell
+.\gradlew :tracker-agent:publishWindowsMsi
+```
+
+Файл появится в `downloads/workpulsetracker-agent-windows.msi` и будет доступен на экране **Агент**.
+
 ### Auth
 Email + пароль (без Google). На лендинге: Вход / Регистрация (личный аккаунт или организация).
 

@@ -59,8 +59,11 @@ export type Me = {
 
 export type Downloads = {
   windowsUrl: string;
+  windowsAvailable: boolean;
   macosUrl: string;
+  macosAvailable: boolean;
   linuxUrl: string;
+  linuxAvailable: boolean;
 };
 
 export type DepartmentNode = {

@@ -1,10 +1,10 @@
 package com.workpulsetracker.server.web;
 
-import com.workpulsetracker.server.config.AppProperties;
 import com.workpulsetracker.server.domain.DashboardPeriod;
 import com.workpulsetracker.server.domain.UserAccountEntity;
 import com.workpulsetracker.server.security.AuthUserService;
 import com.workpulsetracker.server.service.DashboardService;
+import com.workpulsetracker.server.service.DownloadsService;
 import com.workpulsetracker.server.service.OrganizationService;
 import com.workpulsetracker.server.service.StructureService;
 import com.workpulsetracker.server.service.WorkerService;
@@ -48,7 +48,7 @@ public class ApiController {
     private final StructureService structureService;
     private final WorkerService workerService;
     private final DashboardService dashboardService;
-    private final AppProperties appProperties;
+    private final DownloadsService downloadsService;
 
     public ApiController(
             AuthUserService authUserService,
@@ -56,14 +56,14 @@ public class ApiController {
             StructureService structureService,
             WorkerService workerService,
             DashboardService dashboardService,
-            AppProperties appProperties
+            DownloadsService downloadsService
     ) {
         this.authUserService = authUserService;
         this.organizationService = organizationService;
         this.structureService = structureService;
         this.workerService = workerService;
         this.dashboardService = dashboardService;
-        this.appProperties = appProperties;
+        this.downloadsService = downloadsService;
     }
 
     @GetMapping("/me")
@@ -215,10 +215,6 @@ public class ApiController {
 
     @GetMapping("/downloads")
     public DownloadsResponse downloads() {
-        return new DownloadsResponse(
-                appProperties.getDownload().getWindowsUrl(),
-                appProperties.getDownload().getMacosUrl(),
-                appProperties.getDownload().getLinuxUrl()
-        );
+        return downloadsService.getDownloads();
     }
 }

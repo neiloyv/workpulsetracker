@@ -134,3 +134,53 @@ tasks.register<Exec>("jpackagePortable") {
     executable = jpackageExecutablePath()
     args(jpackageCommonArgs("app-image", jpackagePortableOutputDirectory.get().asFile))
 }
+
+val publishedWindowsMsiFileName = "workpulsetracker-agent-windows.msi"
+val publishedDownloadsDirectory = rootProject.layout.projectDirectory.dir("downloads")
+
+/**
+ * Собирает Windows MSI через jpackage и кладёт его в корень репо:
+ * downloads/workpulsetracker-agent-windows.msi
+ *
+ * Нужны: Windows + JDK 17+ (jpackage) + WiX Toolset для типа msi.
+ * Затем tracker-server раздаёт файл по URL /downloads/workpulsetracker-agent-windows.msi
+ */
+tasks.register("publishWindowsMsi") {
+    group = "distribution"
+    description = "Собирает Windows MSI и публикует его в downloads/ для веб-скачивания"
+    dependsOn("jpackageNative")
+
+    doLast {
+        val operatingSystemName = System.getProperty("os.name").lowercase()
+        if (!operatingSystemName.contains("win")) {
+            throw GradleException("publishWindowsMsi можно запускать только на Windows (jpackage MSI)")
+        }
+
+        val jpackageDirectory = jpackageOutputDirectory.get().asFile
+        val msiFiles = jpackageDirectory
+            .listFiles()
+            ?.filter { file -> file.isFile && file.extension.equals("msi", ignoreCase = true) }
+            .orEmpty()
+            .sortedByDescending { file -> file.lastModified() }
+
+        if (msiFiles.isEmpty()) {
+            throw GradleException(
+                "MSI не найден в ${jpackageDirectory.absolutePath}. " +
+                    "Проверьте jpackageNative и установку WiX Toolset."
+            )
+        }
+
+        val sourceMsiFile = msiFiles.first()
+        val targetDirectory = publishedDownloadsDirectory.asFile
+        targetDirectory.mkdirs()
+        val targetMsiFile = targetDirectory.resolve(publishedWindowsMsiFileName)
+        sourceMsiFile.copyTo(targetMsiFile, overwrite = true)
+
+        logger.lifecycle(
+            "Published Windows MSI: {} -> {} ({} bytes)",
+            sourceMsiFile.absolutePath,
+            targetMsiFile.absolutePath,
+            targetMsiFile.length()
+        )
+    }
+}

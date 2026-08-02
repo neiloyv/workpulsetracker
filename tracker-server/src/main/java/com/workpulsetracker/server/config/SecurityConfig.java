@@ -72,12 +72,14 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/register").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/downloads").permitAll()
+                        .requestMatchers("/downloads/**").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll()
                 )
                 .exceptionHandling(exceptionHandling -> exceptionHandling.authenticationEntryPoint(
                         (request, response, authenticationException) -> {
-                            if (request.getRequestURI().startsWith("/api/")) {
+                            String requestUri = request.getRequestURI();
+                            if (requestUri.startsWith("/api/")) {
                                 response.setStatus(401);
                                 response.setContentType("application/json");
                                 response.getWriter().write("{\"message\":\"Unauthorized\"}");

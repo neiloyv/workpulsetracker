@@ -127,7 +127,7 @@ export function DashboardPage() {
           <select
             value={departmentId}
             onChange={(e) => setDepartmentId(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-600 outline-none transition focus:border-brand-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-200"
+            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-600 outline-none transition focus:border-brand-500 dark:border-white/10 dark:bg-slate-900 dark:text-slate-100"
           >
             <option value="ALL">Все отделы</option>
             {departmentOptions.map((department) => (
