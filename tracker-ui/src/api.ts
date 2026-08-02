@@ -173,6 +173,28 @@ export type ListFilters = {
   branchId?: string;
 };
 
+export type Manager = {
+  id: number;
+  displayName: string;
+  email: string;
+  role: string;
+  status: string;
+  createdAt: string;
+};
+
+export type CreateManagerPayload = {
+  displayName: string;
+  email: string;
+  password: string;
+};
+
+export type UpdateManagerPayload = {
+  displayName: string;
+  email: string;
+  password?: string;
+  status?: string;
+};
+
 function buildQuery(params: Record<string, string | undefined>): string {
   const search = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
@@ -225,6 +247,24 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(payload)
     }),
+
+  getManagers: (filters: { search?: string } = {}) =>
+    request<Manager[]>(`/api/managers${buildQuery(filters)}`),
+
+  createManager: (payload: CreateManagerPayload) =>
+    request<Manager>("/api/managers", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+
+  updateManager: (id: number, payload: UpdateManagerPayload) =>
+    request<Manager>(`/api/managers/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload)
+    }),
+
+  deleteManager: (id: number) =>
+    request<void>(`/api/managers/${id}`, { method: "DELETE" }),
 
   getWorkerAccessKey: (id: number) =>
     request<{ accessKey: string }>(`/api/workers/${id}/access-key`),

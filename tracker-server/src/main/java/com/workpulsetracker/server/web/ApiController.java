@@ -5,6 +5,7 @@ import com.workpulsetracker.server.domain.DashboardPeriod;
 import com.workpulsetracker.server.domain.UserAccountEntity;
 import com.workpulsetracker.server.security.AuthUserService;
 import com.workpulsetracker.server.service.DashboardService;
+import com.workpulsetracker.server.service.ManagerService;
 import com.workpulsetracker.server.service.OrganizationService;
 import com.workpulsetracker.server.service.StructureService;
 import com.workpulsetracker.server.service.WorkerService;
@@ -13,19 +14,23 @@ import com.workpulsetracker.server.web.dto.AgentInfoResponse;
 import com.workpulsetracker.server.web.dto.AppUsageResponse;
 import com.workpulsetracker.server.web.dto.CreateBranchRequest;
 import com.workpulsetracker.server.web.dto.CreateDepartmentRequest;
+import com.workpulsetracker.server.web.dto.CreateManagerRequest;
 import com.workpulsetracker.server.web.dto.CreateWorkerRequest;
 import com.workpulsetracker.server.web.dto.CreateWorkerResponse;
 import com.workpulsetracker.server.web.dto.DashboardWorkerResponse;
 import com.workpulsetracker.server.web.dto.DownloadsResponse;
+import com.workpulsetracker.server.web.dto.ManagerResponse;
 import com.workpulsetracker.server.web.dto.MeResponse;
 import com.workpulsetracker.server.web.dto.OrganizationResponse;
 import com.workpulsetracker.server.web.dto.OrganizationStatsResponse;
 import com.workpulsetracker.server.web.dto.StructureResponse;
+import com.workpulsetracker.server.web.dto.UpdateManagerRequest;
 import com.workpulsetracker.server.web.dto.UpdateSettingsRequest;
 import com.workpulsetracker.server.web.dto.UpdateWorkerRequest;
 import com.workpulsetracker.server.web.dto.WorkerResponse;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -47,6 +52,7 @@ public class ApiController {
     private final OrganizationService organizationService;
     private final StructureService structureService;
     private final WorkerService workerService;
+    private final ManagerService managerService;
     private final DashboardService dashboardService;
     private final AppProperties appProperties;
 
@@ -55,6 +61,7 @@ public class ApiController {
             OrganizationService organizationService,
             StructureService structureService,
             WorkerService workerService,
+            ManagerService managerService,
             DashboardService dashboardService,
             AppProperties appProperties
     ) {
@@ -62,6 +69,7 @@ public class ApiController {
         this.organizationService = organizationService;
         this.structureService = structureService;
         this.workerService = workerService;
+        this.managerService = managerService;
         this.dashboardService = dashboardService;
         this.appProperties = appProperties;
     }
@@ -181,6 +189,43 @@ public class ApiController {
     ) {
         UserAccountEntity currentUser = authUserService.requireCurrentUser(authentication);
         return dashboardService.getWorkerApps(currentUser, workerId, period);
+    }
+
+    @GetMapping("/managers")
+    public List<ManagerResponse> managers(
+            Authentication authentication,
+            @RequestParam(required = false) String search
+    ) {
+        UserAccountEntity currentUser = authUserService.requireCurrentUser(authentication);
+        return managerService.listManagers(currentUser, search);
+    }
+
+    @PostMapping("/managers")
+    public ManagerResponse createManager(
+            Authentication authentication,
+            @Valid @RequestBody CreateManagerRequest createManagerRequest
+    ) {
+        UserAccountEntity currentUser = authUserService.requireCurrentUser(authentication);
+        return managerService.createManager(currentUser, createManagerRequest);
+    }
+
+    @PutMapping("/managers/{id}")
+    public ManagerResponse updateManager(
+            Authentication authentication,
+            @PathVariable("id") Long managerId,
+            @Valid @RequestBody UpdateManagerRequest updateManagerRequest
+    ) {
+        UserAccountEntity currentUser = authUserService.requireCurrentUser(authentication);
+        return managerService.updateManager(currentUser, managerId, updateManagerRequest);
+    }
+
+    @DeleteMapping("/managers/{id}")
+    public void deleteManager(
+            Authentication authentication,
+            @PathVariable("id") Long managerId
+    ) {
+        UserAccountEntity currentUser = authUserService.requireCurrentUser(authentication);
+        managerService.deleteManager(currentUser, managerId);
     }
 
     @GetMapping("/organization")

@@ -18,5 +18,7 @@ public interface UserAccountRepository extends JpaRepository<UserAccountEntity, 
 
     List<UserAccountEntity> findByOrganizationIdAndRoleOrderByCreatedAtAsc(Long organizationId, UserRole role);
 
+    Optional<UserAccountEntity> findByIdAndOrganizationId(Long id, Long organizationId);
+
     Optional<UserAccountEntity> findByWorkerId(Long workerId);
 }

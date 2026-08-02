@@ -27,7 +27,6 @@ export function AppShell() {
     logout,
     canManageCompany,
     isIndividual,
-    isOwner,
     selectedBranchId,
     setSelectedBranchId,
     structure
@@ -88,6 +87,14 @@ export function AppShell() {
                 icon={Users}
                 label="Сотрудники"
                 active={location.pathname.startsWith("/app/workers")}
+              />
+            )}
+            {showCompanyNav && (
+              <NavTab
+                to="/app/managers"
+                icon={ShieldCheck}
+                label="Менеджеры"
+                active={location.pathname.startsWith("/app/managers")}
               />
             )}
             {showAgentTab && (
@@ -182,16 +189,6 @@ export function AppShell() {
                     }}
                   />
                 )}
-                {isOwner && canManageCompany && (
-                  <AvatarMenuItem
-                    icon={ShieldCheck}
-                    label="Менеджеры"
-                    onClick={() => {
-                      setAvatarOpen(false);
-                      toast("Раздел «Менеджеры» скоро появится", "info");
-                    }}
-                  />
-                )}
                 <AvatarMenuItem
                   icon={CreditCard}
                   label="Оплата и тарифы"
@@ -215,6 +212,14 @@ export function AppShell() {
               icon={Users}
               label="Сотрудники"
               active={location.pathname.startsWith("/app/workers")}
+            />
+          )}
+          {showCompanyNav && (
+            <NavTab
+              to="/app/managers"
+              icon={ShieldCheck}
+              label="Менеджеры"
+              active={location.pathname.startsWith("/app/managers")}
             />
           )}
           {showAgentTab && (

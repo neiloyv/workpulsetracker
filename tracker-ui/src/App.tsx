@@ -7,6 +7,7 @@ import { useTheme } from "./context/ThemeContext";
 import { AgentPage } from "./pages/AgentPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { LandingPage } from "./pages/LandingPage";
+import { ManagersPage } from "./pages/ManagersPage";
 import { WorkersPage } from "./pages/WorkersPage";
 
 function FullscreenLoader() {
@@ -73,6 +74,14 @@ export default function App() {
           element={
             <RequireCompanyManager>
               <WorkersPage />
+            </RequireCompanyManager>
+          }
+        />
+        <Route
+          path="managers"
+          element={
+            <RequireCompanyManager>
+              <ManagersPage />
             </RequireCompanyManager>
           }
         />
