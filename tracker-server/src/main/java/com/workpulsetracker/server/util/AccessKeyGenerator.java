@@ -1,4 +1,4 @@
-package com.workpulsetracker.server.service;
+package com.workpulsetracker.server.util;
 
 import org.apache.commons.lang3.StringUtils;
 

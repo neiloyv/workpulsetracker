@@ -1,5 +1,7 @@
 package com.workpulsetracker.server.domain;
 
+import com.workpulsetracker.server.enums.EntityStatus;
+import com.workpulsetracker.server.enums.UserRole;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

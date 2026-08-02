@@ -1,7 +1,7 @@
 package com.workpulsetracker.server.repository;
 
 import com.workpulsetracker.server.domain.UserAccountEntity;
-import com.workpulsetracker.server.domain.UserRole;
+import com.workpulsetracker.server.enums.UserRole;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

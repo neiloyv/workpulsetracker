@@ -1,12 +1,12 @@
 package com.workpulsetracker.server.service;
 
 import com.workpulsetracker.server.domain.BranchEntity;
-import com.workpulsetracker.server.domain.DashboardPeriod;
+import com.workpulsetracker.server.enums.DashboardPeriod;
 import com.workpulsetracker.server.domain.DepartmentEntity;
 import com.workpulsetracker.server.domain.OrganizationEntity;
-import com.workpulsetracker.server.domain.OrganizationType;
+import com.workpulsetracker.server.enums.OrganizationType;
 import com.workpulsetracker.server.domain.UserAccountEntity;
-import com.workpulsetracker.server.domain.UserRole;
+import com.workpulsetracker.server.enums.UserRole;
 import com.workpulsetracker.server.domain.WorkerEntity;
 import com.workpulsetracker.server.repository.ActivitySampleRepository;
 import com.workpulsetracker.server.repository.BranchRepository;

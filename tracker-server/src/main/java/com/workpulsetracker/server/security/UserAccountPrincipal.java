@@ -1,6 +1,7 @@
 package com.workpulsetracker.server.security;
 
-import com.workpulsetracker.server.domain.UserRole;
+import com.workpulsetracker.server.enums.EntityStatus;
+import com.workpulsetracker.server.enums.UserRole;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -14,12 +15,20 @@ public class UserAccountPrincipal implements UserDetails {
     private final String email;
     private final String passwordHash;
     private final UserRole role;
+    private final EntityStatus status;
 
-    public UserAccountPrincipal(Long id, String email, String passwordHash, UserRole role) {
+    public UserAccountPrincipal(
+            Long id,
+            String email,
+            String passwordHash,
+            UserRole role,
+            EntityStatus status
+    ) {
         this.id = id;
         this.email = email;
         this.passwordHash = passwordHash;
         this.role = role;
+        this.status = status;
     }
 
     public Long getId() {
@@ -62,6 +71,6 @@ public class UserAccountPrincipal implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return status == EntityStatus.ACTIVE;
     }
 }

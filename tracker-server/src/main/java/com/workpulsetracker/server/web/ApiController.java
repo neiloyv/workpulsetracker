@@ -1,9 +1,9 @@
 package com.workpulsetracker.server.web;
 
 import com.workpulsetracker.server.config.AppProperties;
-import com.workpulsetracker.server.domain.DashboardPeriod;
+import com.workpulsetracker.server.enums.DashboardPeriod;
 import com.workpulsetracker.server.domain.UserAccountEntity;
-import com.workpulsetracker.server.security.AuthUserService;
+import com.workpulsetracker.server.service.AuthUserService;
 import com.workpulsetracker.server.service.DashboardService;
 import com.workpulsetracker.server.service.OrganizationService;
 import com.workpulsetracker.server.service.StructureService;

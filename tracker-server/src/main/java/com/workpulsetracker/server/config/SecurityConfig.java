@@ -1,6 +1,6 @@
 package com.workpulsetracker.server.config;
 
-import com.workpulsetracker.server.security.AppUserDetailsService;
+import com.workpulsetracker.server.security.UserAccountDetailsService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -27,11 +27,11 @@ import java.util.List;
 public class SecurityConfig {
 
     private final AppProperties appProperties;
-    private final AppUserDetailsService appUserDetailsService;
+    private final UserAccountDetailsService userAccountDetailsService;
 
-    public SecurityConfig(AppProperties appProperties, AppUserDetailsService appUserDetailsService) {
+    public SecurityConfig(AppProperties appProperties, UserAccountDetailsService userAccountDetailsService) {
         this.appProperties = appProperties;
-        this.appUserDetailsService = appUserDetailsService;
+        this.userAccountDetailsService = userAccountDetailsService;
     }
 
     @Bean
@@ -47,7 +47,7 @@ public class SecurityConfig {
     @Bean
     public DaoAuthenticationProvider daoAuthenticationProvider(PasswordEncoder passwordEncoder) {
         DaoAuthenticationProvider daoAuthenticationProvider = new DaoAuthenticationProvider(passwordEncoder);
-        daoAuthenticationProvider.setUserDetailsService(appUserDetailsService);
+        daoAuthenticationProvider.setUserDetailsService(userAccountDetailsService);
         return daoAuthenticationProvider;
     }
 

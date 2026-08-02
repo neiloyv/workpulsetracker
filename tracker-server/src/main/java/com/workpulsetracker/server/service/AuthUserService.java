@@ -1,26 +1,25 @@
-package com.workpulsetracker.server.security;
+package com.workpulsetracker.server.service;
 
 import com.workpulsetracker.server.domain.BranchEntity;
 import com.workpulsetracker.server.domain.DepartmentEntity;
-import com.workpulsetracker.server.domain.EntityStatus;
 import com.workpulsetracker.server.domain.OrganizationEntity;
-import com.workpulsetracker.server.domain.OrganizationStatus;
-import com.workpulsetracker.server.domain.OrganizationType;
 import com.workpulsetracker.server.domain.SubscriptionEntity;
-import com.workpulsetracker.server.domain.SubscriptionPlan;
-import com.workpulsetracker.server.domain.SubscriptionStatus;
 import com.workpulsetracker.server.domain.UserAccountEntity;
-import com.workpulsetracker.server.domain.UserRole;
 import com.workpulsetracker.server.domain.WorkerEntity;
+import com.workpulsetracker.server.enums.EntityStatus;
+import com.workpulsetracker.server.enums.OrganizationStatus;
+import com.workpulsetracker.server.enums.OrganizationType;
+import com.workpulsetracker.server.enums.SubscriptionPlan;
+import com.workpulsetracker.server.enums.SubscriptionStatus;
+import com.workpulsetracker.server.enums.UserRole;
 import com.workpulsetracker.server.repository.BranchRepository;
 import com.workpulsetracker.server.repository.DepartmentRepository;
 import com.workpulsetracker.server.repository.OrganizationRepository;
 import com.workpulsetracker.server.repository.SubscriptionRepository;
 import com.workpulsetracker.server.repository.UserAccountRepository;
 import com.workpulsetracker.server.repository.WorkerRepository;
-import com.workpulsetracker.server.service.AccessKeyEmailService;
-import com.workpulsetracker.server.service.AccessKeyGenerator;
-import com.workpulsetracker.server.service.OrganizationService;
+import com.workpulsetracker.server.security.UserAccountPrincipal;
+import com.workpulsetracker.server.util.AccessKeyGenerator;
 import com.workpulsetracker.server.web.dto.LoginRequest;
 import com.workpulsetracker.server.web.dto.MeResponse;
 import com.workpulsetracker.server.web.dto.RegisterRequest;
@@ -112,7 +111,7 @@ public class AuthUserService {
 
         UserAccountEntity createdUserAccount = registerRequest.organizationType() == OrganizationType.COMPANY
                 ? registerCompany(registerRequest, email, passwordHash, displayName, now)
-                : registerIndividual(registerRequest, email, passwordHash, displayName, now);
+                : registerIndividual(email, passwordHash, displayName, now);
 
         authenticateAndPersistSession(email, registerRequest.password(), httpServletRequest, httpServletResponse);
         return organizationService.getMe(createdUserAccount);
@@ -174,7 +173,6 @@ public class AuthUserService {
     }
 
     private UserAccountEntity registerIndividual(
-            RegisterRequest registerRequest,
             String email,
             String passwordHash,
             String displayName,
@@ -257,6 +255,9 @@ public class AuthUserService {
         authenticateAndPersistSession(email, loginRequest.password(), httpServletRequest, httpServletResponse);
         UserAccountEntity userAccountEntity = userAccountRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
+        if (userAccountEntity.getStatus() != EntityStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Account is disabled");
+        }
         logger.info("schema={} User logged in {}", schema, email);
         return organizationService.getMe(userAccountEntity);
     }
@@ -269,8 +270,12 @@ public class AuthUserService {
         if (!(principal instanceof UserAccountPrincipal userAccountPrincipal)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
         }
-        return userAccountRepository.findById(userAccountPrincipal.getId())
+        UserAccountEntity userAccountEntity = userAccountRepository.findById(userAccountPrincipal.getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user was not found"));
+        if (userAccountEntity.getStatus() != EntityStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Account is disabled");
+        }
+        return userAccountEntity;
     }
 
     private void authenticateAndPersistSession(
