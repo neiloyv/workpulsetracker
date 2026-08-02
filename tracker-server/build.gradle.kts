@@ -25,3 +25,8 @@ tasks.named<Jar>("jar") {
 tasks.named("bootJar") {
     enabled = true
 }
+
+// Serve repo-root downloads/ via app.download.directory=downloads
+tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
+    workingDir = rootProject.projectDir
+}

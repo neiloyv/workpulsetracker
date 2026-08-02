@@ -50,7 +50,8 @@ cd D:\Projects\workpulsetracker
 ## Main API
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/api/downloads` | Download links |
+| GET | `/api/downloads` | Download links + availability flags |
+| GET | `/downloads/**` | Static installer files from repo `downloads/` |
 | GET/POST | `/api/structure*` | Branches & departments |
 | GET/POST/PUT | `/api/employees*` | Staff registry |
 | GET | `/api/dashboard` | Worker hours (owner: team, member: self) |

@@ -1,9 +1,9 @@
 # Локальный агент — сборка и запуск
 
 ## Требования
-- JDK 17+
-- Корень репозитория: `D:\Projects\workpulsetracker`
-- Если нет `gradlew`: `gradle wrapper`
+- JDK 17+ (с `jpackage`)
+- Для Windows MSI дополнительно: [WiX Toolset](https://wixtoolset.org/) 3.x в `PATH`
+- Корень репозитория: проект WorkPulseTracker
 
 ---
 
@@ -11,7 +11,6 @@
 Окно откроется само (браузер не нужен).
 
 ```powershell
-cd D:\Projects\workpulsetracker
 .\gradlew :tracker-agent:run
 ```
 
@@ -25,40 +24,55 @@ cd D:\Projects\workpulsetracker
 java -jar tracker-agent\build\libs\tracker-agent-0.1.0-SNAPSHOT-all.jar
 ```
 
-Один переносимый `.jar`. Для запуска нужна установленная Java 17+.
-
 ---
 
-## 3) Установщик Windows (.msi) — проба «как после установки»
-Нужен JDK 17+ с утилитой `jpackage`.  
-Собирается **только под ту ОС**, на которой запускаешь задачу.
+## 3) Windows MSI для скачивания с сайта
+
+### Сборка и публикация в `downloads/`
+На **Windows**:
 
 ```powershell
-.\gradlew :tracker-agent:jpackageNative
+.\gradlew :tracker-agent:publishWindowsMsi
 ```
 
-Результат: `tracker-agent\build\jpackage\` (обычно `.msi`).
+Что делает задача:
+1. Собирает Fat JAR
+2. Запускает `jpackage` → `.msi`
+3. Копирует установщик в  
+   `downloads/workpulsetracker-agent-windows.msi`
+
+### Раздача через API
+`tracker-server` раздаёт файлы из папки `downloads/` (корень репо):
+
+- URL файла: `http://localhost:8080/downloads/workpulsetracker-agent-windows.msi`
+- Метаданные: `GET /api/downloads` (`windowsAvailable: true/false`)
+
+UI (экран **Агент**) показывает кнопку «Скачать для Windows», если файл есть.
+
+После публикации MSI перезапустите API, если он уже был запущен:
+
+```powershell
+.\gradlew :tracker-server:bootRun
+```
+
+Vite проксирует `/downloads` → `8080`, поэтому ссылка с `http://localhost:5173` тоже работает.
+
+### Если MSI не собрался
+Частые причины:
+- нет WiX Toolset / не в `PATH`
+- запускаете не на Windows
+- нет JDK с `jpackage`
+
+Проверьте вывод `jpackageNative` в `tracker-agent\build\jpackage\`.
 
 ---
 
 ## 4) Portable (app-image) — без установки
-Папка с приложением и встроенной Java runtime. Java на машине не нужна.  
-Удобно для тестов: скопировал папку → запустил → удалил.
-
 ```powershell
 .\gradlew :tracker-agent:jpackagePortable
 ```
 
-Результат: `tracker-agent\build\jpackage-portable\`  
-На Windows внутри — папка приложения и `.exe` (имя как у `WorkPulseTracker Agent`).
-
-Запуск: двойной клик по `.exe` или из консоли:
-
-```powershell
-& "tracker-agent\build\jpackage-portable\WorkPulseTracker Agent\WorkPulseTracker Agent.exe"
-```
-
-Данные по-прежнему пишутся в `%USERPROFILE%\.workpulsetracker\` (не внутрь portable-папки).
+Результат: `tracker-agent\build\jpackage-portable\`
 
 ---
 
@@ -66,12 +80,9 @@ java -jar tracker-agent\build\libs\tracker-agent-0.1.0-SNAPSHOT-all.jar
 
 | Цель | Команда |
 |---|---|
-| Разработка / проверка UI | `.\gradlew :tracker-agent:run` |
-| Готовый jar | `shadowJar` → `java -jar ...` |
-| Установщик Windows | `.\gradlew :tracker-agent:jpackageNative` |
-| Portable (без установки) | `.\gradlew :tracker-agent:jpackagePortable` |
+| Разработка | `.\gradlew :tracker-agent:run` |
+| Fat JAR | `.\gradlew :tracker-agent:shadowJar` |
+| MSI + публикация для сайта | `.\gradlew :tracker-agent:publishWindowsMsi` |
+| Portable | `.\gradlew :tracker-agent:jpackagePortable` |
 
-## Связь с веб-лендингом
-Ссылки скачивания на сайте (`GET /api/downloads`) пока-заглушки из `.env`:
-`DOWNLOAD_WINDOWS_URL`, `DOWNLOAD_MACOS_URL`, `DOWNLOAD_LINUX_URL`.
-Позже сюда можно подставить артефакты `jpackageNative` / `jpackagePortable` / CI.
+macOS / Linux установщики на сайте пока помечены как «скоро».
