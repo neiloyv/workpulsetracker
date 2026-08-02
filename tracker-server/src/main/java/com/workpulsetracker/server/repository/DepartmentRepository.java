@@ -6,15 +6,18 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
-public interface DepartmentRepository extends JpaRepository<DepartmentEntity, UUID> {
+public interface DepartmentRepository extends JpaRepository<DepartmentEntity, Long> {
 
-    List<DepartmentEntity> findByBranchIdOrderByCreatedAtAsc(UUID branchId);
+    List<DepartmentEntity> findByOrganizationIdOrderByCreatedAtAsc(Long organizationId);
 
-    List<DepartmentEntity> findByBranchIdInOrderByCreatedAtAsc(Collection<UUID> branchIds);
+    List<DepartmentEntity> findByBranchIdOrderByCreatedAtAsc(Long branchId);
 
-    Optional<DepartmentEntity> findByIdAndBranchId(UUID id, UUID branchId);
+    List<DepartmentEntity> findByBranchIdInOrderByCreatedAtAsc(Collection<Long> branchIds);
 
-    boolean existsByBranchIdAndNameIgnoreCase(UUID branchId, String name);
+    Optional<DepartmentEntity> findByIdAndBranchId(Long id, Long branchId);
+
+    Optional<DepartmentEntity> findByOrganizationIdAndIsDefaultTrue(Long organizationId);
+
+    boolean existsByBranchIdAndNameIgnoreCase(Long branchId, String name);
 }

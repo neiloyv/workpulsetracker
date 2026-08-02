@@ -1,15 +1,17 @@
 package com.workpulsetracker.server.service;
 
-import com.workpulsetracker.server.domain.AccountType;
-import com.workpulsetracker.server.domain.AppUserEntity;
 import com.workpulsetracker.server.domain.BranchEntity;
 import com.workpulsetracker.server.domain.DashboardPeriod;
 import com.workpulsetracker.server.domain.DepartmentEntity;
+import com.workpulsetracker.server.domain.OrganizationEntity;
+import com.workpulsetracker.server.domain.OrganizationType;
+import com.workpulsetracker.server.domain.UserAccountEntity;
 import com.workpulsetracker.server.domain.UserRole;
+import com.workpulsetracker.server.domain.WorkerEntity;
 import com.workpulsetracker.server.repository.ActivitySampleRepository;
-import com.workpulsetracker.server.repository.AppUserRepository;
 import com.workpulsetracker.server.repository.BranchRepository;
 import com.workpulsetracker.server.repository.DepartmentRepository;
+import com.workpulsetracker.server.repository.WorkerRepository;
 import com.workpulsetracker.server.web.dto.AppUsageResponse;
 import com.workpulsetracker.server.web.dto.DashboardWorkerResponse;
 import org.apache.commons.lang3.StringUtils;
@@ -28,7 +30,6 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -37,18 +38,21 @@ public class DashboardService {
     private static final Logger logger = LoggerFactory.getLogger(DashboardService.class);
     private static final String schema = "public";
 
-    private final AppUserRepository appUserRepository;
+    private final OrganizationService organizationService;
+    private final WorkerRepository workerRepository;
     private final BranchRepository branchRepository;
     private final DepartmentRepository departmentRepository;
     private final ActivitySampleRepository activitySampleRepository;
 
     public DashboardService(
-            AppUserRepository appUserRepository,
+            OrganizationService organizationService,
+            WorkerRepository workerRepository,
             BranchRepository branchRepository,
             DepartmentRepository departmentRepository,
             ActivitySampleRepository activitySampleRepository
     ) {
-        this.appUserRepository = appUserRepository;
+        this.organizationService = organizationService;
+        this.workerRepository = workerRepository;
         this.branchRepository = branchRepository;
         this.departmentRepository = departmentRepository;
         this.activitySampleRepository = activitySampleRepository;
@@ -56,27 +60,28 @@ public class DashboardService {
 
     @Transactional(readOnly = true)
     public List<DashboardWorkerResponse> getDashboard(
-            AppUserEntity currentUser,
+            UserAccountEntity currentUser,
             String search,
-            UUID branchId,
-            UUID departmentId
+            Long branchId,
+            Long departmentId
     ) {
-        List<AppUserEntity> workers = resolveWorkers(currentUser, search, branchId, departmentId);
+        OrganizationEntity organizationEntity = organizationService.requireOrganization(currentUser);
+        List<WorkerEntity> workers = resolveWorkers(currentUser, organizationEntity, search, branchId, departmentId);
         if (workers.isEmpty()) {
             return List.of();
         }
 
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
         Map<DashboardPeriod, LocalDate> periodStarts = resolvePeriodStarts(today);
-        List<UUID> workerIds = workers.stream().map(AppUserEntity::getId).collect(Collectors.toList());
+        List<Long> workerIds = workers.stream().map(WorkerEntity::getId).collect(Collectors.toList());
 
-        Map<UUID, Long> todaySecondsByUserId = sumSecondsMap(workerIds, periodStarts.get(DashboardPeriod.TODAY), today);
-        Map<UUID, Long> weekSecondsByUserId = sumSecondsMap(workerIds, periodStarts.get(DashboardPeriod.WEEK), today);
-        Map<UUID, Long> monthSecondsByUserId = sumSecondsMap(workerIds, periodStarts.get(DashboardPeriod.MONTH), today);
-        Map<UUID, Long> yearSecondsByUserId = sumSecondsMap(workerIds, periodStarts.get(DashboardPeriod.YEAR), today);
+        Map<Long, Long> todaySecondsByWorkerId = sumSecondsMap(workerIds, periodStarts.get(DashboardPeriod.TODAY), today);
+        Map<Long, Long> weekSecondsByWorkerId = sumSecondsMap(workerIds, periodStarts.get(DashboardPeriod.WEEK), today);
+        Map<Long, Long> monthSecondsByWorkerId = sumSecondsMap(workerIds, periodStarts.get(DashboardPeriod.MONTH), today);
+        Map<Long, Long> yearSecondsByWorkerId = sumSecondsMap(workerIds, periodStarts.get(DashboardPeriod.YEAR), today);
 
-        Map<UUID, String> branchNamesById = loadBranchNames(workers);
-        Map<UUID, String> departmentNamesById = loadDepartmentNames(workers);
+        Map<Long, String> branchNamesById = loadBranchNames(workers);
+        Map<Long, String> departmentNamesById = loadDepartmentNames(workers);
 
         logger.info("schema={} Built dashboard for {} workers", schema, workers.size());
         return workers.stream()
@@ -84,16 +89,12 @@ public class DashboardService {
                         worker.getId(),
                         worker.getDisplayName(),
                         worker.getEmail(),
-                        Objects.nonNull(worker.getDepartmentId())
-                                ? departmentNamesById.get(worker.getDepartmentId())
-                                : null,
-                        Objects.nonNull(worker.getBranchId())
-                                ? branchNamesById.get(worker.getBranchId())
-                                : null,
-                        todaySecondsByUserId.getOrDefault(worker.getId(), 0L),
-                        weekSecondsByUserId.getOrDefault(worker.getId(), 0L),
-                        monthSecondsByUserId.getOrDefault(worker.getId(), 0L),
-                        yearSecondsByUserId.getOrDefault(worker.getId(), 0L),
+                        departmentNamesById.get(worker.getDepartmentId()),
+                        branchNamesById.get(worker.getBranchId()),
+                        todaySecondsByWorkerId.getOrDefault(worker.getId(), 0L),
+                        weekSecondsByWorkerId.getOrDefault(worker.getId(), 0L),
+                        monthSecondsByWorkerId.getOrDefault(worker.getId(), 0L),
+                        yearSecondsByWorkerId.getOrDefault(worker.getId(), 0L),
                         worker.isAgentInstalled(),
                         worker.getAgentVersion()
                 ))
@@ -101,21 +102,21 @@ public class DashboardService {
     }
 
     @Transactional(readOnly = true)
-    public List<AppUsageResponse> getUserApps(
-            AppUserEntity currentUser,
-            UUID userId,
+    public List<AppUsageResponse> getWorkerApps(
+            UserAccountEntity currentUser,
+            Long workerId,
             DashboardPeriod period
     ) {
-        AppUserEntity targetUser = appUserRepository.findById(userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
-        assertCanViewUser(currentUser, targetUser);
+        WorkerEntity targetWorker = workerRepository.findById(workerId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Worker not found"));
+        assertCanViewWorker(currentUser, targetWorker);
 
         DashboardPeriod resolvedPeriod = Objects.nonNull(period) ? period : DashboardPeriod.TODAY;
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
         LocalDate fromDate = resolvePeriodStarts(today).get(resolvedPeriod);
 
         List<ActivitySampleRepository.AppSecondsAggregate> aggregates =
-                activitySampleRepository.sumSecondsByAppForUserAndDateRange(userId, fromDate, today);
+                activitySampleRepository.sumSecondsByAppForWorkerAndDateRange(workerId, fromDate, today);
 
         long totalSeconds = aggregates.stream()
                 .map(ActivitySampleRepository.AppSecondsAggregate::getTotalSeconds)
@@ -137,85 +138,80 @@ public class DashboardService {
                 .collect(Collectors.toList());
     }
 
-    private List<AppUserEntity> resolveWorkers(
-            AppUserEntity currentUser,
+    private List<WorkerEntity> resolveWorkers(
+            UserAccountEntity currentUser,
+            OrganizationEntity organizationEntity,
             String search,
-            UUID branchId,
-            UUID departmentId
+            Long branchId,
+            Long departmentId
     ) {
-        if (currentUser.getAccountType() == AccountType.PERSONAL
-                || Objects.isNull(currentUser.getOrganizationId())
-                || currentUser.getRole() != UserRole.OWNER) {
-            return List.of(currentUser);
+        if (organizationEntity.getType() == OrganizationType.INDIVIDUAL || currentUser.getRole() == UserRole.WORKER) {
+            return resolveOwnWorker(currentUser);
         }
-        List<AppUserEntity> organizationUsers = resolveOrganizationUsers(
-                currentUser.getOrganizationId(),
-                branchId,
-                departmentId
-        );
+        List<WorkerEntity> organizationWorkers = findOrganizationWorkers(organizationEntity.getId(), branchId, departmentId);
         String normalizedSearch = StringUtils.isBlank(search) ? null : search.trim().toLowerCase();
-        return organizationUsers.stream()
-                .filter(appUserEntity -> matchesSearch(appUserEntity, normalizedSearch))
+        return organizationWorkers.stream()
+                .filter(workerEntity -> matchesSearch(workerEntity, normalizedSearch))
                 .collect(Collectors.toList());
     }
 
-    private List<AppUserEntity> resolveOrganizationUsers(
-            UUID organizationId,
-            UUID branchId,
-            UUID departmentId
-    ) {
+    private List<WorkerEntity> resolveOwnWorker(UserAccountEntity currentUser) {
+        if (Objects.isNull(currentUser.getWorkerId())) {
+            return List.of();
+        }
+        return workerRepository.findById(currentUser.getWorkerId())
+                .map(List::of)
+                .orElse(List.of());
+    }
+
+    private List<WorkerEntity> findOrganizationWorkers(Long organizationId, Long branchId, Long departmentId) {
         if (Objects.nonNull(branchId) && Objects.nonNull(departmentId)) {
-            return appUserRepository.findByOrganizationIdAndBranchIdAndDepartmentIdOrderByCreatedAtAsc(
+            return workerRepository.findByOrganizationIdAndBranchIdAndDepartmentIdOrderByCreatedAtAsc(
                     organizationId,
                     branchId,
                     departmentId
             );
         }
         if (Objects.nonNull(branchId)) {
-            return appUserRepository.findByOrganizationIdAndBranchIdOrderByCreatedAtAsc(organizationId, branchId);
+            return workerRepository.findByOrganizationIdAndBranchIdOrderByCreatedAtAsc(organizationId, branchId);
         }
         if (Objects.nonNull(departmentId)) {
-            return appUserRepository.findByOrganizationIdAndDepartmentIdOrderByCreatedAtAsc(
-                    organizationId,
-                    departmentId
-            );
+            return workerRepository.findByOrganizationIdAndDepartmentIdOrderByCreatedAtAsc(organizationId, departmentId);
         }
-        return appUserRepository.findByOrganizationIdOrderByCreatedAtAsc(organizationId);
+        return workerRepository.findByOrganizationIdOrderByCreatedAtAsc(organizationId);
     }
 
-    private static boolean matchesSearch(AppUserEntity appUserEntity, String normalizedSearch) {
+    private static boolean matchesSearch(WorkerEntity workerEntity, String normalizedSearch) {
         if (StringUtils.isBlank(normalizedSearch)) {
             return true;
         }
-        String displayName = StringUtils.defaultString(appUserEntity.getDisplayName()).toLowerCase();
-        String email = StringUtils.defaultString(appUserEntity.getEmail()).toLowerCase();
+        String displayName = StringUtils.defaultString(workerEntity.getDisplayName()).toLowerCase();
+        String email = StringUtils.defaultString(workerEntity.getEmail()).toLowerCase();
         return displayName.contains(normalizedSearch) || email.contains(normalizedSearch);
     }
 
-    private void assertCanViewUser(AppUserEntity currentUser, AppUserEntity targetUser) {
-        if (Objects.equals(currentUser.getId(), targetUser.getId())) {
+    private void assertCanViewWorker(UserAccountEntity currentUser, WorkerEntity targetWorker) {
+        if (Objects.equals(currentUser.getWorkerId(), targetWorker.getId())) {
             return;
         }
-        if (currentUser.getRole() == UserRole.OWNER
-                && currentUser.getAccountType() == AccountType.ORGANIZATION
-                && Objects.nonNull(currentUser.getOrganizationId())
-                && Objects.equals(currentUser.getOrganizationId(), targetUser.getOrganizationId())) {
+        boolean isOwnerOrManager = currentUser.getRole() == UserRole.OWNER || currentUser.getRole() == UserRole.MANAGER;
+        if (isOwnerOrManager && Objects.equals(currentUser.getOrganizationId(), targetWorker.getOrganizationId())) {
             return;
         }
-        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot view activity for this user");
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot view activity for this worker");
     }
 
-    private Map<UUID, Long> sumSecondsMap(List<UUID> userIds, LocalDate fromDate, LocalDate toDate) {
-        return activitySampleRepository.sumSecondsByUserIdsAndDateRange(userIds, fromDate, toDate).stream()
+    private Map<Long, Long> sumSecondsMap(List<Long> workerIds, LocalDate fromDate, LocalDate toDate) {
+        return activitySampleRepository.sumSecondsByWorkerIdsAndDateRange(workerIds, fromDate, toDate).stream()
                 .collect(Collectors.toMap(
-                        ActivitySampleRepository.UserSecondsAggregate::getUserId,
+                        ActivitySampleRepository.WorkerSecondsAggregate::getWorkerId,
                         aggregate -> Objects.requireNonNullElse(aggregate.getTotalSeconds(), 0L)
                 ));
     }
 
-    private Map<UUID, String> loadBranchNames(List<AppUserEntity> workers) {
-        List<UUID> branchIds = workers.stream()
-                .map(AppUserEntity::getBranchId)
+    private Map<Long, String> loadBranchNames(List<WorkerEntity> workers) {
+        List<Long> branchIds = workers.stream()
+                .map(WorkerEntity::getBranchId)
                 .filter(Objects::nonNull)
                 .distinct()
                 .collect(Collectors.toList());
@@ -226,9 +222,9 @@ public class DashboardService {
                 .collect(Collectors.toMap(BranchEntity::getId, BranchEntity::getName));
     }
 
-    private Map<UUID, String> loadDepartmentNames(List<AppUserEntity> workers) {
-        List<UUID> departmentIds = workers.stream()
-                .map(AppUserEntity::getDepartmentId)
+    private Map<Long, String> loadDepartmentNames(List<WorkerEntity> workers) {
+        List<Long> departmentIds = workers.stream()
+                .map(WorkerEntity::getDepartmentId)
                 .filter(Objects::nonNull)
                 .distinct()
                 .collect(Collectors.toList());

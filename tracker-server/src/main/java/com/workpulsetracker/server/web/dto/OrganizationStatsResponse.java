@@ -3,13 +3,13 @@ package com.workpulsetracker.server.web.dto;
 import java.util.List;
 
 public record OrganizationStatsResponse(
-        long totalUsers,
-        long activeUsersWithAgentKey,
-        List<UserStatItem> users
+        long totalWorkers,
+        long activeWorkers,
+        List<WorkerStatItem> workers
 ) {
-    public record UserStatItem(
+    public record WorkerStatItem(
             String email,
-            String fullName,
+            String displayName,
             long trackedSeconds
     ) {
     }

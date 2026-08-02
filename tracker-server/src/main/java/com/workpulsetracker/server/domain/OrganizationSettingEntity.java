@@ -8,7 +8,6 @@ import jakarta.persistence.Table;
 
 import java.io.Serializable;
 import java.util.Objects;
-import java.util.UUID;
 
 @Entity
 @Table(name = "organization_setting", schema = "public")
@@ -17,7 +16,7 @@ public class OrganizationSettingEntity {
 
     @Id
     @Column(name = "organization_id", nullable = false)
-    private UUID organizationId;
+    private Long organizationId;
 
     @Id
     @Column(name = "setting_key", nullable = false)
@@ -29,13 +28,13 @@ public class OrganizationSettingEntity {
     protected OrganizationSettingEntity() {
     }
 
-    public OrganizationSettingEntity(UUID organizationId, String settingKey, String settingValue) {
+    public OrganizationSettingEntity(Long organizationId, String settingKey, String settingValue) {
         this.organizationId = organizationId;
         this.settingKey = settingKey;
         this.settingValue = settingValue;
     }
 
-    public UUID getOrganizationId() {
+    public Long getOrganizationId() {
         return organizationId;
     }
 
@@ -53,13 +52,13 @@ public class OrganizationSettingEntity {
 
     public static final class OrganizationSettingId implements Serializable {
 
-        private UUID organizationId;
+        private Long organizationId;
         private String settingKey;
 
         public OrganizationSettingId() {
         }
 
-        public OrganizationSettingId(UUID organizationId, String settingKey) {
+        public OrganizationSettingId(Long organizationId, String settingKey) {
             this.organizationId = organizationId;
             this.settingKey = settingKey;
         }

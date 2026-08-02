@@ -8,15 +8,14 @@ import { exportCsv, formatDuration } from "../utils/format";
 import { toast } from "../utils/toast";
 
 export function DashboardPage() {
-  const { me, structure, selectedBranchId, isOwner } = useApp();
+  const { structure, selectedBranchId, canManageCompany } = useApp();
   const [workers, setWorkers] = useState<DashboardWorker[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [departmentId, setDepartmentId] = useState<string>("ALL");
   const [selectedWorker, setSelectedWorker] = useState<DashboardWorker | null>(null);
 
-  const isPersonal = me?.accountType === "PERSONAL";
-  const showTeamFilters = !isPersonal && isOwner;
+  const showTeamFilters = canManageCompany;
 
   const departmentOptions = useMemo(() => {
     if (!structure) {
@@ -25,7 +24,7 @@ export function DashboardPage() {
     const branches =
       selectedBranchId === ALL_BRANCHES
         ? structure.branches
-        : structure.branches.filter((branch) => branch.id === selectedBranchId);
+        : structure.branches.filter((branch) => String(branch.id) === selectedBranchId);
     return branches.flatMap((branch) =>
       branch.departments.map((department) => ({
         ...department,

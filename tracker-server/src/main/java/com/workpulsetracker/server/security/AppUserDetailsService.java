@@ -1,7 +1,7 @@
 package com.workpulsetracker.server.security;
 
-import com.workpulsetracker.server.domain.AppUserEntity;
-import com.workpulsetracker.server.repository.AppUserRepository;
+import com.workpulsetracker.server.domain.UserAccountEntity;
+import com.workpulsetracker.server.repository.UserAccountRepository;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -13,10 +13,10 @@ import java.util.Objects;
 @Service
 public class AppUserDetailsService implements UserDetailsService {
 
-    private final AppUserRepository appUserRepository;
+    private final UserAccountRepository userAccountRepository;
 
-    public AppUserDetailsService(AppUserRepository appUserRepository) {
-        this.appUserRepository = appUserRepository;
+    public AppUserDetailsService(UserAccountRepository userAccountRepository) {
+        this.userAccountRepository = userAccountRepository;
     }
 
     @Override
@@ -24,16 +24,16 @@ public class AppUserDetailsService implements UserDetailsService {
         if (StringUtils.isBlank(username)) {
             throw new UsernameNotFoundException("Email is required");
         }
-        AppUserEntity appUserEntity = appUserRepository.findByEmailIgnoreCase(username.trim())
+        UserAccountEntity userAccountEntity = userAccountRepository.findByEmailIgnoreCase(username.trim())
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-        if (Objects.isNull(appUserEntity.getPasswordHash())) {
+        if (Objects.isNull(userAccountEntity.getPasswordHash())) {
             throw new UsernameNotFoundException("User credentials are not configured");
         }
-        return new AppUserPrincipal(
-                appUserEntity.getId(),
-                appUserEntity.getEmail(),
-                appUserEntity.getPasswordHash(),
-                appUserEntity.getRole()
+        return new UserAccountPrincipal(
+                userAccountEntity.getId(),
+                userAccountEntity.getEmail(),
+                userAccountEntity.getPasswordHash(),
+                userAccountEntity.getRole()
         );
     }
 }

@@ -5,12 +5,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 public interface OrganizationSettingRepository
         extends JpaRepository<OrganizationSettingEntity, OrganizationSettingEntity.OrganizationSettingId> {
 
-    List<OrganizationSettingEntity> findByOrganizationId(UUID organizationId);
+    List<OrganizationSettingEntity> findByOrganizationId(Long organizationId);
 
-    Optional<OrganizationSettingEntity> findByOrganizationIdAndSettingKey(UUID organizationId, String settingKey);
+    Optional<OrganizationSettingEntity> findByOrganizationIdAndSettingKey(Long organizationId, String settingKey);
 }

@@ -42,25 +42,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (text ? JSON.parse(text) : undefined) as T;
 }
 
-export type AccountType = "PERSONAL" | "ORGANIZATION";
-export type UserRole = "OWNER" | "MEMBER";
+export type OrganizationType = "COMPANY" | "INDIVIDUAL";
+export type UserRole = "OWNER" | "MANAGER" | "WORKER";
 
 export type Me = {
-  id: string;
+  id: number;
   email: string;
   displayName: string;
-  firstName: string | null;
-  lastName: string | null;
-  phone: string | null;
   role: UserRole | string;
-  accountType: AccountType;
-  onboarded: boolean;
-  organizationId: string | null;
-  organizationName: string | null;
-  branchId: string | null;
-  departmentId: string | null;
-  agentInstalled: boolean;
-  agentVersion: string | null;
+  organizationType: OrganizationType;
+  organizationId: number;
+  organizationName: string;
+  workerId: number | null;
+  status: string;
 };
 
 export type Downloads = {
@@ -70,13 +64,15 @@ export type Downloads = {
 };
 
 export type DepartmentNode = {
-  id: string;
+  id: number;
   name: string;
+  isDefault?: boolean;
 };
 
 export type BranchNode = {
-  id: string;
+  id: number;
   name: string;
+  isDefault?: boolean;
   departments: DepartmentNode[];
 };
 
@@ -85,7 +81,7 @@ export type Structure = {
 };
 
 export type DashboardWorker = {
-  id: string;
+  id: number;
   displayName: string;
   email: string;
   departmentName: string | null;
@@ -107,33 +103,40 @@ export type AppUsage = {
   percent: number;
 };
 
-export type Employee = {
-  id: string;
+export type Worker = {
+  id: number;
   displayName: string;
   email: string;
-  phone: string | null;
-  role: string;
-  branchId: string | null;
+  branchId: number | null;
   branchName: string | null;
-  departmentId: string | null;
+  departmentId: number | null;
   departmentName: string | null;
+  status: string;
   agentInstalled: boolean;
   agentVersion: string | null;
-  agentKeyPrefix: string | null;
+  accessKeyPrefix: string | null;
   createdAt: string;
 };
 
-export type CreateEmployeeResult = {
-  id: string;
+export type CreateWorkerResult = {
+  id: number;
   displayName: string;
   email: string;
-  phone: string | null;
-  role: string;
-  branchId: string | null;
-  departmentId: string | null;
-  agentKey: string | null;
-  agentKeyPrefix: string | null;
-  temporaryPassword: string | null;
+  branchId: number | null;
+  departmentId: number | null;
+  status: string;
+  accessKeySent: boolean;
+  createdAt: string;
+};
+
+export type AgentInfo = {
+  workerId: number;
+  displayName: string;
+  email: string;
+  status: string;
+  accessKeyPrefix: string | null;
+  agentInstalled: boolean;
+  agentVersion: string | null;
 };
 
 export type LoginPayload = {
@@ -142,28 +145,26 @@ export type LoginPayload = {
 };
 
 export type RegisterPayload = {
-  accountType: AccountType;
+  organizationType: OrganizationType;
   email: string;
   password: string;
   displayName: string;
   companyName?: string;
 };
 
-export type CreateEmployeePayload = {
+export type CreateWorkerPayload = {
   displayName: string;
   email: string;
-  phone?: string;
-  branchId?: string | null;
-  departmentId?: string | null;
-  password?: string;
+  branchId?: number | null;
+  departmentId?: number | null;
 };
 
-export type UpdateEmployeePayload = {
+export type UpdateWorkerPayload = {
   displayName: string;
   email: string;
-  phone?: string;
-  branchId?: string | null;
-  departmentId?: string | null;
+  branchId?: number | null;
+  departmentId?: number | null;
+  status?: string;
 };
 
 export type ListFilters = {
@@ -204,32 +205,44 @@ export const api = {
       body: JSON.stringify({ name })
     }),
 
-  createDepartment: (branchId: string, name: string) =>
+  createDepartment: (branchId: number, name: string) =>
     request<DepartmentNode>("/api/structure/departments", {
       method: "POST",
       body: JSON.stringify({ branchId, name })
     }),
 
-  getEmployees: (filters: ListFilters = {}) =>
-    request<Employee[]>(`/api/employees${buildQuery(filters)}`),
+  getWorkers: (filters: ListFilters = {}) =>
+    request<Worker[]>(`/api/workers${buildQuery(filters)}`),
 
-  createEmployee: (payload: CreateEmployeePayload) =>
-    request<CreateEmployeeResult>("/api/employees", {
+  createWorker: (payload: CreateWorkerPayload) =>
+    request<CreateWorkerResult>("/api/workers", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
 
-  updateEmployee: (id: string, payload: UpdateEmployeePayload) =>
-    request<Employee>(`/api/employees/${id}`, {
+  updateWorker: (id: number, payload: UpdateWorkerPayload) =>
+    request<Worker>(`/api/workers/${id}`, {
       method: "PUT",
       body: JSON.stringify(payload)
     }),
 
+  getWorkerAccessKey: (id: number) =>
+    request<{ accessKey: string }>(`/api/workers/${id}/access-key`),
+
+  resendWorkerAccessKey: (id: number) =>
+    request<void>(`/api/workers/${id}/resend-access-key`, { method: "POST" }),
+
+  getAgentInfo: () => request<AgentInfo>("/api/agent"),
+
+  getMyAccessKey: () => request<{ accessKey: string }>("/api/agent/access-key"),
+
+  resendMyAccessKey: () => request<void>("/api/agent/resend-access-key", { method: "POST" }),
+
   getDashboard: (filters: ListFilters = {}) =>
     request<DashboardWorker[]>(`/api/dashboard${buildQuery(filters)}`),
 
-  getUserApps: (userId: string, period: DashboardPeriod = "TODAY") =>
-    request<AppUsage[]>(`/api/dashboard/users/${userId}/apps${buildQuery({ period })}`),
+  getWorkerApps: (workerId: number, period: DashboardPeriod = "TODAY") =>
+    request<AppUsage[]>(`/api/dashboard/workers/${workerId}/apps${buildQuery({ period })}`),
 
   getOrganizationSettings: () => request<Record<string, string>>("/api/organization/settings"),
 

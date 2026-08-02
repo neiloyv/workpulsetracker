@@ -9,6 +9,10 @@ type AppContextValue = {
   setMe: (me: Me | null) => void;
   loading: boolean;
   isOwner: boolean;
+  isManager: boolean;
+  canManageCompany: boolean;
+  isIndividual: boolean;
+  isCompany: boolean;
   refreshMe: () => Promise<Me | null>;
   logout: () => Promise<void>;
   selectedBranchId: string;
@@ -35,7 +39,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setMe(null);
         return null;
       }
-      // Network/server errors should not silently look like logged-out state
       throw error;
     }
   }, []);
@@ -69,15 +72,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const isOwner = me?.role === "OWNER";
+  const isManager = me?.role === "MANAGER";
+  const isIndividual = me?.organizationType === "INDIVIDUAL";
+  const isCompany = me?.organizationType === "COMPANY";
+  const canManageCompany = isCompany && (isOwner || isManager);
 
   useEffect(() => {
-    if (me?.accountType === "ORGANIZATION" && isOwner) {
+    if (canManageCompany) {
       refreshStructure();
     } else {
       setStructure(null);
       setSelectedBranchId(ALL_BRANCHES);
     }
-  }, [me?.accountType, me?.organizationId, isOwner, refreshStructure]);
+  }, [canManageCompany, me?.organizationId, refreshStructure]);
 
   const logout = useCallback(async () => {
     try {
@@ -96,6 +103,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setMe,
       loading,
       isOwner,
+      isManager,
+      canManageCompany,
+      isIndividual,
+      isCompany,
       refreshMe,
       logout,
       selectedBranchId,
@@ -103,7 +114,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       structure,
       refreshStructure
     }),
-    [me, loading, isOwner, refreshMe, logout, selectedBranchId, structure, refreshStructure]
+    [
+      me,
+      loading,
+      isOwner,
+      isManager,
+      canManageCompany,
+      isIndividual,
+      isCompany,
+      refreshMe,
+      logout,
+      selectedBranchId,
+      structure,
+      refreshStructure
+    ]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

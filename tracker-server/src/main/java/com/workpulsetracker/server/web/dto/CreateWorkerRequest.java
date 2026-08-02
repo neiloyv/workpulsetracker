@@ -4,13 +4,10 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-import java.util.UUID;
-
-public record UpdateEmployeeRequest(
+public record CreateWorkerRequest(
         @NotBlank @Size(max = 255) String displayName,
         @NotBlank @Email @Size(max = 320) String email,
-        @Size(max = 64) String phone,
-        UUID branchId,
-        UUID departmentId
+        Long branchId,
+        Long departmentId
 ) {
 }

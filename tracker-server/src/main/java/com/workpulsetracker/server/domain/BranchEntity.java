@@ -2,24 +2,29 @@ package com.workpulsetracker.server.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 import java.time.OffsetDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(name = "branch", schema = "public")
 public class BranchEntity {
 
     @Id
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(name = "organization_id", nullable = false)
-    private UUID organizationId;
+    private Long organizationId;
 
     @Column(nullable = false)
     private String name;
+
+    @Column(name = "is_default", nullable = false)
+    private boolean isDefault;
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
@@ -27,18 +32,18 @@ public class BranchEntity {
     protected BranchEntity() {
     }
 
-    public BranchEntity(UUID id, UUID organizationId, String name, OffsetDateTime createdAt) {
-        this.id = id;
+    public BranchEntity(Long organizationId, String name, boolean isDefault, OffsetDateTime createdAt) {
         this.organizationId = organizationId;
         this.name = name;
+        this.isDefault = isDefault;
         this.createdAt = createdAt;
     }
 
-    public UUID getId() {
+    public Long getId() {
         return id;
     }
 
-    public UUID getOrganizationId() {
+    public Long getOrganizationId() {
         return organizationId;
     }
 
@@ -48,6 +53,10 @@ public class BranchEntity {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public boolean isDefault() {
+        return isDefault;
     }
 
     public OffsetDateTime getCreatedAt() {

@@ -1,9 +1,9 @@
 package com.workpulsetracker.server.service;
 
-import com.workpulsetracker.server.domain.AppUserEntity;
 import com.workpulsetracker.server.domain.BranchEntity;
 import com.workpulsetracker.server.domain.DepartmentEntity;
 import com.workpulsetracker.server.domain.OrganizationEntity;
+import com.workpulsetracker.server.domain.UserAccountEntity;
 import com.workpulsetracker.server.repository.BranchRepository;
 import com.workpulsetracker.server.repository.DepartmentRepository;
 import com.workpulsetracker.server.web.dto.CreateBranchRequest;
@@ -19,7 +19,6 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -43,13 +42,13 @@ public class StructureService {
     }
 
     @Transactional(readOnly = true)
-    public StructureResponse getStructure(AppUserEntity currentUser) {
-        organizationService.requireOwner(currentUser);
+    public StructureResponse getStructure(UserAccountEntity currentUser) {
+        organizationService.requireOwnerOrManager(currentUser);
         OrganizationEntity organizationEntity = organizationService.requireOrganization(currentUser);
         List<BranchEntity> branches =
                 branchRepository.findByOrganizationIdOrderByCreatedAtAsc(organizationEntity.getId());
-        List<UUID> branchIds = branches.stream().map(BranchEntity::getId).collect(Collectors.toList());
-        Map<UUID, List<DepartmentEntity>> departmentsByBranchId = branchIds.isEmpty()
+        List<Long> branchIds = branches.stream().map(BranchEntity::getId).collect(Collectors.toList());
+        Map<Long, List<DepartmentEntity>> departmentsByBranchId = branchIds.isEmpty()
                 ? Map.of()
                 : departmentRepository.findByBranchIdInOrderByCreatedAtAsc(branchIds).stream()
                 .collect(Collectors.groupingBy(DepartmentEntity::getBranchId));
@@ -58,10 +57,12 @@ public class StructureService {
                 .map(branchEntity -> new StructureResponse.BranchNode(
                         branchEntity.getId(),
                         branchEntity.getName(),
+                        branchEntity.isDefault(),
                         departmentsByBranchId.getOrDefault(branchEntity.getId(), List.of()).stream()
                                 .map(departmentEntity -> new StructureResponse.DepartmentNode(
                                         departmentEntity.getId(),
-                                        departmentEntity.getName()
+                                        departmentEntity.getName(),
+                                        departmentEntity.isDefault()
                                 ))
                                 .collect(Collectors.toList())
                 ))
@@ -70,29 +71,29 @@ public class StructureService {
     }
 
     @Transactional
-    public StructureResponse.BranchNode createBranch(AppUserEntity currentUser, CreateBranchRequest createBranchRequest) {
-        organizationService.requireOwner(currentUser);
+    public StructureResponse.BranchNode createBranch(UserAccountEntity currentUser, CreateBranchRequest createBranchRequest) {
+        organizationService.requireOwnerOrManager(currentUser);
         OrganizationEntity organizationEntity = organizationService.requireOrganization(currentUser);
         String branchName = createBranchRequest.name().trim();
         if (branchRepository.existsByOrganizationIdAndNameIgnoreCase(organizationEntity.getId(), branchName)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Branch with this name already exists");
         }
         BranchEntity branchEntity = branchRepository.save(new BranchEntity(
-                UUID.randomUUID(),
                 organizationEntity.getId(),
                 branchName,
+                false,
                 OffsetDateTime.now()
         ));
         logger.info("schema={} Created branch {} for organization {}", schema, branchName, organizationEntity.getId());
-        return new StructureResponse.BranchNode(branchEntity.getId(), branchEntity.getName(), List.of());
+        return new StructureResponse.BranchNode(branchEntity.getId(), branchEntity.getName(), branchEntity.isDefault(), List.of());
     }
 
     @Transactional
     public StructureResponse.DepartmentNode createDepartment(
-            AppUserEntity currentUser,
+            UserAccountEntity currentUser,
             CreateDepartmentRequest createDepartmentRequest
     ) {
-        organizationService.requireOwner(currentUser);
+        organizationService.requireOwnerOrManager(currentUser);
         OrganizationEntity organizationEntity = organizationService.requireOrganization(currentUser);
         BranchEntity branchEntity = branchRepository
                 .findByIdAndOrganizationId(createDepartmentRequest.branchId(), organizationEntity.getId())
@@ -102,9 +103,10 @@ public class StructureService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Department with this name already exists");
         }
         DepartmentEntity departmentEntity = departmentRepository.save(new DepartmentEntity(
-                UUID.randomUUID(),
+                organizationEntity.getId(),
                 branchEntity.getId(),
                 departmentName,
+                false,
                 OffsetDateTime.now()
         ));
         logger.info(
@@ -113,6 +115,6 @@ public class StructureService {
                 departmentName,
                 branchEntity.getId()
         );
-        return new StructureResponse.DepartmentNode(departmentEntity.getId(), departmentEntity.getName());
+        return new StructureResponse.DepartmentNode(departmentEntity.getId(), departmentEntity.getName(), departmentEntity.isDefault());
     }
 }

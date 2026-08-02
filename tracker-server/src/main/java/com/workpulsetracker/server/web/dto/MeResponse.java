@@ -1,22 +1,14 @@
 package com.workpulsetracker.server.web.dto;
 
-import java.util.UUID;
-
 public record MeResponse(
-        UUID id,
+        Long id,
         String email,
         String displayName,
-        String firstName,
-        String lastName,
-        String phone,
         String role,
-        String accountType,
-        boolean onboarded,
-        UUID organizationId,
+        String organizationType,
+        Long organizationId,
         String organizationName,
-        UUID branchId,
-        UUID departmentId,
-        boolean agentInstalled,
-        String agentVersion
+        Long workerId,
+        String status
 ) {
 }

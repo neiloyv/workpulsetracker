@@ -53,7 +53,7 @@ export function StructureModal({ open, onClose }: StructureModalProps) {
     setBusy(true);
     setError(null);
     try {
-      await api.createDepartment(departmentBranchId, newDepartmentName.trim());
+      await api.createDepartment(Number(departmentBranchId), newDepartmentName.trim());
       setNewDepartmentName("");
       setExpanded((prev) => ({ ...prev, [departmentBranchId]: true }));
       setDepartmentBranchId(null);
@@ -76,13 +76,15 @@ export function StructureModal({ open, onClose }: StructureModalProps) {
             Пока нет ни одного филиала
           </p>
         )}
-        {branches.map((branch) => (
+        {branches.map((branch) => {
+          const branchKey = String(branch.id);
+          return (
           <div
             key={branch.id}
             className="rounded-xl border border-slate-200 bg-slate-50/60 dark:border-white/10 dark:bg-white/5"
           >
             <button
-              onClick={() => toggle(branch.id)}
+              onClick={() => toggle(branchKey)}
               className="flex w-full items-center justify-between px-3.5 py-2.5 text-left"
             >
               <span className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-white">
@@ -92,13 +94,13 @@ export function StructureModal({ open, onClose }: StructureModalProps) {
                   {branch.departments.length}
                 </span>
               </span>
-              {expanded[branch.id] ? (
+              {expanded[branchKey] ? (
                 <ChevronDown className="h-4 w-4 text-slate-400" />
               ) : (
                 <ChevronRight className="h-4 w-4 text-slate-400" />
               )}
             </button>
-            {expanded[branch.id] && (
+            {expanded[branchKey] && (
               <div className="border-t border-slate-200 px-3.5 py-2.5 dark:border-white/10">
                 <div className="space-y-1.5">
                   {branch.departments.length === 0 && (
@@ -114,7 +116,7 @@ export function StructureModal({ open, onClose }: StructureModalProps) {
                     </div>
                   ))}
                 </div>
-                {departmentBranchId === branch.id ? (
+                {departmentBranchId === branchKey ? (
                   <form onSubmit={onCreateDepartment} className="mt-2 flex gap-2">
                     <input
                       autoFocus
@@ -132,7 +134,7 @@ export function StructureModal({ open, onClose }: StructureModalProps) {
                   </form>
                 ) : (
                   <button
-                    onClick={() => setDepartmentBranchId(branch.id)}
+                    onClick={() => setDepartmentBranchId(branchKey)}
                     className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-brand-600 hover:text-brand-500 dark:text-brand-300"
                   >
                     <Plus className="h-3.5 w-3.5" />
@@ -142,7 +144,8 @@ export function StructureModal({ open, onClose }: StructureModalProps) {
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {error && (

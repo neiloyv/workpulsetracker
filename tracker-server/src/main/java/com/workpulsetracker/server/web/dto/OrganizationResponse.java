@@ -1,6 +1,9 @@
 package com.workpulsetracker.server.web.dto;
 
-import java.util.UUID;
-
-public record OrganizationResponse(UUID id, String name) {
+public record OrganizationResponse(
+        Long id,
+        String name,
+        String organizationType,
+        String status
+) {
 }

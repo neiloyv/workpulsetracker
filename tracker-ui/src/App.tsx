@@ -4,9 +4,10 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { useApp } from "./context/AppContext";
 import { useTheme } from "./context/ThemeContext";
+import { AgentPage } from "./pages/AgentPage";
 import { DashboardPage } from "./pages/DashboardPage";
-import { EmployeesPage } from "./pages/EmployeesPage";
 import { LandingPage } from "./pages/LandingPage";
+import { WorkersPage } from "./pages/WorkersPage";
 
 function FullscreenLoader() {
   const { theme } = useTheme();
@@ -32,9 +33,17 @@ function RequireAuth({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-function RequireOwner({ children }: { children: ReactNode }) {
-  const { me, isOwner } = useApp();
-  if (me?.accountType === "PERSONAL" || !isOwner) {
+function RequireCompanyManager({ children }: { children: ReactNode }) {
+  const { canManageCompany } = useApp();
+  if (!canManageCompany) {
+    return <Navigate to="/app" replace />;
+  }
+  return <>{children}</>;
+}
+
+function RequireLinkedWorker({ children }: { children: ReactNode }) {
+  const { me } = useApp();
+  if (!me?.workerId) {
     return <Navigate to="/app" replace />;
   }
   return <>{children}</>;
@@ -60,11 +69,19 @@ export default function App() {
       >
         <Route index element={<DashboardPage />} />
         <Route
-          path="employees"
+          path="workers"
           element={
-            <RequireOwner>
-              <EmployeesPage />
-            </RequireOwner>
+            <RequireCompanyManager>
+              <WorkersPage />
+            </RequireCompanyManager>
+          }
+        />
+        <Route
+          path="agent"
+          element={
+            <RequireLinkedWorker>
+              <AgentPage />
+            </RequireLinkedWorker>
           }
         />
       </Route>

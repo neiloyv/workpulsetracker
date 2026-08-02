@@ -1,6 +1,6 @@
 databaseChangeLog:
   - changeSet:
-      id: 001-init-schema
+      id: 001-init-schema-v2
       author: workpulsetracker
       changes:
         - createTable:
@@ -8,13 +8,24 @@ databaseChangeLog:
             columns:
               - column:
                   name: id
-                  type: UUID
+                  type: BIGINT
+                  autoIncrement: true
                   constraints:
                     primaryKey: true
                     nullable: false
               - column:
+                  name: type
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
                   name: name
                   type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(32)
                   constraints:
                     nullable: false
               - column:
@@ -22,24 +33,88 @@ databaseChangeLog:
                   type: TIMESTAMP WITH TIME ZONE
                   constraints:
                     nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+
+        - createTable:
+            tableName: subscription
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: organization_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: plan
+                  type: VARCHAR(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: starts_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: ends_at
+                  type: TIMESTAMP WITH TIME ZONE
+              - column:
+                  name: max_persons
+                  type: INT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: max_branches
+                  type: INT
+                  constraints:
+                    nullable: false
+
+        - addForeignKeyConstraint:
+            baseTableName: subscription
+            baseColumnNames: organization_id
+            referencedTableName: organization
+            referencedColumnNames: id
+            constraintName: fk_subscription_organization
+            onDelete: CASCADE
 
         - createTable:
             tableName: branch
             columns:
               - column:
                   name: id
-                  type: UUID
+                  type: BIGINT
+                  autoIncrement: true
                   constraints:
                     primaryKey: true
                     nullable: false
               - column:
                   name: organization_id
-                  type: UUID
+                  type: BIGINT
                   constraints:
                     nullable: false
               - column:
                   name: name
                   type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: is_default
+                  type: BOOLEAN
+                  defaultValueBoolean: false
                   constraints:
                     nullable: false
               - column:
@@ -61,18 +136,30 @@ databaseChangeLog:
             columns:
               - column:
                   name: id
-                  type: UUID
+                  type: BIGINT
+                  autoIncrement: true
                   constraints:
                     primaryKey: true
                     nullable: false
               - column:
+                  name: organization_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
                   name: branch_id
-                  type: UUID
+                  type: BIGINT
                   constraints:
                     nullable: false
               - column:
                   name: name
                   type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: is_default
+                  type: BOOLEAN
+                  defaultValueBoolean: false
                   constraints:
                     nullable: false
               - column:
@@ -83,6 +170,14 @@ databaseChangeLog:
 
         - addForeignKeyConstraint:
             baseTableName: department
+            baseColumnNames: organization_id
+            referencedTableName: organization
+            referencedColumnNames: id
+            constraintName: fk_department_organization
+            onDelete: CASCADE
+
+        - addForeignKeyConstraint:
+            baseTableName: department
             baseColumnNames: branch_id
             referencedTableName: branch
             referencedColumnNames: id
@@ -90,17 +185,110 @@ databaseChangeLog:
             onDelete: CASCADE
 
         - createTable:
-            tableName: app_user
+            tableName: worker
             columns:
               - column:
                   name: id
-                  type: UUID
+                  type: BIGINT
+                  autoIncrement: true
                   constraints:
                     primaryKey: true
                     nullable: false
               - column:
                   name: organization_id
-                  type: UUID
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: branch_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: department_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: display_name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: email
+                  type: VARCHAR(320)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: access_key
+                  type: VARCHAR(128)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: access_key_prefix
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: agent_installed
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: agent_version
+                  type: VARCHAR(32)
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+
+        - addForeignKeyConstraint:
+            baseTableName: worker
+            baseColumnNames: organization_id
+            referencedTableName: organization
+            referencedColumnNames: id
+            constraintName: fk_worker_organization
+            onDelete: CASCADE
+
+        - addForeignKeyConstraint:
+            baseTableName: worker
+            baseColumnNames: branch_id
+            referencedTableName: branch
+            referencedColumnNames: id
+            constraintName: fk_worker_branch
+
+        - addForeignKeyConstraint:
+            baseTableName: worker
+            baseColumnNames: department_id
+            referencedTableName: department
+            referencedColumnNames: id
+            constraintName: fk_worker_department
+
+        - sql:
+            sql: CREATE UNIQUE INDEX ux_worker_email_org ON worker (organization_id, LOWER(email));
+
+        - createTable:
+            tableName: user_account
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: organization_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
               - column:
                   name: email
                   type: VARCHAR(320)
@@ -117,43 +305,16 @@ databaseChangeLog:
                   constraints:
                     nullable: false
               - column:
-                  name: first_name
-                  type: VARCHAR(120)
-              - column:
-                  name: last_name
-                  type: VARCHAR(120)
-              - column:
-                  name: phone
-                  type: VARCHAR(64)
-              - column:
-                  name: account_type
-                  type: VARCHAR(32)
-                  constraints:
-                    nullable: false
-              - column:
                   name: role
                   type: VARCHAR(32)
                   constraints:
                     nullable: false
               - column:
-                  name: branch_id
-                  type: UUID
+                  name: worker_id
+                  type: BIGINT
               - column:
-                  name: department_id
-                  type: UUID
-              - column:
-                  name: agent_installed
-                  type: BOOLEAN
-                  defaultValueBoolean: false
-                  constraints:
-                    nullable: false
-              - column:
-                  name: agent_version
+                  name: status
                   type: VARCHAR(32)
-              - column:
-                  name: onboarded
-                  type: BOOLEAN
-                  defaultValueBoolean: true
                   constraints:
                     nullable: false
               - column:
@@ -163,51 +324,46 @@ databaseChangeLog:
                     nullable: false
 
         - addForeignKeyConstraint:
-            baseTableName: app_user
+            baseTableName: user_account
             baseColumnNames: organization_id
             referencedTableName: organization
             referencedColumnNames: id
-            constraintName: fk_app_user_organization
+            constraintName: fk_user_account_organization
+            onDelete: CASCADE
 
         - addForeignKeyConstraint:
-            baseTableName: app_user
-            baseColumnNames: branch_id
-            referencedTableName: branch
+            baseTableName: user_account
+            baseColumnNames: worker_id
+            referencedTableName: worker
             referencedColumnNames: id
-            constraintName: fk_app_user_branch
-
-        - addForeignKeyConstraint:
-            baseTableName: app_user
-            baseColumnNames: department_id
-            referencedTableName: department
-            referencedColumnNames: id
-            constraintName: fk_app_user_department
+            constraintName: fk_user_account_worker
+            onDelete: SET NULL
 
         - sql:
-            sql: CREATE UNIQUE INDEX ux_app_user_email ON app_user (LOWER(email));
+            sql: CREATE UNIQUE INDEX ux_user_account_email ON user_account (LOWER(email));
 
         - createTable:
-            tableName: agent_key
+            tableName: platform_admin
             columns:
               - column:
                   name: id
-                  type: UUID
+                  type: BIGINT
+                  autoIncrement: true
                   constraints:
                     primaryKey: true
                     nullable: false
               - column:
-                  name: user_id
-                  type: UUID
-                  constraints:
-                    nullable: false
-                    unique: true
-              - column:
-                  name: key_hash
-                  type: VARCHAR(128)
+                  name: email
+                  type: VARCHAR(320)
                   constraints:
                     nullable: false
               - column:
-                  name: key_prefix
+                  name: password_hash
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
                   type: VARCHAR(32)
                   constraints:
                     nullable: false
@@ -216,24 +372,16 @@ databaseChangeLog:
                   type: TIMESTAMP WITH TIME ZONE
                   constraints:
                     nullable: false
-              - column:
-                  name: revoked_at
-                  type: TIMESTAMP WITH TIME ZONE
 
-        - addForeignKeyConstraint:
-            baseTableName: agent_key
-            baseColumnNames: user_id
-            referencedTableName: app_user
-            referencedColumnNames: id
-            constraintName: fk_agent_key_user
-            onDelete: CASCADE
+        - sql:
+            sql: CREATE UNIQUE INDEX ux_platform_admin_email ON platform_admin (LOWER(email));
 
         - createTable:
             tableName: organization_setting
             columns:
               - column:
                   name: organization_id
-                  type: UUID
+                  type: BIGINT
                   constraints:
                     nullable: false
               - column:
@@ -265,13 +413,14 @@ databaseChangeLog:
             columns:
               - column:
                   name: id
-                  type: UUID
+                  type: BIGINT
+                  autoIncrement: true
                   constraints:
                     primaryKey: true
                     nullable: false
               - column:
-                  name: user_id
-                  type: UUID
+                  name: worker_id
+                  type: BIGINT
                   constraints:
                     nullable: false
               - column:
@@ -298,17 +447,17 @@ databaseChangeLog:
 
         - addForeignKeyConstraint:
             baseTableName: activity_sample
-            baseColumnNames: user_id
-            referencedTableName: app_user
+            baseColumnNames: worker_id
+            referencedTableName: worker
             referencedColumnNames: id
-            constraintName: fk_activity_sample_user
+            constraintName: fk_activity_sample_worker
             onDelete: CASCADE
 
         - createIndex:
             tableName: activity_sample
-            indexName: ix_activity_sample_user_date
+            indexName: ix_activity_sample_worker_date
             columns:
               - column:
-                  name: user_id
+                  name: worker_id
               - column:
                   name: activity_date

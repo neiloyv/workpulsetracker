@@ -1,9 +1,7 @@
 package com.workpulsetracker.server.web.dto;
 
-import java.util.UUID;
-
 public record DashboardWorkerResponse(
-        UUID id,
+        Long id,
         String displayName,
         String email,
         String departmentName,

@@ -41,7 +41,7 @@ export function AnalyticsModal({ worker, onClose }: AnalyticsModalProps) {
     let cancelled = false;
     setLoading(true);
     api
-      .getUserApps(worker.id, period)
+      .getWorkerApps(worker.id, period)
       .then((result) => {
         if (!cancelled) {
           setUsage(result);

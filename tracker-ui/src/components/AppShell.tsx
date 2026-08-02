@@ -3,6 +3,7 @@ import {
   Building2,
   ChevronDown,
   CreditCard,
+  KeyRound,
   LayoutDashboard,
   LogOut,
   Moon,
@@ -21,7 +22,16 @@ import { StructureModal } from "./StructureModal";
 import { ToastHost } from "./ToastHost";
 
 export function AppShell() {
-  const { me, logout, isOwner, selectedBranchId, setSelectedBranchId, structure } = useApp();
+  const {
+    me,
+    logout,
+    canManageCompany,
+    isIndividual,
+    isOwner,
+    selectedBranchId,
+    setSelectedBranchId,
+    structure
+  } = useApp();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
@@ -49,10 +59,10 @@ export function AppShell() {
     return null;
   }
 
-  const isPersonal = me.accountType === "PERSONAL";
-  const showEmployeesTab = !isPersonal && isOwner;
-  const showBranchSelector = !isPersonal && isOwner && Boolean(structure);
-  const activeBranch = structure?.branches.find((branch) => branch.id === selectedBranchId);
+  const showCompanyNav = canManageCompany;
+  const showAgentTab = Boolean(me.workerId);
+  const showBranchSelector = canManageCompany && Boolean(structure);
+  const activeBranch = structure?.branches.find((branch) => String(branch.id) === selectedBranchId);
 
   async function onLogout() {
     await logout();
@@ -70,17 +80,25 @@ export function AppShell() {
             WorkPulseTracker
           </Link>
 
-          {showEmployeesTab && (
-            <nav className="ml-4 hidden items-center gap-1 rounded-xl bg-slate-100 p-1 dark:bg-white/5 md:flex">
-              <NavTab to="/app" icon={LayoutDashboard} label="Дашборд" active={location.pathname === "/app"} />
+          <nav className="ml-4 hidden items-center gap-1 rounded-xl bg-slate-100 p-1 dark:bg-white/5 md:flex">
+            <NavTab to="/app" icon={LayoutDashboard} label="Дашборд" active={location.pathname === "/app"} />
+            {showCompanyNav && (
               <NavTab
-                to="/app/employees"
+                to="/app/workers"
                 icon={Users}
                 label="Сотрудники"
-                active={location.pathname.startsWith("/app/employees")}
+                active={location.pathname.startsWith("/app/workers")}
               />
-            </nav>
-          )}
+            )}
+            {showAgentTab && (
+              <NavTab
+                to="/app/agent"
+                icon={KeyRound}
+                label="Агент"
+                active={location.pathname.startsWith("/app/agent")}
+              />
+            )}
+          </nav>
 
           <div className="flex-1" />
 
@@ -108,9 +126,9 @@ export function AppShell() {
                     <MenuItem
                       key={branch.id}
                       label={branch.name}
-                      active={selectedBranchId === branch.id}
+                      active={selectedBranchId === String(branch.id)}
                       onClick={() => {
-                        setSelectedBranchId(branch.id);
+                        setSelectedBranchId(String(branch.id));
                         setBranchMenuOpen(false);
                       }}
                     />
@@ -142,6 +160,9 @@ export function AppShell() {
                     {me.displayName}
                   </div>
                   <div className="truncate text-xs text-slate-400">{me.email}</div>
+                  <div className="mt-1 text-xs text-slate-400">
+                    {me.organizationName} · {isIndividual ? "Личный" : "Компания"} · {me.role}
+                  </div>
                 </div>
                 <AvatarMenuItem
                   icon={User}
@@ -151,7 +172,7 @@ export function AppShell() {
                     window.alert(`${me.displayName}\n${me.email}\nРоль: ${me.role}`);
                   }}
                 />
-                {isOwner && !isPersonal && (
+                {canManageCompany && (
                   <AvatarMenuItem
                     icon={Building2}
                     label="Структура компании"
@@ -161,13 +182,13 @@ export function AppShell() {
                     }}
                   />
                 )}
-                {isOwner && !isPersonal && (
+                {isOwner && canManageCompany && (
                   <AvatarMenuItem
                     icon={ShieldCheck}
-                    label="Менеджеры и доступ"
+                    label="Менеджеры"
                     onClick={() => {
                       setAvatarOpen(false);
-                      toast("Раздел «Менеджеры и доступ» скоро появится", "info");
+                      toast("Раздел «Менеджеры» скоро появится", "info");
                     }}
                   />
                 )}
@@ -186,26 +207,32 @@ export function AppShell() {
           </div>
         </div>
 
-        {showEmployeesTab && (
-          <nav className="flex items-center gap-1 overflow-x-auto border-t border-slate-200/70 px-5 py-2 dark:border-white/10 md:hidden">
-            <NavTab to="/app" icon={LayoutDashboard} label="Дашборд" active={location.pathname === "/app"} />
+        <nav className="flex items-center gap-1 overflow-x-auto border-t border-slate-200/70 px-5 py-2 dark:border-white/10 md:hidden">
+          <NavTab to="/app" icon={LayoutDashboard} label="Дашборд" active={location.pathname === "/app"} />
+          {showCompanyNav && (
             <NavTab
-              to="/app/employees"
+              to="/app/workers"
               icon={Users}
               label="Сотрудники"
-              active={location.pathname.startsWith("/app/employees")}
+              active={location.pathname.startsWith("/app/workers")}
             />
-          </nav>
-        )}
+          )}
+          {showAgentTab && (
+            <NavTab
+              to="/app/agent"
+              icon={KeyRound}
+              label="Агент"
+              active={location.pathname.startsWith("/app/agent")}
+            />
+          )}
+        </nav>
       </header>
 
       <main className="mx-auto max-w-[1600px] px-5 py-8">
         <Outlet />
       </main>
 
-      {isOwner && !isPersonal && (
-        <StructureModal open={structureOpen} onClose={() => setStructureOpen(false)} />
-      )}
+      {canManageCompany && <StructureModal open={structureOpen} onClose={() => setStructureOpen(false)} />}
       <ToastHost />
     </div>
   );

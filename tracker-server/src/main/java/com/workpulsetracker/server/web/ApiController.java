@@ -1,30 +1,29 @@
 package com.workpulsetracker.server.web;
 
 import com.workpulsetracker.server.config.AppProperties;
-import com.workpulsetracker.server.domain.AppUserEntity;
 import com.workpulsetracker.server.domain.DashboardPeriod;
+import com.workpulsetracker.server.domain.UserAccountEntity;
 import com.workpulsetracker.server.security.AuthUserService;
 import com.workpulsetracker.server.service.DashboardService;
-import com.workpulsetracker.server.service.EmployeeService;
 import com.workpulsetracker.server.service.OrganizationService;
 import com.workpulsetracker.server.service.StructureService;
+import com.workpulsetracker.server.service.WorkerService;
+import com.workpulsetracker.server.web.dto.AccessKeyResponse;
+import com.workpulsetracker.server.web.dto.AgentInfoResponse;
 import com.workpulsetracker.server.web.dto.AppUsageResponse;
 import com.workpulsetracker.server.web.dto.CreateBranchRequest;
 import com.workpulsetracker.server.web.dto.CreateDepartmentRequest;
-import com.workpulsetracker.server.web.dto.CreateEmployeeRequest;
-import com.workpulsetracker.server.web.dto.CreateEmployeeResponse;
-import com.workpulsetracker.server.web.dto.CreateUserRequest;
-import com.workpulsetracker.server.web.dto.CreateUserResponse;
+import com.workpulsetracker.server.web.dto.CreateWorkerRequest;
+import com.workpulsetracker.server.web.dto.CreateWorkerResponse;
 import com.workpulsetracker.server.web.dto.DashboardWorkerResponse;
 import com.workpulsetracker.server.web.dto.DownloadsResponse;
-import com.workpulsetracker.server.web.dto.EmployeeResponse;
 import com.workpulsetracker.server.web.dto.MeResponse;
 import com.workpulsetracker.server.web.dto.OrganizationResponse;
 import com.workpulsetracker.server.web.dto.OrganizationStatsResponse;
-import com.workpulsetracker.server.web.dto.OrganizationUserResponse;
 import com.workpulsetracker.server.web.dto.StructureResponse;
-import com.workpulsetracker.server.web.dto.UpdateEmployeeRequest;
 import com.workpulsetracker.server.web.dto.UpdateSettingsRequest;
+import com.workpulsetracker.server.web.dto.UpdateWorkerRequest;
+import com.workpulsetracker.server.web.dto.WorkerResponse;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -39,7 +38,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api")
@@ -48,7 +46,7 @@ public class ApiController {
     private final AuthUserService authUserService;
     private final OrganizationService organizationService;
     private final StructureService structureService;
-    private final EmployeeService employeeService;
+    private final WorkerService workerService;
     private final DashboardService dashboardService;
     private final AppProperties appProperties;
 
@@ -56,27 +54,27 @@ public class ApiController {
             AuthUserService authUserService,
             OrganizationService organizationService,
             StructureService structureService,
-            EmployeeService employeeService,
+            WorkerService workerService,
             DashboardService dashboardService,
             AppProperties appProperties
     ) {
         this.authUserService = authUserService;
         this.organizationService = organizationService;
         this.structureService = structureService;
-        this.employeeService = employeeService;
+        this.workerService = workerService;
         this.dashboardService = dashboardService;
         this.appProperties = appProperties;
     }
 
     @GetMapping("/me")
     public MeResponse me(Authentication authentication) {
-        AppUserEntity currentUser = authUserService.requireCurrentUser(authentication);
+        UserAccountEntity currentUser = authUserService.requireCurrentUser(authentication);
         return organizationService.getMe(currentUser);
     }
 
     @GetMapping("/structure")
     public StructureResponse structure(Authentication authentication) {
-        AppUserEntity currentUser = authUserService.requireCurrentUser(authentication);
+        UserAccountEntity currentUser = authUserService.requireCurrentUser(authentication);
         return structureService.getStructure(currentUser);
     }
 
@@ -85,7 +83,7 @@ public class ApiController {
             Authentication authentication,
             @Valid @RequestBody CreateBranchRequest createBranchRequest
     ) {
-        AppUserEntity currentUser = authUserService.requireCurrentUser(authentication);
+        UserAccountEntity currentUser = authUserService.requireCurrentUser(authentication);
         return structureService.createBranch(currentUser, createBranchRequest);
     }
 
@@ -94,85 +92,106 @@ public class ApiController {
             Authentication authentication,
             @Valid @RequestBody CreateDepartmentRequest createDepartmentRequest
     ) {
-        AppUserEntity currentUser = authUserService.requireCurrentUser(authentication);
+        UserAccountEntity currentUser = authUserService.requireCurrentUser(authentication);
         return structureService.createDepartment(currentUser, createDepartmentRequest);
     }
 
-    @GetMapping("/employees")
-    public List<EmployeeResponse> employees(
+    @GetMapping("/workers")
+    public List<WorkerResponse> workers(
             Authentication authentication,
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) UUID departmentId,
-            @RequestParam(required = false) UUID branchId
+            @RequestParam(required = false) Long departmentId,
+            @RequestParam(required = false) Long branchId
     ) {
-        AppUserEntity currentUser = authUserService.requireCurrentUser(authentication);
-        return employeeService.listEmployees(currentUser, search, branchId, departmentId);
+        UserAccountEntity currentUser = authUserService.requireCurrentUser(authentication);
+        return workerService.listWorkers(currentUser, search, branchId, departmentId);
     }
 
-    @PostMapping("/employees")
-    public CreateEmployeeResponse createEmployee(
+    @PostMapping("/workers")
+    public CreateWorkerResponse createWorker(
             Authentication authentication,
-            @Valid @RequestBody CreateEmployeeRequest createEmployeeRequest
+            @Valid @RequestBody CreateWorkerRequest createWorkerRequest
     ) {
-        AppUserEntity currentUser = authUserService.requireCurrentUser(authentication);
-        return employeeService.createEmployee(currentUser, createEmployeeRequest);
+        UserAccountEntity currentUser = authUserService.requireCurrentUser(authentication);
+        return workerService.createWorker(currentUser, createWorkerRequest);
     }
 
-    @PutMapping("/employees/{id}")
-    public EmployeeResponse updateEmployee(
+    @PutMapping("/workers/{id}")
+    public WorkerResponse updateWorker(
             Authentication authentication,
-            @PathVariable("id") UUID employeeId,
-            @Valid @RequestBody UpdateEmployeeRequest updateEmployeeRequest
+            @PathVariable("id") Long workerId,
+            @Valid @RequestBody UpdateWorkerRequest updateWorkerRequest
     ) {
-        AppUserEntity currentUser = authUserService.requireCurrentUser(authentication);
-        return employeeService.updateEmployee(currentUser, employeeId, updateEmployeeRequest);
+        UserAccountEntity currentUser = authUserService.requireCurrentUser(authentication);
+        return workerService.updateWorker(currentUser, workerId, updateWorkerRequest);
+    }
+
+    @GetMapping("/workers/{id}/access-key")
+    public AccessKeyResponse workerAccessKey(
+            Authentication authentication,
+            @PathVariable("id") Long workerId
+    ) {
+        UserAccountEntity currentUser = authUserService.requireCurrentUser(authentication);
+        return workerService.getAccessKey(currentUser, workerId);
+    }
+
+    @PostMapping("/workers/{id}/resend-access-key")
+    public void resendWorkerAccessKey(
+            Authentication authentication,
+            @PathVariable("id") Long workerId
+    ) {
+        UserAccountEntity currentUser = authUserService.requireCurrentUser(authentication);
+        workerService.resendAccessKey(currentUser, workerId);
+    }
+
+    @GetMapping("/agent")
+    public AgentInfoResponse agent(Authentication authentication) {
+        UserAccountEntity currentUser = authUserService.requireCurrentUser(authentication);
+        return workerService.getMyAgentInfo(currentUser);
+    }
+
+    @GetMapping("/agent/access-key")
+    public AccessKeyResponse myAccessKey(Authentication authentication) {
+        UserAccountEntity currentUser = authUserService.requireCurrentUser(authentication);
+        return workerService.getMyAccessKey(currentUser);
+    }
+
+    @PostMapping("/agent/resend-access-key")
+    public void resendMyAccessKey(Authentication authentication) {
+        UserAccountEntity currentUser = authUserService.requireCurrentUser(authentication);
+        workerService.resendMyAccessKey(currentUser);
     }
 
     @GetMapping("/dashboard")
     public List<DashboardWorkerResponse> dashboard(
             Authentication authentication,
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) UUID departmentId,
-            @RequestParam(required = false) UUID branchId
+            @RequestParam(required = false) Long departmentId,
+            @RequestParam(required = false) Long branchId
     ) {
-        AppUserEntity currentUser = authUserService.requireCurrentUser(authentication);
+        UserAccountEntity currentUser = authUserService.requireCurrentUser(authentication);
         return dashboardService.getDashboard(currentUser, search, branchId, departmentId);
     }
 
-    @GetMapping("/dashboard/users/{userId}/apps")
-    public List<AppUsageResponse> dashboardUserApps(
+    @GetMapping("/dashboard/workers/{workerId}/apps")
+    public List<AppUsageResponse> dashboardWorkerApps(
             Authentication authentication,
-            @PathVariable UUID userId,
+            @PathVariable Long workerId,
             @RequestParam(required = false, defaultValue = "TODAY") DashboardPeriod period
     ) {
-        AppUserEntity currentUser = authUserService.requireCurrentUser(authentication);
-        return dashboardService.getUserApps(currentUser, userId, period);
+        UserAccountEntity currentUser = authUserService.requireCurrentUser(authentication);
+        return dashboardService.getWorkerApps(currentUser, workerId, period);
     }
 
     @GetMapping("/organization")
     public OrganizationResponse organization(Authentication authentication) {
-        AppUserEntity currentUser = authUserService.requireCurrentUser(authentication);
+        UserAccountEntity currentUser = authUserService.requireCurrentUser(authentication);
         return organizationService.getOrganization(currentUser);
-    }
-
-    @GetMapping("/organization/users")
-    public List<OrganizationUserResponse> users(Authentication authentication) {
-        AppUserEntity currentUser = authUserService.requireCurrentUser(authentication);
-        return organizationService.listUsers(currentUser);
-    }
-
-    @PostMapping("/organization/users")
-    public CreateUserResponse createUser(
-            Authentication authentication,
-            @Valid @RequestBody CreateUserRequest createUserRequest
-    ) {
-        AppUserEntity currentUser = authUserService.requireCurrentUser(authentication);
-        return organizationService.createUser(currentUser, createUserRequest);
     }
 
     @GetMapping("/organization/settings")
     public Map<String, String> settings(Authentication authentication) {
-        AppUserEntity currentUser = authUserService.requireCurrentUser(authentication);
+        UserAccountEntity currentUser = authUserService.requireCurrentUser(authentication);
         return organizationService.getSettings(currentUser);
     }
 
@@ -181,7 +200,7 @@ public class ApiController {
             Authentication authentication,
             @RequestBody UpdateSettingsRequest updateSettingsRequest
     ) {
-        AppUserEntity currentUser = authUserService.requireCurrentUser(authentication);
+        UserAccountEntity currentUser = authUserService.requireCurrentUser(authentication);
         Map<String, String> settings = Objects.nonNull(updateSettingsRequest)
                 ? updateSettingsRequest.settings()
                 : Map.of();
@@ -190,7 +209,7 @@ public class ApiController {
 
     @GetMapping("/organization/stats")
     public OrganizationStatsResponse stats(Authentication authentication) {
-        AppUserEntity currentUser = authUserService.requireCurrentUser(authentication);
+        UserAccountEntity currentUser = authUserService.requireCurrentUser(authentication);
         return organizationService.getStats(currentUser);
     }
 

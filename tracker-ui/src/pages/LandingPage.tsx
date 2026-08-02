@@ -7,7 +7,7 @@ import { useTheme } from "../context/ThemeContext";
 import { mapApiError } from "../utils/errors";
 
 type AuthTab = "login" | "register";
-type RegisterKind = "PERSONAL" | "ORGANIZATION";
+type RegisterKind = "INDIVIDUAL" | "COMPANY";
 
 const FEATURES = [
   {
@@ -32,7 +32,7 @@ export function LandingPage() {
   const { me, setMe } = useApp();
   const { theme, toggleTheme } = useTheme();
   const [tab, setTab] = useState<AuthTab>("login");
-  const [registerKind, setRegisterKind] = useState<RegisterKind>("PERSONAL");
+  const [registerKind, setRegisterKind] = useState<RegisterKind>("INDIVIDUAL");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,14 +71,14 @@ export function LandingPage() {
     setLoading(true);
     try {
       const result = await api.register({
-        accountType: registerKind,
+        organizationType: registerKind,
         email: registerEmail,
         password: registerPassword,
         displayName,
-        companyName: registerKind === "ORGANIZATION" ? companyName : undefined
+        companyName: registerKind === "COMPANY" ? companyName : undefined
       });
       setMe(result);
-      navigate("/app");
+      navigate(result.workerId ? "/app/agent" : "/app");
     } catch (err) {
       setError(mapApiError(err instanceof Error ? err.message : "", "Не удалось зарегистрироваться"));
     } finally {
@@ -194,21 +194,21 @@ export function LandingPage() {
                 <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1 dark:bg-white/5">
                   <button
                     type="button"
-                    onClick={() => setRegisterKind("PERSONAL")}
+                    onClick={() => setRegisterKind("INDIVIDUAL")}
                     className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-semibold transition ${
-                      registerKind === "PERSONAL"
+                      registerKind === "INDIVIDUAL"
                         ? "bg-white text-slate-900 shadow-sm dark:bg-white/10 dark:text-white"
                         : "text-slate-500 dark:text-slate-400"
                     }`}
                   >
                     <User className="h-4 w-4" />
-                    Личный аккаунт
+                    Для себя
                   </button>
                   <button
                     type="button"
-                    onClick={() => setRegisterKind("ORGANIZATION")}
+                    onClick={() => setRegisterKind("COMPANY")}
                     className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-semibold transition ${
-                      registerKind === "ORGANIZATION"
+                      registerKind === "COMPANY"
                         ? "bg-white text-slate-900 shadow-sm dark:bg-white/10 dark:text-white"
                         : "text-slate-500 dark:text-slate-400"
                     }`}
@@ -218,7 +218,7 @@ export function LandingPage() {
                   </button>
                 </div>
 
-                {registerKind === "ORGANIZATION" && (
+                {registerKind === "COMPANY" && (
                   <Field label="Название компании">
                     <input
                       required
@@ -229,7 +229,7 @@ export function LandingPage() {
                     />
                   </Field>
                 )}
-                <Field label={registerKind === "ORGANIZATION" ? "Имя владельца" : "Ваше имя"}>
+                <Field label={registerKind === "COMPANY" ? "Имя владельца" : "Ваше имя"}>
                   <input
                     required
                     value={displayName}

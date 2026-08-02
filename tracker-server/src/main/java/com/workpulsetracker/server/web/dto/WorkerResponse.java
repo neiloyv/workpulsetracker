@@ -1,21 +1,19 @@
 package com.workpulsetracker.server.web.dto;
 
 import java.time.OffsetDateTime;
-import java.util.UUID;
 
-public record EmployeeResponse(
-        UUID id,
+public record WorkerResponse(
+        Long id,
         String displayName,
         String email,
-        String phone,
-        String role,
-        UUID branchId,
+        Long branchId,
         String branchName,
-        UUID departmentId,
+        Long departmentId,
         String departmentName,
+        String status,
         boolean agentInstalled,
         String agentVersion,
-        String agentKeyPrefix,
+        String accessKeyPrefix,
         OffsetDateTime createdAt
 ) {
 }
