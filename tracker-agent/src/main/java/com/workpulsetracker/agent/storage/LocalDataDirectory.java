@@ -28,4 +28,8 @@ public final class LocalDataDirectory {
     public static Path getExecutablePathsFilePath() {
         return getRootPath().resolve("executable-paths.json");
     }
+
+    public static Path getAppRuntimeCountersFilePath() {
+        return getRootPath().resolve("app-runtime-counters.json");
+    }
 }

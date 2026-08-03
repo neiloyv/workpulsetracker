@@ -13,6 +13,10 @@ public final class UserSettings {
     private String languageCode = AppLanguage.getDefault().getCode();
     private String email;
     private String activationKey;
+    private String accessToken;
+    private String hardwareId;
+    private Long deviceId;
+    private Long workerId;
     private boolean localOnly = true;
     private boolean setupCompleted;
     private boolean autoStartTracking;
@@ -57,6 +61,38 @@ public final class UserSettings {
         this.activationKey = StringUtils.isNotBlank(activationKey) ? activationKey.trim() : null;
     }
 
+    public String getAccessToken() {
+        return accessToken;
+    }
+
+    public void setAccessToken(String accessToken) {
+        this.accessToken = StringUtils.isNotBlank(accessToken) ? accessToken.trim() : null;
+    }
+
+    public String getHardwareId() {
+        return hardwareId;
+    }
+
+    public void setHardwareId(String hardwareId) {
+        this.hardwareId = StringUtils.isNotBlank(hardwareId) ? hardwareId.trim() : null;
+    }
+
+    public Long getDeviceId() {
+        return deviceId;
+    }
+
+    public void setDeviceId(Long deviceId) {
+        this.deviceId = deviceId;
+    }
+
+    public Long getWorkerId() {
+        return workerId;
+    }
+
+    public void setWorkerId(Long workerId) {
+        this.workerId = workerId;
+    }
+
     public boolean isLocalOnly() {
         return localOnly;
     }
@@ -72,6 +108,10 @@ public final class UserSettings {
         return !localOnly
                 && StringUtils.isNotBlank(email)
                 && StringUtils.isNotBlank(activationKey);
+    }
+
+    public boolean hasValidAccessToken() {
+        return StringUtils.isNotBlank(accessToken);
     }
 
     public boolean isSetupCompleted() {
@@ -191,6 +231,10 @@ public final class UserSettings {
         this.localOnly = true;
         this.email = null;
         this.activationKey = null;
+        this.accessToken = null;
+        this.hardwareId = null;
+        this.deviceId = null;
+        this.workerId = null;
         this.setupCompleted = true;
     }
 
@@ -204,12 +248,26 @@ public final class UserSettings {
         this.setupCompleted = true;
     }
 
+    public void applyAgentAuth(
+            String accessToken,
+            String hardwareId,
+            Long workerId,
+            Long deviceId
+    ) {
+        this.accessToken = Objects.requireNonNull(accessToken).trim();
+        this.hardwareId = Objects.requireNonNull(hardwareId).trim();
+        this.workerId = workerId;
+        this.deviceId = deviceId;
+        this.localOnly = false;
+    }
+
     /**
      * Обновляет только access key, не затрагивая email и остальные настройки.
      */
     public void updateAccessKey(String accessKey) {
         this.activationKey = Objects.requireNonNull(accessKey).trim();
         this.localOnly = false;
+        this.accessToken = null;
     }
 
     /**
@@ -220,6 +278,10 @@ public final class UserSettings {
         setLanguageCode(sourceUserSettings.getLanguageCode());
         setEmail(sourceUserSettings.getEmail());
         setActivationKey(sourceUserSettings.getActivationKey());
+        setAccessToken(sourceUserSettings.getAccessToken());
+        setHardwareId(sourceUserSettings.getHardwareId());
+        setDeviceId(sourceUserSettings.getDeviceId());
+        setWorkerId(sourceUserSettings.getWorkerId());
         setLocalOnly(sourceUserSettings.isLocalOnly());
         setSetupCompleted(sourceUserSettings.isSetupCompleted());
         setAutoStartTracking(sourceUserSettings.isAutoStartTracking());

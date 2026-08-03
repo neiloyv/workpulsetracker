@@ -1,5 +1,6 @@
 package com.workpulsetracker.server.config;
 
+import com.workpulsetracker.server.security.AgentJwtAuthenticationFilter;
 import com.workpulsetracker.server.security.AppUserDetailsService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,6 +15,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.cors.CorsConfiguration;
@@ -28,10 +30,16 @@ public class SecurityConfig {
 
     private final AppProperties appProperties;
     private final AppUserDetailsService appUserDetailsService;
+    private final AgentJwtAuthenticationFilter agentJwtAuthenticationFilter;
 
-    public SecurityConfig(AppProperties appProperties, AppUserDetailsService appUserDetailsService) {
+    public SecurityConfig(
+            AppProperties appProperties,
+            AppUserDetailsService appUserDetailsService,
+            AgentJwtAuthenticationFilter agentJwtAuthenticationFilter
+    ) {
         this.appProperties = appProperties;
         this.appUserDetailsService = appUserDetailsService;
+        this.agentJwtAuthenticationFilter = agentJwtAuthenticationFilter;
     }
 
     @Bean
@@ -71,6 +79,7 @@ public class SecurityConfig {
                 .authenticationProvider(daoAuthenticationProvider)
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/register").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/agent/auth").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/downloads").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll()
@@ -91,7 +100,8 @@ public class SecurityConfig {
                         .logoutSuccessHandler((request, response, authentication) -> response.setStatus(204))
                         .invalidateHttpSession(true)
                         .deleteCookies("JSESSIONID")
-                );
+                )
+                .addFilterBefore(agentJwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return httpSecurity.build();
     }
 

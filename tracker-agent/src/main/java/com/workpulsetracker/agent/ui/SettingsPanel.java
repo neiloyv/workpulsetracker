@@ -53,7 +53,7 @@ public final class SettingsPanel extends JPanel {
     private final ActivityStore activityStore;
     private final TrackingEngine trackingEngine;
     private final LocalDataBackupService localDataBackupService = new LocalDataBackupService();
-    private final AgentSyncClient agentSyncClient = new AgentSyncClient();
+    private final AgentSyncClient agentSyncClient;
     private final Consumer<AppLanguage> languageChangeListener;
     private final Consumer<Boolean> autoStartChangeListener;
     private final Runnable settingsChangedListener;
@@ -93,6 +93,7 @@ public final class SettingsPanel extends JPanel {
             UserSettingsStore userSettingsStore,
             ActivityStore activityStore,
             TrackingEngine trackingEngine,
+            AgentSyncClient agentSyncClient,
             Consumer<AppLanguage> languageChangeListener,
             Consumer<Boolean> autoStartChangeListener,
             Runnable settingsChangedListener,
@@ -102,6 +103,7 @@ public final class SettingsPanel extends JPanel {
         this.userSettingsStore = userSettingsStore;
         this.activityStore = activityStore;
         this.trackingEngine = trackingEngine;
+        this.agentSyncClient = agentSyncClient;
         this.languageChangeListener = languageChangeListener;
         this.autoStartChangeListener = autoStartChangeListener;
         this.settingsChangedListener = settingsChangedListener;
@@ -114,7 +116,7 @@ public final class SettingsPanel extends JPanel {
     }
 
     private void buildContent() {
-        settingsTitleLabel.setFont(settingsTitleLabel.getFont().deriveFont(java.awt.Font.BOLD, 16f));
+        settingsTitleLabel.setFont(settingsTitleLabel.getFont().deriveFont(java.awt.Font.BOLD, 18f));
         settingsTitleLabel.setForeground(UiTheme.TEXT_PRIMARY);
 
         settingsCard.setLayout(new BoxLayout(settingsCard, BoxLayout.Y_AXIS));
@@ -128,7 +130,7 @@ public final class SettingsPanel extends JPanel {
         languageComboBox.addItem(new LanguageItem(AppLanguage.UKRAINIAN, MessageCodes.UI_SETTINGS_LANGUAGE_UK));
         languageComboBox.addActionListener(actionEvent -> onLanguageChanged());
 
-        trackingTitleLabel.setFont(trackingTitleLabel.getFont().deriveFont(java.awt.Font.BOLD, 14f));
+        trackingTitleLabel.setFont(trackingTitleLabel.getFont().deriveFont(java.awt.Font.BOLD, 16f));
         trackingTitleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         trackingTitleLabel.setForeground(UiTheme.TEXT_PRIMARY);
 
@@ -174,7 +176,7 @@ public final class SettingsPanel extends JPanel {
                 timelineVisibleToggle
         );
 
-        dataTitleLabel.setFont(dataTitleLabel.getFont().deriveFont(java.awt.Font.BOLD, 14f));
+        dataTitleLabel.setFont(dataTitleLabel.getFont().deriveFont(java.awt.Font.BOLD, 16f));
         dataTitleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         dataTitleLabel.setForeground(UiTheme.TEXT_PRIMARY);
         UiTheme.styleMutedLabel(backupHintLabel);
@@ -190,7 +192,7 @@ public final class SettingsPanel extends JPanel {
         backupButtonsPanel.add(exportBackupButton);
         backupButtonsPanel.add(importBackupButton);
 
-        syncTitleLabel.setFont(syncTitleLabel.getFont().deriveFont(java.awt.Font.BOLD, 14f));
+        syncTitleLabel.setFont(syncTitleLabel.getFont().deriveFont(java.awt.Font.BOLD, 16f));
         syncTitleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         syncTitleLabel.setForeground(UiTheme.TEXT_PRIMARY);
         UiTheme.styleMutedLabel(syncHintLabel);
@@ -431,16 +433,14 @@ public final class SettingsPanel extends JPanel {
         rememberBackupDirectory(selectedFile);
         try {
             localDataBackupService.exportToZip(selectedFile.toPath());
-            JOptionPane.showMessageDialog(
-                    this,
+            UiDialogs.showMessage(
                     Messages.get(MessageCodes.UI_SETTINGS_BACKUP_EXPORT_SUCCESS),
                     Messages.get(MessageCodes.UI_SETTINGS_DATA),
                     JOptionPane.INFORMATION_MESSAGE
             );
         } catch (Exception exception) {
             logger.warn("Failed to export backup: {}", exception.getMessage());
-            JOptionPane.showMessageDialog(
-                    this,
+            UiDialogs.showMessage(
                     Messages.get(MessageCodes.UI_SETTINGS_BACKUP_FAILED, exception.getMessage()),
                     Messages.get(MessageCodes.UI_SETTINGS_DATA),
                     JOptionPane.ERROR_MESSAGE
@@ -449,8 +449,7 @@ public final class SettingsPanel extends JPanel {
     }
 
     private void onImportBackupClicked() {
-        int confirmationResult = JOptionPane.showConfirmDialog(
-                this,
+        int confirmationResult = UiDialogs.showConfirm(
                 Messages.get(MessageCodes.UI_SETTINGS_BACKUP_IMPORT_CONFIRM),
                 Messages.get(MessageCodes.UI_SETTINGS_DATA),
                 JOptionPane.YES_NO_OPTION,
@@ -478,16 +477,14 @@ public final class SettingsPanel extends JPanel {
             ApplicationIconService.getInstance().load();
             UserLocaleContext.setLanguage(userSettings.getLanguage());
             localDataRestoredListener.run();
-            JOptionPane.showMessageDialog(
-                    this,
+            UiDialogs.showMessage(
                     Messages.get(MessageCodes.UI_SETTINGS_BACKUP_IMPORT_SUCCESS),
                     Messages.get(MessageCodes.UI_SETTINGS_DATA),
                     JOptionPane.INFORMATION_MESSAGE
             );
         } catch (Exception exception) {
             logger.warn("Failed to import backup: {}", exception.getMessage());
-            JOptionPane.showMessageDialog(
-                    this,
+            UiDialogs.showMessage(
                     Messages.get(MessageCodes.UI_SETTINGS_BACKUP_FAILED, exception.getMessage()),
                     Messages.get(MessageCodes.UI_SETTINGS_DATA),
                     JOptionPane.ERROR_MESSAGE
@@ -500,15 +497,28 @@ public final class SettingsPanel extends JPanel {
     }
 
     private void onSyncNowClicked() {
-        // TODO: вызвать AgentSyncClient.synchronize после реализации API sync на сервере
-        try {
-            agentSyncClient.synchronize(userSettings, activityStore.getAllIntervals());
-        } catch (UnsupportedOperationException unsupportedOperationException) {
-            JOptionPane.showMessageDialog(
-                    this,
+        if (!agentSyncClient.isSyncConfigured(userSettings)) {
+            UiDialogs.showMessage(
                     Messages.get(MessageCodes.UI_SETTINGS_SYNC_NOT_IMPLEMENTED),
                     Messages.get(MessageCodes.UI_SETTINGS_SYNC),
                     JOptionPane.INFORMATION_MESSAGE
+            );
+            return;
+        }
+        try {
+            agentSyncClient.synchronize(userSettings);
+            settingsChangedListener.run();
+            UiDialogs.showMessage(
+                    Messages.get(MessageCodes.UI_SETTINGS_SYNC),
+                    Messages.get(MessageCodes.UI_SETTINGS_SYNC),
+                    JOptionPane.INFORMATION_MESSAGE
+            );
+        } catch (Exception exception) {
+            logger.warn("Manual sync failed: {}", exception.getMessage());
+            UiDialogs.showMessage(
+                    exception.getMessage(),
+                    Messages.get(MessageCodes.UI_SETTINGS_SYNC),
+                    JOptionPane.ERROR_MESSAGE
             );
         }
     }

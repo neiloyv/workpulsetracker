@@ -45,11 +45,12 @@ public final class AccountPanel extends JPanel {
     public AccountPanel(
             UserSettings userSettings,
             UserSettingsStore userSettingsStore,
+            AgentAccessClient agentAccessClient,
             Runnable settingsChangedListener
     ) {
         this.userSettings = userSettings;
         this.userSettingsStore = userSettingsStore;
-        this.agentAccessClient = new AgentAccessClient();
+        this.agentAccessClient = agentAccessClient;
         this.settingsChangedListener = settingsChangedListener;
         setLayout(new BorderLayout());
         setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
@@ -62,7 +63,7 @@ public final class AccountPanel extends JPanel {
         accountCard.setLayout(new BoxLayout(accountCard, BoxLayout.Y_AXIS));
         UiTheme.styleSurfaceCard(accountCard);
 
-        accountTitleLabel.setFont(accountTitleLabel.getFont().deriveFont(java.awt.Font.BOLD, 16f));
+        accountTitleLabel.setFont(accountTitleLabel.getFont().deriveFont(java.awt.Font.BOLD, 18f));
         accountTitleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         accountTitleLabel.setForeground(UiTheme.TEXT_PRIMARY);
 
@@ -183,8 +184,7 @@ public final class AccountPanel extends JPanel {
     private void onEditAccessKey() {
         String email = userSettings.getEmail();
         if (StringUtils.isBlank(email)) {
-            JOptionPane.showMessageDialog(
-                    this,
+            UiDialogs.showMessage(
                     Messages.get(MessageCodes.UI_ACTIVATION_INVALID),
                     Messages.get(MessageCodes.UI_SETTINGS_ACCESS_KEY_EDIT_TITLE),
                     JOptionPane.WARNING_MESSAGE
@@ -204,8 +204,7 @@ public final class AccountPanel extends JPanel {
         );
         dialogContentPanel.add(accessKeyPasswordField, BorderLayout.CENTER);
 
-        int dialogResult = JOptionPane.showConfirmDialog(
-                this,
+        int dialogResult = UiDialogs.showConfirm(
                 dialogContentPanel,
                 Messages.get(MessageCodes.UI_SETTINGS_ACCESS_KEY_EDIT_TITLE),
                 JOptionPane.OK_CANCEL_OPTION,
@@ -217,8 +216,7 @@ public final class AccountPanel extends JPanel {
 
         String accessKey = new String(accessKeyPasswordField.getPassword()).trim();
         if (StringUtils.isBlank(accessKey)) {
-            JOptionPane.showMessageDialog(
-                    this,
+            UiDialogs.showMessage(
                     Messages.get(MessageCodes.UI_SETTINGS_ACCESS_KEY_REQUIRED),
                     Messages.get(MessageCodes.UI_SETTINGS_ACCESS_KEY_EDIT_TITLE),
                     JOptionPane.WARNING_MESSAGE
@@ -226,8 +224,7 @@ public final class AccountPanel extends JPanel {
             return;
         }
         if (!agentAccessClient.validateAccess(email, accessKey)) {
-            JOptionPane.showMessageDialog(
-                    this,
+            UiDialogs.showMessage(
                     Messages.get(MessageCodes.UI_ACTIVATION_INVALID),
                     Messages.get(MessageCodes.UI_SETTINGS_ACCESS_KEY_EDIT_TITLE),
                     JOptionPane.WARNING_MESSAGE
@@ -236,11 +233,24 @@ public final class AccountPanel extends JPanel {
         }
 
         userSettings.updateAccessKey(accessKey);
+        AgentAccessClient.AgentAuthResult agentAuthResult = agentAccessClient.authenticate(
+                email,
+                accessKey,
+                System.getenv("COMPUTERNAME"),
+                null
+        );
+        if (Objects.nonNull(agentAuthResult)) {
+            userSettings.applyAgentAuth(
+                    agentAuthResult.accessToken(),
+                    agentAuthResult.hardwareId(),
+                    agentAuthResult.workerId(),
+                    agentAuthResult.deviceId()
+            );
+        }
         userSettingsStore.save(userSettings);
         syncAccountLabels();
         settingsChangedListener.run();
-        JOptionPane.showMessageDialog(
-                this,
+        UiDialogs.showMessage(
                 Messages.get(MessageCodes.UI_SETTINGS_ACCESS_KEY_UPDATED),
                 Messages.get(MessageCodes.UI_SETTINGS_ACCESS_KEY_EDIT_TITLE),
                 JOptionPane.INFORMATION_MESSAGE

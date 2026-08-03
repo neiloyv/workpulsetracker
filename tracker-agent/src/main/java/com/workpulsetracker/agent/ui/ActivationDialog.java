@@ -21,6 +21,7 @@ import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -33,13 +34,14 @@ public final class ActivationDialog extends JDialog {
     private final AtomicBoolean confirmed = new AtomicBoolean(false);
     private final JTextField emailTextField = new JTextField();
     private final JPasswordField accessKeyPasswordField = new JPasswordField();
+    private AgentAccessClient.AgentAuthResult agentAuthResult;
 
     public ActivationDialog(JFrame ownerFrame, AgentAccessClient agentAccessClient) {
         super(ownerFrame, Messages.get(MessageCodes.UI_ACTIVATION_TITLE), true);
         this.agentAccessClient = agentAccessClient;
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         setMinimumSize(new Dimension(440, 320));
-        setLocationRelativeTo(ownerFrame);
+        setLocationRelativeTo(null);
         buildContent();
         pack();
         UiTheme.installRoundedWindowCorners(this);
@@ -55,7 +57,7 @@ public final class ActivationDialog extends JDialog {
         cardPanel.setLayout(new BoxLayout(cardPanel, BoxLayout.Y_AXIS));
 
         JLabel titleLabel = new JLabel(Messages.get(MessageCodes.UI_ACTIVATION_TITLE));
-        titleLabel.setFont(titleLabel.getFont().deriveFont(java.awt.Font.BOLD, 18f));
+        titleLabel.setFont(titleLabel.getFont().deriveFont(java.awt.Font.BOLD, 20f));
         titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel descriptionLabel = new JLabel(
@@ -116,17 +118,23 @@ public final class ActivationDialog extends JDialog {
             showWarning(Messages.get(MessageCodes.UI_ACTIVATION_KEY_REQUIRED));
             return;
         }
-        if (!agentAccessClient.validateAccess(email.trim(), accessKey.trim())) {
+        AgentAccessClient.AgentAuthResult authResult = agentAccessClient.authenticate(
+                email.trim(),
+                accessKey.trim(),
+                System.getenv("COMPUTERNAME"),
+                null
+        );
+        if (Objects.isNull(authResult) || Objects.isNull(authResult.accessToken())) {
             showWarning(Messages.get(MessageCodes.UI_ACTIVATION_INVALID));
             return;
         }
+        this.agentAuthResult = authResult;
         confirmed.set(true);
         dispose();
     }
 
     private void showWarning(String message) {
-        JOptionPane.showMessageDialog(
-                this,
+        UiDialogs.showMessage(
                 message,
                 Messages.get(MessageCodes.UI_ACTIVATION_TITLE),
                 JOptionPane.WARNING_MESSAGE
@@ -144,5 +152,9 @@ public final class ActivationDialog extends JDialog {
 
     public String getAccessKey() {
         return new String(accessKeyPasswordField.getPassword()).trim();
+    }
+
+    public AgentAccessClient.AgentAuthResult getAgentAuthResult() {
+        return agentAuthResult;
     }
 }

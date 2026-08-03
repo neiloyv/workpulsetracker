@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface ActivitySampleRepository extends JpaRepository<ActivitySampleEntity, Long> {
 
@@ -21,6 +22,13 @@ public interface ActivitySampleRepository extends JpaRepository<ActivitySampleEn
             Collection<Long> workerIds,
             LocalDate fromDate,
             LocalDate toDate
+    );
+
+    Optional<ActivitySampleEntity> findByWorkerIdAndAppNameIgnoreCaseAndActivityDateAndIdle(
+            Long workerId,
+            String appName,
+            LocalDate activityDate,
+            boolean idle
     );
 
     @Query("""

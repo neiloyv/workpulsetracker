@@ -7,6 +7,7 @@ public class AppProperties {
 
     private String uiOrigin = "http://localhost:5173";
     private final Download download = new Download();
+    private final Jwt jwt = new Jwt();
 
     public String getUiOrigin() {
         return uiOrigin;
@@ -18,6 +19,10 @@ public class AppProperties {
 
     public Download getDownload() {
         return download;
+    }
+
+    public Jwt getJwt() {
+        return jwt;
     }
 
     public static class Download {
@@ -47,6 +52,27 @@ public class AppProperties {
 
         public void setLinuxUrl(String linuxUrl) {
             this.linuxUrl = linuxUrl;
+        }
+    }
+
+    public static class Jwt {
+        private String secret = "workpulsetracker-dev-jwt-secret-change-me-32b";
+        private long expirationSeconds = 2_592_000L;
+
+        public String getSecret() {
+            return secret;
+        }
+
+        public void setSecret(String secret) {
+            this.secret = secret;
+        }
+
+        public long getExpirationSeconds() {
+            return expirationSeconds;
+        }
+
+        public void setExpirationSeconds(long expirationSeconds) {
+            this.expirationSeconds = expirationSeconds;
         }
     }
 }

@@ -179,7 +179,7 @@ public final class DayActivityTimelinePanel extends JPanel {
 
     private void paintEmptyState(Graphics2D graphics2D, int trackX, int trackWidth) {
         graphics2D.setColor(UiTheme.TEXT_SECONDARY);
-        graphics2D.setFont(getFont().deriveFont(Font.PLAIN, 12f));
+        graphics2D.setFont(getFont().deriveFont(Font.PLAIN, 13f));
         FontMetrics fontMetrics = graphics2D.getFontMetrics();
         int textX = trackX + Math.max(0, (trackWidth - fontMetrics.stringWidth(emptyMessage)) / 2);
         int textY = TRACK_TOP + (TRACK_HEIGHT + fontMetrics.getAscent() - fontMetrics.getDescent()) / 2;
@@ -191,7 +191,7 @@ public final class DayActivityTimelinePanel extends JPanel {
         LocalDateTime rangeEndDateTime = dayActivityTimeline.getRangeEndDateTime();
         long rangeSeconds = Math.max(1L, Duration.between(rangeStartDateTime, rangeEndDateTime).getSeconds());
 
-        graphics2D.setFont(getFont().deriveFont(Font.PLAIN, 10f));
+        graphics2D.setFont(getFont().deriveFont(Font.PLAIN, 11f));
         FontMetrics fontMetrics = graphics2D.getFontMetrics();
         int labelY = TRACK_TOP + TRACK_HEIGHT + fontMetrics.getAscent() + 4;
 

@@ -84,7 +84,7 @@ public final class PomodoroPanel extends JPanel {
     }
 
     private void buildContent() {
-        titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD, 16f));
+        titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD, 18f));
         titleLabel.setForeground(UiTheme.TEXT_PRIMARY);
 
         settingsCard.setLayout(new BoxLayout(settingsCard, BoxLayout.Y_AXIS));
@@ -128,7 +128,7 @@ public final class PomodoroPanel extends JPanel {
         timerLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         timerLabel.setHorizontalAlignment(SwingConstants.CENTER);
         timerLabel.setForeground(UiTheme.TEXT_PRIMARY);
-        timerLabel.setFont(new Font("Segoe UI", Font.BOLD, 56));
+        timerLabel.setFont(new Font("Segoe UI", Font.BOLD, 60));
 
         completedTodayLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         completedTodayLabel.setHorizontalAlignment(SwingConstants.CENTER);

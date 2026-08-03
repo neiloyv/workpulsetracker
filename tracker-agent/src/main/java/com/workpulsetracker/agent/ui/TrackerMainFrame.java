@@ -1,5 +1,7 @@
 package com.workpulsetracker.agent.ui;
 
+import com.workpulsetracker.agent.api.AgentAccessClient;
+import com.workpulsetracker.agent.api.AgentSyncClient;
 import com.workpulsetracker.agent.stats.StatisticsService;
 import com.workpulsetracker.agent.storage.ActivityStore;
 import com.workpulsetracker.agent.storage.UserSettings;
@@ -41,6 +43,8 @@ public final class TrackerMainFrame extends JFrame {
             UserSettings userSettings,
             UserSettingsStore userSettingsStore,
             ActivityStore activityStore,
+            AgentAccessClient agentAccessClient,
+            AgentSyncClient agentSyncClient,
             Runnable exitAction
     ) {
         super(Messages.get(MessageCodes.UI_APP_TITLE));
@@ -59,6 +63,7 @@ public final class TrackerMainFrame extends JFrame {
                 userSettingsStore,
                 activityStore,
                 trackingEngine,
+                agentSyncClient,
                 appLanguage -> retranslateUi(),
                 this::onAutoStartSettingChanged,
                 this::refreshPanels,
@@ -67,13 +72,14 @@ public final class TrackerMainFrame extends JFrame {
         this.accountPanel = new AccountPanel(
                 userSettings,
                 userSettingsStore,
+                agentAccessClient,
                 this::refreshPanels
         );
 
         setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
         setResizable(true);
-        setMinimumSize(new Dimension(900, 600));
-        setSize(1100, 760);
+        setMinimumSize(new Dimension(1080, 720));
+        setSize(1320, 900);
         getContentPane().setBackground(UiTheme.BACKGROUND);
         setLocationRelativeTo(null);
         UiTheme.installRoundedWindowCorners(this);

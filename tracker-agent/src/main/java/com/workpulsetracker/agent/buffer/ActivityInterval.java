@@ -1,6 +1,7 @@
 package com.workpulsetracker.agent.buffer;
 
 import com.workpulsetracker.agent.util.ApplicationNameNormalizer;
+import com.workpulsetracker.agent.util.ApplicationTitleResolver;
 import org.apache.commons.lang3.StringUtils;
 
 import java.time.Duration;
@@ -17,6 +18,8 @@ public final class ActivityInterval {
     private final String applicationName;
     private final String windowTitle;
     private final boolean idle;
+    private final String appIdentifier;
+    private final String displayTitle;
 
     public ActivityInterval(
             Instant startInstant,
@@ -25,6 +28,18 @@ public final class ActivityInterval {
             String windowTitle,
             boolean idle
     ) {
+        this(startInstant, endInstant, applicationName, windowTitle, idle, null, null);
+    }
+
+    public ActivityInterval(
+            Instant startInstant,
+            Instant endInstant,
+            String applicationName,
+            String windowTitle,
+            boolean idle,
+            String appIdentifier,
+            String displayTitle
+    ) {
         this.startInstant = startInstant;
         this.endInstant = endInstant;
         this.applicationName = StringUtils.isNotBlank(applicationName)
@@ -32,6 +47,12 @@ public final class ActivityInterval {
                 : "unknown";
         this.windowTitle = StringUtils.isNotBlank(windowTitle) ? windowTitle : "";
         this.idle = idle;
+        this.displayTitle = StringUtils.isNotBlank(displayTitle)
+                ? displayTitle.trim()
+                : this.applicationName;
+        this.appIdentifier = StringUtils.isNotBlank(appIdentifier)
+                ? appIdentifier.trim().toLowerCase()
+                : ApplicationTitleResolver.resolveAppIdentifier(this.applicationName, this.displayTitle);
     }
 
     public Instant getStartInstant() {
@@ -56,6 +77,14 @@ public final class ActivityInterval {
 
     public boolean isIdle() {
         return idle;
+    }
+
+    public String getAppIdentifier() {
+        return appIdentifier;
+    }
+
+    public String getDisplayTitle() {
+        return displayTitle;
     }
 
     public boolean isOpen() {

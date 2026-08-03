@@ -13,6 +13,7 @@ import com.workpulsetracker.agent.focus.WindowInfo;
 import com.workpulsetracker.agent.idle.IdleDetector;
 import com.workpulsetracker.agent.idle.TrackerStatus;
 import com.workpulsetracker.agent.storage.ActivityStore;
+import com.workpulsetracker.agent.storage.LocalAppRuntimeStore;
 import com.workpulsetracker.agent.util.TrackedApplicationNameResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,6 +32,7 @@ public final class TrackingEngine implements AutoCloseable {
 
     private final DataBuffer dataBuffer;
     private final ActivityStore activityStore;
+    private final LocalAppRuntimeStore localAppRuntimeStore;
     private final NativeOSService nativeOSService;
     private final IdleDetector idleDetector;
     private final ActivityMonitor activityMonitor;
@@ -40,8 +42,18 @@ public final class TrackingEngine implements AutoCloseable {
     private final List<Runnable> stateChangeListeners = new CopyOnWriteArrayList<>();
 
     public TrackingEngine(AgentConfig agentConfig, DataBuffer dataBuffer, ActivityStore activityStore) {
+        this(agentConfig, dataBuffer, activityStore, new LocalAppRuntimeStore());
+    }
+
+    public TrackingEngine(
+            AgentConfig agentConfig,
+            DataBuffer dataBuffer,
+            ActivityStore activityStore,
+            LocalAppRuntimeStore localAppRuntimeStore
+    ) {
         this.dataBuffer = dataBuffer;
         this.activityStore = activityStore;
+        this.localAppRuntimeStore = localAppRuntimeStore;
         this.nativeOSService = NativeOSServiceFactory.create();
         this.idleDetector = new IdleDetector(
                 agentConfig.getIdleTimeoutSeconds(),
@@ -73,6 +85,13 @@ public final class TrackingEngine implements AutoCloseable {
             @Override
             public void onIntervalClosed(ActivityInterval activityInterval) {
                 activityStore.appendClosedInterval(activityInterval);
+                if (!activityInterval.isIdle() && activityInterval.getDurationSeconds() > 0L) {
+                    localAppRuntimeStore.addSeconds(
+                            activityInterval.getAppIdentifier(),
+                            activityInterval.getDisplayTitle(),
+                            activityInterval.getDurationSeconds()
+                    );
+                }
                 notifyStateChanged();
             }
 
@@ -145,7 +164,9 @@ public final class TrackingEngine implements AutoCloseable {
         String processName = Objects.nonNull(windowInfo) ? windowInfo.getProcessName() : "unknown";
         String windowTitle = Objects.nonNull(windowInfo) ? windowInfo.getWindowTitle() : "";
         String applicationName = TrackedApplicationNameResolver.resolve(processName, windowTitle);
-        dataBuffer.startInterval(applicationName, windowTitle, idle);
+        String displayTitle = Objects.nonNull(windowInfo) ? windowInfo.getDisplayTitle() : applicationName;
+        String appIdentifier = Objects.nonNull(windowInfo) ? windowInfo.getAppIdentifier() : "unknown";
+        dataBuffer.startInterval(applicationName, windowTitle, idle, appIdentifier, displayTitle);
     }
 
     private void notifyStateChanged() {

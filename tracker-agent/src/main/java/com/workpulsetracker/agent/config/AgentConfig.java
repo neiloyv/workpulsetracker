@@ -20,22 +20,30 @@ public final class AgentConfig {
     private static final long DEFAULT_IDLE_TIMEOUT_SECONDS = 60L;
     private static final long DEFAULT_IDLE_CHECK_INTERVAL_SECONDS = 5L;
     private static final long DEFAULT_FOCUS_POLL_INTERVAL_SECONDS = 10L;
+    private static final long DEFAULT_TELEMETRY_UPLOAD_INTERVAL_SECONDS = 60L;
+    private static final String DEFAULT_SERVER_BASE_URL = "http://localhost:8080";
 
     private final AppLanguage language;
     private final long idleTimeoutSeconds;
     private final long idleCheckIntervalSeconds;
     private final long focusPollIntervalSeconds;
+    private final String serverBaseUrl;
+    private final long telemetryUploadIntervalSeconds;
 
     private AgentConfig(
             AppLanguage language,
             long idleTimeoutSeconds,
             long idleCheckIntervalSeconds,
-            long focusPollIntervalSeconds
+            long focusPollIntervalSeconds,
+            String serverBaseUrl,
+            long telemetryUploadIntervalSeconds
     ) {
         this.language = language;
         this.idleTimeoutSeconds = idleTimeoutSeconds;
         this.idleCheckIntervalSeconds = idleCheckIntervalSeconds;
         this.focusPollIntervalSeconds = focusPollIntervalSeconds;
+        this.serverBaseUrl = serverBaseUrl;
+        this.telemetryUploadIntervalSeconds = telemetryUploadIntervalSeconds;
     }
 
     public static AgentConfig load() {
@@ -67,21 +75,42 @@ public final class AgentConfig {
                 "focus.poll.interval.seconds",
                 DEFAULT_FOCUS_POLL_INTERVAL_SECONDS
         );
+        long telemetryUploadIntervalSeconds = resolveLong(
+                properties,
+                "telemetry.upload.interval.seconds",
+                DEFAULT_TELEMETRY_UPLOAD_INTERVAL_SECONDS
+        );
+        String serverBaseUrl = resolveServerBaseUrl(properties.getProperty("server.base-url"));
 
         AgentConfig agentConfig = new AgentConfig(
                 language,
                 idleTimeoutSeconds,
                 idleCheckIntervalSeconds,
-                focusPollIntervalSeconds
+                focusPollIntervalSeconds,
+                serverBaseUrl,
+                telemetryUploadIntervalSeconds
         );
         logger.info(
-                "Configuration loaded: language={}, idleTimeout={}s, idleCheck={}s, focusPoll={}s",
+                "Configuration loaded: language={}, idleTimeout={}s, idleCheck={}s, focusPoll={}s, serverBaseUrl={}, telemetryUpload={}s",
                 language.getCode(),
                 idleTimeoutSeconds,
                 idleCheckIntervalSeconds,
-                focusPollIntervalSeconds
+                focusPollIntervalSeconds,
+                serverBaseUrl,
+                telemetryUploadIntervalSeconds
         );
         return agentConfig;
+    }
+
+    private static String resolveServerBaseUrl(String configuredBaseUrl) {
+        if (StringUtils.isBlank(configuredBaseUrl)) {
+            return DEFAULT_SERVER_BASE_URL;
+        }
+        String trimmedBaseUrl = configuredBaseUrl.trim();
+        while (trimmedBaseUrl.endsWith("/")) {
+            trimmedBaseUrl = trimmedBaseUrl.substring(0, trimmedBaseUrl.length() - 1);
+        }
+        return trimmedBaseUrl;
     }
 
     private static long resolveLong(Properties properties, String propertyName, long defaultValue) {
@@ -116,5 +145,13 @@ public final class AgentConfig {
 
     public long getFocusPollIntervalSeconds() {
         return focusPollIntervalSeconds;
+    }
+
+    public String getServerBaseUrl() {
+        return serverBaseUrl;
+    }
+
+    public long getTelemetryUploadIntervalSeconds() {
+        return telemetryUploadIntervalSeconds;
     }
 }

@@ -134,7 +134,7 @@ public final class StatisticsPanel extends JPanel {
         JPanel totalBlock = new JPanel(new BorderLayout(8, 0));
         totalBlock.setOpaque(false);
         UiTheme.styleMutedLabel(totalCaptionLabel);
-        totalTimeValueLabel.setFont(totalTimeValueLabel.getFont().deriveFont(Font.BOLD, 18f));
+        totalTimeValueLabel.setFont(totalTimeValueLabel.getFont().deriveFont(Font.BOLD, 20f));
         totalTimeValueLabel.setForeground(UiTheme.TEXT_PRIMARY);
         totalTimeValueLabel.setHorizontalAlignment(SwingConstants.RIGHT);
         totalBlock.add(totalCaptionLabel, BorderLayout.WEST);
@@ -553,17 +553,13 @@ public final class StatisticsPanel extends JPanel {
                 ).writeToFile(reportFilePath);
             }
             rememberReportDirectory(reportFilePath);
-            JOptionPane.showMessageDialog(
-                    this,
-                    Messages.get(MessageCodes.UI_STATS_DOWNLOAD_SUCCESS),
+            UiDialogs.showMessage(Messages.get(MessageCodes.UI_STATS_DOWNLOAD_SUCCESS),
                     Messages.get(MessageCodes.UI_STATS_DOWNLOAD_REPORT),
                     JOptionPane.INFORMATION_MESSAGE
             );
         } catch (Exception exception) {
             logger.error("Failed to export statistics report: {}", exception.getMessage(), exception);
-            JOptionPane.showMessageDialog(
-                    this,
-                    Messages.get(MessageCodes.UI_STATS_DOWNLOAD_FAILED, exception.getMessage()),
+            UiDialogs.showMessage(Messages.get(MessageCodes.UI_STATS_DOWNLOAD_FAILED, exception.getMessage()),
                     Messages.get(MessageCodes.UI_STATS_DOWNLOAD_REPORT),
                     JOptionPane.ERROR_MESSAGE
             );

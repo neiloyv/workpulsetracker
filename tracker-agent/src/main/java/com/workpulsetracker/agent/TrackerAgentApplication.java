@@ -1,11 +1,14 @@
 package com.workpulsetracker.agent;
 
 import com.workpulsetracker.agent.api.AgentAccessClient;
+import com.workpulsetracker.agent.api.AgentSyncClient;
+import com.workpulsetracker.agent.api.TelemetryUploadScheduler;
 import com.workpulsetracker.agent.buffer.DataBuffer;
 import com.workpulsetracker.agent.config.AgentConfig;
 import com.workpulsetracker.agent.icons.ApplicationIconService;
 import com.workpulsetracker.agent.stats.StatisticsService;
 import com.workpulsetracker.agent.storage.ActivityStore;
+import com.workpulsetracker.agent.storage.LocalAppRuntimeStore;
 import com.workpulsetracker.agent.storage.UserSettings;
 import com.workpulsetracker.agent.storage.UserSettingsStore;
 import com.workpulsetracker.agent.tracking.TrackingEngine;
@@ -57,14 +60,34 @@ public final class TrackerAgentApplication {
         ActivityStore activityStore = new ActivityStore();
         activityStore.load();
 
+        LocalAppRuntimeStore localAppRuntimeStore = new LocalAppRuntimeStore();
+        localAppRuntimeStore.load();
+
+        AgentAccessClient agentAccessClient = new AgentAccessClient(agentConfig.getServerBaseUrl());
+        AgentSyncClient agentSyncClient = new AgentSyncClient(
+                agentConfig.getServerBaseUrl(),
+                agentAccessClient,
+                localAppRuntimeStore,
+                userSettingsStore
+        );
+
         DataBuffer dataBuffer = DataBuffer.getInstance();
-        TrackingEngine trackingEngine = new TrackingEngine(agentConfig, dataBuffer, activityStore);
+        TrackingEngine trackingEngine = new TrackingEngine(
+                agentConfig,
+                dataBuffer,
+                activityStore,
+                localAppRuntimeStore
+        );
         StatisticsService statisticsService = new StatisticsService(activityStore, dataBuffer);
 
         TrackerMainFrame[] trackerMainFrameHolder = new TrackerMainFrame[1];
+        TelemetryUploadScheduler[] telemetryUploadSchedulerHolder = new TelemetryUploadScheduler[1];
         Runnable exitAction = () -> {
             if (Objects.nonNull(trackerMainFrameHolder[0])) {
                 trackerMainFrameHolder[0].shutdownUi();
+            }
+            if (Objects.nonNull(telemetryUploadSchedulerHolder[0])) {
+                telemetryUploadSchedulerHolder[0].close();
             }
             shutdown(trackingEngine);
         };
@@ -75,12 +98,13 @@ public final class TrackerAgentApplication {
                 userSettings,
                 userSettingsStore,
                 activityStore,
+                agentAccessClient,
+                agentSyncClient,
                 exitAction
         );
         trackerMainFrameHolder[0] = trackerMainFrame;
 
         if (!userSettings.isSetupCompleted()) {
-            AgentAccessClient agentAccessClient = new AgentAccessClient();
             ActivationDialog activationDialog = new ActivationDialog(trackerMainFrame, agentAccessClient);
             boolean confirmed = activationDialog.showAndWait();
             if (!confirmed) {
@@ -88,12 +112,30 @@ public final class TrackerAgentApplication {
                 return;
             }
             userSettings.applyCredentials(activationDialog.getEmail(), activationDialog.getAccessKey());
+            AgentAccessClient.AgentAuthResult agentAuthResult = activationDialog.getAgentAuthResult();
+            if (Objects.nonNull(agentAuthResult)) {
+                userSettings.applyAgentAuth(
+                        agentAuthResult.accessToken(),
+                        agentAuthResult.hardwareId(),
+                        agentAuthResult.workerId(),
+                        agentAuthResult.deviceId()
+                );
+            }
             userSettingsStore.save(userSettings);
             trackerMainFrame.refreshPanels();
         }
 
+        TelemetryUploadScheduler telemetryUploadScheduler = new TelemetryUploadScheduler(
+                agentSyncClient,
+                () -> userSettings,
+                agentConfig.getTelemetryUploadIntervalSeconds()
+        );
+        telemetryUploadScheduler.start();
+        telemetryUploadSchedulerHolder[0] = telemetryUploadScheduler;
+
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             logger.info("Stopping tracker-agent...");
+            telemetryUploadScheduler.close();
             trackingEngine.close();
         }, "tracker-agent-shutdown"));
 

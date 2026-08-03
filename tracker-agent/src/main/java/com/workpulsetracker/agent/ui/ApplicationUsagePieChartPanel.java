@@ -130,7 +130,7 @@ public final class ApplicationUsagePieChartPanel extends JPanel {
 
     private void paintEmptyState(Graphics2D graphics2D) {
         graphics2D.setColor(UiTheme.TEXT_SECONDARY);
-        graphics2D.setFont(getFont().deriveFont(Font.PLAIN, 13f));
+        graphics2D.setFont(getFont().deriveFont(Font.PLAIN, 14f));
         FontMetrics fontMetrics = graphics2D.getFontMetrics();
         int textWidth = fontMetrics.stringWidth(emptyMessage);
         int textX = Math.max(0, (getWidth() - textWidth) / 2);
@@ -169,7 +169,7 @@ public final class ApplicationUsagePieChartPanel extends JPanel {
 
         String centerLabel = "100%";
         graphics2D.setColor(UiTheme.TEXT_PRIMARY);
-        graphics2D.setFont(getFont().deriveFont(Font.BOLD, 14f));
+        graphics2D.setFont(getFont().deriveFont(Font.BOLD, 15f));
         FontMetrics centerFontMetrics = graphics2D.getFontMetrics();
         int labelX = chartX + (chartSize - centerFontMetrics.stringWidth(centerLabel)) / 2;
         int labelY = chartY + (chartSize + centerFontMetrics.getAscent() - centerFontMetrics.getDescent()) / 2;
@@ -192,7 +192,7 @@ public final class ApplicationUsagePieChartPanel extends JPanel {
         double outerRadius = chartSize / 2.0d;
         double innerRadius = Math.max(outerRadius - holeInset, outerRadius * 0.35d);
         double labelRadius = (outerRadius + innerRadius) / 2.0d;
-        graphics2D.setFont(getFont().deriveFont(Font.BOLD, 11f));
+        graphics2D.setFont(getFont().deriveFont(Font.BOLD, 12f));
         FontMetrics fontMetrics = graphics2D.getFontMetrics();
 
         for (int sliceIndex = 0; sliceIndex < slices.size(); sliceIndex++) {
@@ -222,7 +222,7 @@ public final class ApplicationUsagePieChartPanel extends JPanel {
         int maxRows = Math.max(1, availableHeight / rowHeight);
         int legendTop = Math.max(4, (getHeight() - Math.min(slices.size(), maxRows) * rowHeight) / 2);
 
-        graphics2D.setFont(getFont().deriveFont(Font.PLAIN, 13f));
+        graphics2D.setFont(getFont().deriveFont(Font.PLAIN, 14f));
         FontMetrics fontMetrics = graphics2D.getFontMetrics();
 
         for (int sliceIndex = 0; sliceIndex < slices.size() && sliceIndex < maxRows; sliceIndex++) {

@@ -10,6 +10,7 @@ import com.sun.jna.ptr.IntByReference;
 import com.workpulsetracker.agent.focus.NativeOSService;
 import com.workpulsetracker.agent.focus.WindowInfo;
 import com.workpulsetracker.agent.icons.ApplicationIconService;
+import com.workpulsetracker.agent.util.ApplicationTitleResolver;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,10 +39,16 @@ public final class WindowsNativeOSService implements NativeOSService {
                     processIdentity.processImagePath()
             );
         }
+        String displayTitle = ApplicationTitleResolver.resolveDisplayTitle(
+                processIdentity.processName(),
+                processIdentity.processImagePath()
+        );
+
         return new WindowInfo(
                 processIdentity.processName(),
                 windowTitle,
-                processIdentity.processImagePath()
+                processIdentity.processImagePath(),
+                displayTitle
         );
     }
 

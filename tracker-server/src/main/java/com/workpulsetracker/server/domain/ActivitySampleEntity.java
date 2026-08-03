@@ -65,6 +65,10 @@ public class ActivitySampleEntity {
         return seconds;
     }
 
+    public void setSeconds(long seconds) {
+        this.seconds = seconds;
+    }
+
     public boolean isIdle() {
         return idle;
     }

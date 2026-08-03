@@ -43,6 +43,9 @@ public final class UiTheme {
 
     public static void install() {
         try {
+            // Глобальный масштаб UI (~20%): шрифты, отступы, контролы FlatLaf.
+            System.setProperty("flatlaf.uiScale", "1.2");
+
             // Native decorations keep OS resize borders (left/right/top/bottom) working.
             FlatLaf.setUseNativeWindowDecorations(true);
             JFrame.setDefaultLookAndFeelDecorated(true);
@@ -88,7 +91,8 @@ public final class UiTheme {
             UIManager.put("TitlePane.inactiveBackground", BACKGROUND);
             UIManager.put("TitlePane.inactiveForeground", TEXT_SECONDARY);
             UIManager.put("RootPane.background", BACKGROUND);
-            UIManager.put("defaultFont", new Font("Segoe UI", Font.PLAIN, 13));
+            UIManager.put("defaultFont", new javax.swing.plaf.FontUIResource("Segoe UI", Font.PLAIN, 14));
+            UIManager.put("Table.rowHeight", 38);
         } catch (Exception exception) {
             logger.warn("Failed to install FlatLaf theme: {}", exception.getMessage());
         }
@@ -180,7 +184,7 @@ public final class UiTheme {
 
     public static void styleTimerLabel(JLabel label) {
         label.setForeground(TEXT_PRIMARY);
-        label.setFont(new Font("Segoe UI", Font.BOLD, 48));
+        label.setFont(new Font("Segoe UI", Font.BOLD, 52));
         label.setHorizontalAlignment(JLabel.CENTER);
     }
 
@@ -190,7 +194,7 @@ public final class UiTheme {
         table.setGridColor(BORDER);
         table.setSelectionBackground(ACCENT);
         table.setSelectionForeground(Color.WHITE);
-        table.setRowHeight(30);
+        table.setRowHeight(38);
         table.setFillsViewportHeight(true);
         table.setShowHorizontalLines(true);
         table.setShowVerticalLines(true);

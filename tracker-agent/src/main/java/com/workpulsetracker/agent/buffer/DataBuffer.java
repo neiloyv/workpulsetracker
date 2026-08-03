@@ -40,6 +40,16 @@ public final class DataBuffer {
     }
 
     public void startInterval(String applicationName, String windowTitle, boolean idle) {
+        startInterval(applicationName, windowTitle, idle, null, null);
+    }
+
+    public void startInterval(
+            String applicationName,
+            String windowTitle,
+            boolean idle,
+            String appIdentifier,
+            String displayTitle
+    ) {
         reentrantLock.lock();
         try {
             closeCurrentIntervalLocked(Instant.now());
@@ -48,14 +58,17 @@ public final class DataBuffer {
                     null,
                     applicationName,
                     windowTitle,
-                    idle
+                    idle,
+                    appIdentifier,
+                    displayTitle
             );
             ActivityInterval openedActivityInterval = currentActivityInterval;
             logger.debug(
-                    "Opened interval: app={}, title={}, idle={}",
+                    "Opened interval: app={}, title={}, idle={}, appIdentifier={}",
                     applicationName,
                     windowTitle,
-                    idle
+                    idle,
+                    openedActivityInterval.getAppIdentifier()
             );
             activityBufferListeners.forEach(listener -> listener.onIntervalOpened(openedActivityInterval));
         } finally {
