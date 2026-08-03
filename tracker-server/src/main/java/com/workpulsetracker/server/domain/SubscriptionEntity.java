@@ -1,5 +1,7 @@
 package com.workpulsetracker.server.domain;
 
+import com.workpulsetracker.server.enums.SubscriptionPlan;
+import com.workpulsetracker.server.enums.SubscriptionStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

@@ -11,11 +11,11 @@ import org.springframework.stereotype.Service;
 import java.util.Objects;
 
 @Service
-public class AppUserDetailsService implements UserDetailsService {
+public class UserAccountDetailsService implements UserDetailsService {
 
     private final UserAccountRepository userAccountRepository;
 
-    public AppUserDetailsService(UserAccountRepository userAccountRepository) {
+    public UserAccountDetailsService(UserAccountRepository userAccountRepository) {
         this.userAccountRepository = userAccountRepository;
     }
 
@@ -33,7 +33,8 @@ public class AppUserDetailsService implements UserDetailsService {
                 userAccountEntity.getId(),
                 userAccountEntity.getEmail(),
                 userAccountEntity.getPasswordHash(),
-                userAccountEntity.getRole()
+                userAccountEntity.getRole(),
+                userAccountEntity.getStatus()
         );
     }
 }

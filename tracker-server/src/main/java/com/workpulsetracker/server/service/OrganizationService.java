@@ -1,10 +1,10 @@
 package com.workpulsetracker.server.service;
 
-import com.workpulsetracker.server.domain.EntityStatus;
+import com.workpulsetracker.server.enums.EntityStatus;
 import com.workpulsetracker.server.domain.OrganizationEntity;
 import com.workpulsetracker.server.domain.OrganizationSettingEntity;
 import com.workpulsetracker.server.domain.UserAccountEntity;
-import com.workpulsetracker.server.domain.UserRole;
+import com.workpulsetracker.server.enums.UserRole;
 import com.workpulsetracker.server.domain.WorkerEntity;
 import com.workpulsetracker.server.repository.OrganizationRepository;
 import com.workpulsetracker.server.repository.OrganizationSettingRepository;

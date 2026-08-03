@@ -2,14 +2,15 @@ package com.workpulsetracker.server.service;
 
 import com.workpulsetracker.server.domain.BranchEntity;
 import com.workpulsetracker.server.domain.DepartmentEntity;
-import com.workpulsetracker.server.domain.EntityStatus;
+import com.workpulsetracker.server.enums.EntityStatus;
 import com.workpulsetracker.server.domain.OrganizationEntity;
-import com.workpulsetracker.server.domain.OrganizationType;
+import com.workpulsetracker.server.enums.OrganizationType;
 import com.workpulsetracker.server.domain.UserAccountEntity;
 import com.workpulsetracker.server.domain.WorkerEntity;
 import com.workpulsetracker.server.repository.BranchRepository;
 import com.workpulsetracker.server.repository.DepartmentRepository;
 import com.workpulsetracker.server.repository.WorkerRepository;
+import com.workpulsetracker.server.util.AccessKeyGenerator;
 import com.workpulsetracker.server.web.dto.AccessKeyResponse;
 import com.workpulsetracker.server.web.dto.AgentInfoResponse;
 import com.workpulsetracker.server.web.dto.CreateWorkerRequest;
@@ -153,8 +154,8 @@ public class WorkerService {
         workerEntity.setEmail(email);
         workerEntity.setBranchId(branchId);
         workerEntity.setDepartmentId(departmentId);
-        if (StringUtils.isNotBlank(updateWorkerRequest.status())) {
-            workerEntity.setStatus(EntityStatus.valueOf(updateWorkerRequest.status().trim().toUpperCase()));
+        if (Objects.nonNull(updateWorkerRequest.status())) {
+            workerEntity.setStatus(updateWorkerRequest.status());
         }
         workerRepository.save(workerEntity);
 
@@ -171,7 +172,7 @@ public class WorkerService {
         return new AccessKeyResponse(workerEntity.getAccessKey());
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public void resendAccessKey(UserAccountEntity currentUser, Long workerId) {
         organizationService.requireOwnerOrManager(currentUser);
         OrganizationEntity organizationEntity = organizationService.requireOrganization(currentUser);
@@ -201,7 +202,7 @@ public class WorkerService {
         return new AccessKeyResponse(workerEntity.getAccessKey());
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public void resendMyAccessKey(UserAccountEntity currentUser) {
         WorkerEntity workerEntity = requireOwnWorker(currentUser);
         accessKeyEmailService.sendAccessKey(workerEntity.getEmail(), workerEntity.getDisplayName(), workerEntity.getAccessKey());

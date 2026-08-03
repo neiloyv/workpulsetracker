@@ -1,6 +1,6 @@
 package com.workpulsetracker.server.web.dto;
 
-import com.workpulsetracker.server.domain.OrganizationType;
+import com.workpulsetracker.server.enums.OrganizationType;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

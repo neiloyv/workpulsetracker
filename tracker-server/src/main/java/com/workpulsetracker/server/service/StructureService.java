@@ -4,6 +4,7 @@ import com.workpulsetracker.server.domain.BranchEntity;
 import com.workpulsetracker.server.domain.DepartmentEntity;
 import com.workpulsetracker.server.domain.OrganizationEntity;
 import com.workpulsetracker.server.domain.UserAccountEntity;
+import com.workpulsetracker.server.enums.OrganizationType;
 import com.workpulsetracker.server.repository.BranchRepository;
 import com.workpulsetracker.server.repository.DepartmentRepository;
 import com.workpulsetracker.server.web.dto.CreateBranchRequest;
@@ -44,7 +45,7 @@ public class StructureService {
     @Transactional(readOnly = true)
     public StructureResponse getStructure(UserAccountEntity currentUser) {
         organizationService.requireOwnerOrManager(currentUser);
-        OrganizationEntity organizationEntity = organizationService.requireOrganization(currentUser);
+        OrganizationEntity organizationEntity = requireCompanyOrganization(currentUser);
         List<BranchEntity> branches =
                 branchRepository.findByOrganizationIdOrderByCreatedAtAsc(organizationEntity.getId());
         List<Long> branchIds = branches.stream().map(BranchEntity::getId).collect(Collectors.toList());
@@ -73,7 +74,7 @@ public class StructureService {
     @Transactional
     public StructureResponse.BranchNode createBranch(UserAccountEntity currentUser, CreateBranchRequest createBranchRequest) {
         organizationService.requireOwnerOrManager(currentUser);
-        OrganizationEntity organizationEntity = organizationService.requireOrganization(currentUser);
+        OrganizationEntity organizationEntity = requireCompanyOrganization(currentUser);
         String branchName = createBranchRequest.name().trim();
         if (branchRepository.existsByOrganizationIdAndNameIgnoreCase(organizationEntity.getId(), branchName)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Branch with this name already exists");
@@ -94,7 +95,7 @@ public class StructureService {
             CreateDepartmentRequest createDepartmentRequest
     ) {
         organizationService.requireOwnerOrManager(currentUser);
-        OrganizationEntity organizationEntity = organizationService.requireOrganization(currentUser);
+        OrganizationEntity organizationEntity = requireCompanyOrganization(currentUser);
         BranchEntity branchEntity = branchRepository
                 .findByIdAndOrganizationId(createDepartmentRequest.branchId(), organizationEntity.getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Branch not found"));
@@ -116,5 +117,16 @@ public class StructureService {
                 branchEntity.getId()
         );
         return new StructureResponse.DepartmentNode(departmentEntity.getId(), departmentEntity.getName(), departmentEntity.isDefault());
+    }
+
+    private OrganizationEntity requireCompanyOrganization(UserAccountEntity currentUser) {
+        OrganizationEntity organizationEntity = organizationService.requireOrganization(currentUser);
+        if (organizationEntity.getType() != OrganizationType.COMPANY) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Structure management is only available for company organizations"
+            );
+        }
+        return organizationEntity;
     }
 }

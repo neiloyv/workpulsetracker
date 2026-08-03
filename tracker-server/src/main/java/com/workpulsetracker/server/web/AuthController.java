@@ -1,6 +1,6 @@
 package com.workpulsetracker.server.web;
 
-import com.workpulsetracker.server.security.AuthUserService;
+import com.workpulsetracker.server.service.AuthUserService;
 import com.workpulsetracker.server.web.dto.LoginRequest;
 import com.workpulsetracker.server.web.dto.MeResponse;
 import com.workpulsetracker.server.web.dto.RegisterRequest;
