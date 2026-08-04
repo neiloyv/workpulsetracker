@@ -103,6 +103,9 @@ tasks.register<Exec>("jpackageNative") {
 
     doFirst {
         val outputDirectory = jpackageOutputDirectory.get().asFile
+        if (outputDirectory.exists()) {
+            outputDirectory.deleteRecursively()
+        }
         outputDirectory.mkdirs()
         logger.lifecycle(
             "jpackage: type={}, input={}, output={}",
@@ -123,6 +126,9 @@ tasks.register<Exec>("jpackagePortable") {
 
     doFirst {
         val outputDirectory = jpackagePortableOutputDirectory.get().asFile
+        if (outputDirectory.exists()) {
+            outputDirectory.deleteRecursively()
+        }
         outputDirectory.mkdirs()
         logger.lifecycle(
             "jpackage: type=app-image, input={}, output={}",
@@ -133,4 +139,51 @@ tasks.register<Exec>("jpackagePortable") {
 
     executable = jpackageExecutablePath()
     args(jpackageCommonArgs("app-image", jpackagePortableOutputDirectory.get().asFile))
+}
+
+val downloadsDirectory = rootProject.layout.projectDirectory.dir("downloads")
+
+/**
+ * Без WiX: portable app-image → ZIP для лендинга.
+ * Для настоящего .msi нужен WiX Toolset в PATH, задача publishWindowsMsi.
+ */
+tasks.register<Zip>("publishWindowsDownload") {
+    group = "distribution"
+    description =
+        "Собирает portable Windows-агент и кладёт ZIP в downloads/ (WiX не нужен)"
+    dependsOn("jpackagePortable")
+    onlyIf {
+        System.getProperty("os.name").lowercase().contains("win")
+    }
+    from(jpackagePortableOutputDirectory)
+    archiveFileName.set("workpulsetracker-agent-windows.zip")
+    destinationDirectory.set(downloadsDirectory.asFile)
+    doLast {
+        val publishedFile = downloadsDirectory.file("workpulsetracker-agent-windows.zip").asFile
+        logger.lifecycle("Published landing download: {}", publishedFile.absolutePath)
+    }
+}
+
+tasks.register<Copy>("publishWindowsMsi") {
+    group = "distribution"
+    description =
+        "Собирает Windows .msi (нужен WiX: light.exe/candle.exe в PATH) и копирует в downloads/"
+    dependsOn("jpackageNative")
+    onlyIf {
+        System.getProperty("os.name").lowercase().contains("win")
+    }
+    from(jpackageOutputDirectory) {
+        include("*.msi")
+    }
+    into(downloadsDirectory)
+    rename { "workpulsetracker-agent-windows.msi" }
+    doLast {
+        val publishedFile = downloadsDirectory.file("workpulsetracker-agent-windows.msi").asFile
+        if (!publishedFile.exists()) {
+            throw GradleException(
+                "Windows MSI not found after jpackage. Install WiX Toolset and ensure light.exe/candle.exe are on PATH."
+            )
+        }
+        logger.lifecycle("Published landing MSI: {}", publishedFile.absolutePath)
+    }
 }

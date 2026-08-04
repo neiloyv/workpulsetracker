@@ -37,12 +37,24 @@ public enum AppLanguage {
     }
 
     /**
+     * Язык по локали ОС/JVM: {@code uk} → украинский, иначе английский.
+     */
+    public static AppLanguage fromSystemLocale() {
+        String systemLanguage = Locale.getDefault().getLanguage();
+        if (Objects.equals("uk", systemLanguage.toLowerCase(Locale.ROOT))) {
+            return UKRAINIAN;
+        }
+        return ENGLISH;
+    }
+
+    /**
      * Разбирает код языка из настроек ({@code en}, {@code uk}).
-     * Неизвестное или пустое значение → язык по умолчанию (английский).
+     * Пустое значение или {@code auto} → автодетект по локали ОС.
+     * Неизвестный код → язык по умолчанию (английский).
      */
     public static AppLanguage fromCode(String languageCode) {
-        if (StringUtils.isBlank(languageCode)) {
-            return getDefault();
+        if (StringUtils.isBlank(languageCode) || "auto".equalsIgnoreCase(languageCode.trim())) {
+            return fromSystemLocale();
         }
         String normalizedLanguageCode = languageCode.trim().toLowerCase(Locale.ROOT);
         return Arrays.stream(values())

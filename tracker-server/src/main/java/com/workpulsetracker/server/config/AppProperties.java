@@ -26,9 +26,22 @@ public class AppProperties {
     }
 
     public static class Download {
-        private String windowsUrl = "/downloads/workpulsetracker-agent-windows.msi";
+        /**
+         * Локальная папка с установщиками (относительно working directory процесса сервера).
+         * По умолчанию — {@code downloads} в корне репозитория при запуске из корня.
+         */
+        private String directory = "downloads";
+        private String windowsUrl = "/downloads/workpulsetracker-agent-windows.zip";
         private String macosUrl = "/downloads/workpulsetracker-agent-macos.dmg";
         private String linuxUrl = "/downloads/workpulsetracker-agent-linux.deb";
+
+        public String getDirectory() {
+            return directory;
+        }
+
+        public void setDirectory(String directory) {
+            this.directory = directory;
+        }
 
         public String getWindowsUrl() {
             return windowsUrl;

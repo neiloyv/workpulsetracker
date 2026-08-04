@@ -43,3 +43,8 @@ tracker-android/.gradle/
 tracker-android/local.properties
 tracker-android/*.apk
 tracker-android/*.aab
+
+# Agent installers served by tracker-server (keep folder, ignore binaries)
+downloads/*
+!downloads/README.md
+!downloads/.gitkeep

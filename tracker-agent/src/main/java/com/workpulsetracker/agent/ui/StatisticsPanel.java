@@ -1,5 +1,7 @@
 package com.workpulsetracker.agent.ui;
 
+import com.workpulsetracker.agent.mode.AgentFeature;
+import com.workpulsetracker.agent.mode.FeatureGateService;
 import com.workpulsetracker.agent.report.StatisticsExcelReportWriter;
 import com.workpulsetracker.agent.report.StatisticsPdfReportWriter;
 import com.workpulsetracker.agent.report.StatisticsReportFormat;
@@ -67,6 +69,7 @@ public final class StatisticsPanel extends JPanel {
     private final StatisticsService statisticsService;
     private final UserSettings userSettings;
     private final UserSettingsStore userSettingsStore;
+    private final FeatureGateService featureGateService;
 
     private final JComboBox<StatsPeriodItem> periodComboBox = new JComboBox<>();
     private final JLabel periodLabel = new JLabel();
@@ -87,6 +90,7 @@ public final class StatisticsPanel extends JPanel {
     private final ApplicationUsageMatrixTableModel statisticsTableModel = new ApplicationUsageMatrixTableModel();
     private final JTable statisticsTable = new JTable(statisticsTableModel);
     private JScrollPane statisticsScrollPane;
+    private boolean suppressPeriodChangeEvents;
 
     public StatisticsPanel(
             StatisticsService statisticsService,
@@ -96,6 +100,7 @@ public final class StatisticsPanel extends JPanel {
         this.statisticsService = statisticsService;
         this.userSettings = userSettings;
         this.userSettingsStore = userSettingsStore;
+        this.featureGateService = new FeatureGateService(userSettings);
         setLayout(new BorderLayout(0, 12));
         setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
         setBackground(UiTheme.BACKGROUND);
@@ -104,12 +109,7 @@ public final class StatisticsPanel extends JPanel {
     }
 
     private void buildContent() {
-        periodComboBox.addItem(new StatsPeriodItem(StatsPeriod.WEEK, MessageCodes.UI_STATS_PERIOD_WEEK));
-        periodComboBox.addItem(new StatsPeriodItem(StatsPeriod.MONTH, MessageCodes.UI_STATS_PERIOD_MONTH));
-        periodComboBox.addItem(new StatsPeriodItem(StatsPeriod.YEAR, MessageCodes.UI_STATS_PERIOD_YEAR));
-        periodComboBox.addItem(new StatsPeriodItem(StatsPeriod.ALL_TIME, MessageCodes.UI_STATS_PERIOD_ALL));
-        periodComboBox.addItem(new StatsPeriodItem(StatsPeriod.CUSTOM, MessageCodes.UI_STATS_PERIOD_CUSTOM));
-        periodComboBox.setSelectedIndex(0);
+        rebuildPeriodOptions(false);
         periodComboBox.addActionListener(actionEvent -> onPeriodSelectionChanged());
 
         dateFromSpinner.addChangeListener(changeEvent -> {
@@ -214,6 +214,9 @@ public final class StatisticsPanel extends JPanel {
     }
 
     private void onPeriodSelectionChanged() {
+        if (suppressPeriodChangeEvents) {
+            return;
+        }
         customRangePanel.setVisible(isCustomPeriodSelected());
         revalidate();
         refresh();
@@ -224,6 +227,52 @@ public final class StatisticsPanel extends JPanel {
         return Objects.nonNull(selectedPeriodItem) && selectedPeriodItem.statsPeriod() == StatsPeriod.CUSTOM;
     }
 
+    private void rebuildPeriodOptions(boolean preserveSelection) {
+        StatsPeriod previouslySelectedPeriod = null;
+        if (preserveSelection) {
+            StatsPeriodItem selectedPeriodItem = (StatsPeriodItem) periodComboBox.getSelectedItem();
+            if (Objects.nonNull(selectedPeriodItem)) {
+                previouslySelectedPeriod = selectedPeriodItem.statsPeriod();
+            }
+        }
+
+        suppressPeriodChangeEvents = true;
+        try {
+            periodComboBox.removeAllItems();
+            periodComboBox.addItem(new StatsPeriodItem(StatsPeriod.WEEK, MessageCodes.UI_STATS_PERIOD_WEEK));
+            periodComboBox.addItem(new StatsPeriodItem(StatsPeriod.MONTH, MessageCodes.UI_STATS_PERIOD_MONTH));
+            boolean extendedHistoryAllowed = featureGateService.isFeatureAllowed(AgentFeature.EXTENDED_HISTORY_EXPORT);
+            if (extendedHistoryAllowed) {
+                periodComboBox.addItem(new StatsPeriodItem(StatsPeriod.YEAR, MessageCodes.UI_STATS_PERIOD_YEAR));
+                periodComboBox.addItem(new StatsPeriodItem(StatsPeriod.ALL_TIME, MessageCodes.UI_STATS_PERIOD_ALL));
+            }
+            periodComboBox.addItem(new StatsPeriodItem(StatsPeriod.CUSTOM, MessageCodes.UI_STATS_PERIOD_CUSTOM));
+
+            if (Objects.nonNull(previouslySelectedPeriod)) {
+                for (int itemIndex = 0; itemIndex < periodComboBox.getItemCount(); itemIndex++) {
+                    StatsPeriodItem statsPeriodItem = periodComboBox.getItemAt(itemIndex);
+                    if (Objects.equals(statsPeriodItem.statsPeriod(), previouslySelectedPeriod)) {
+                        periodComboBox.setSelectedIndex(itemIndex);
+                        customRangePanel.setVisible(isCustomPeriodSelected());
+                        return;
+                    }
+                }
+            }
+            periodComboBox.setSelectedIndex(0);
+            customRangePanel.setVisible(false);
+        } finally {
+            suppressPeriodChangeEvents = false;
+        }
+    }
+
+    /**
+     * Пересобирает периоды после смены LOCAL_SOLO / NETWORK_SYNC.
+     */
+    public void onOperationModeChanged() {
+        rebuildPeriodOptions(true);
+        refresh();
+    }
+
     public void retranslate() {
         periodLabel.setText(Messages.get(MessageCodes.UI_STATS_PERIOD));
         totalCaptionLabel.setText(Messages.get(MessageCodes.UI_STATS_TOTAL));
@@ -232,6 +281,7 @@ public final class StatisticsPanel extends JPanel {
         downloadReportButton.setText(Messages.get(MessageCodes.UI_STATS_DOWNLOAD_REPORT));
         dateFromLabel.setText(Messages.get(MessageCodes.UI_STATS_PERIOD_FROM));
         dateToLabel.setText(Messages.get(MessageCodes.UI_STATS_PERIOD_TO));
+        rebuildPeriodOptions(true);
         periodComboBox.repaint();
         reportFormatComboBox.repaint();
         statisticsTableModel.retranslate();
@@ -269,6 +319,11 @@ public final class StatisticsPanel extends JPanel {
         StatsPeriod statsPeriod = selectedPeriodItem != null
                 ? selectedPeriodItem.statsPeriod()
                 : StatsPeriod.WEEK;
+        if ((statsPeriod == StatsPeriod.YEAR || statsPeriod == StatsPeriod.ALL_TIME)
+                && !featureGateService.isFeatureAllowed(AgentFeature.EXTENDED_HISTORY_EXPORT)) {
+            rebuildPeriodOptions(false);
+            statsPeriod = StatsPeriod.WEEK;
+        }
         LocalDate rangeStartDate = readSpinnerDate(dateFromSpinner);
         LocalDate rangeEndDate = readSpinnerDate(dateToSpinner);
 

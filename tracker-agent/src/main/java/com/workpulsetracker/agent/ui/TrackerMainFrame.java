@@ -73,7 +73,8 @@ public final class TrackerMainFrame extends JFrame {
                 userSettings,
                 userSettingsStore,
                 agentAccessClient,
-                this::refreshPanels
+                agentSyncClient,
+                this::onAccountModeOrCredentialsChanged
         );
 
         setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
@@ -141,6 +142,13 @@ public final class TrackerMainFrame extends JFrame {
         statisticsPanel.refresh();
     }
 
+    private void onAccountModeOrCredentialsChanged() {
+        settingsPanel.reloadFromSettings();
+        statisticsPanel.onOperationModeChanged();
+        accountPanel.retranslate();
+        refreshPanels();
+    }
+
     private void onAutoStartSettingChanged(boolean autoStartTracking) {
         mainPanel.applyAutoStartSetting(autoStartTracking);
     }
@@ -150,6 +158,7 @@ public final class TrackerMainFrame extends JFrame {
         settingsPanel.reloadFromSettings();
         pomodoroPanel.reloadFromSettings();
         accountPanel.retranslate();
+        statisticsPanel.onOperationModeChanged();
         mainPanel.applyAutoStartSetting(userSettings.isAutoStartTracking());
         retranslateUi();
         refreshPanels();

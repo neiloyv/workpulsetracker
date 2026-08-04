@@ -1,12 +1,13 @@
 package com.workpulsetracker.agent.storage;
 
+import com.workpulsetracker.agent.mode.AgentOperationMode;
 import com.workpulsetracker.common.i18n.AppLanguage;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.Objects;
 
 /**
- * Локальные настройки пользователя агента (язык, привязка к веб-аккаунту).
+ * Локальные настройки пользователя агента (язык, режим работы, привязка к веб-аккаунту).
  */
 public final class UserSettings {
 
@@ -17,6 +18,14 @@ public final class UserSettings {
     private String hardwareId;
     private Long deviceId;
     private Long workerId;
+    /**
+     * Явный режим: {@link AgentOperationMode#LOCAL_SOLO} / {@link AgentOperationMode#NETWORK_SYNC}.
+     * При чтении старых settings.json может быть null — тогда берём legacy {@link #localOnly}.
+     */
+    private String operationMode = AgentOperationMode.LOCAL_SOLO.name();
+    /**
+     * Legacy-флаг для обратной совместимости со старыми settings.json.
+     */
     private boolean localOnly = true;
     private boolean setupCompleted;
     private boolean autoStartTracking;
@@ -93,19 +102,34 @@ public final class UserSettings {
         this.workerId = workerId;
     }
 
+    public AgentOperationMode getOperationMode() {
+        if (StringUtils.isNotBlank(operationMode)) {
+            return AgentOperationMode.fromCode(operationMode);
+        }
+        return localOnly ? AgentOperationMode.LOCAL_SOLO : AgentOperationMode.NETWORK_SYNC;
+    }
+
+    public void setOperationMode(AgentOperationMode agentOperationMode) {
+        AgentOperationMode resolvedOperationMode = Objects.nonNull(agentOperationMode)
+                ? agentOperationMode
+                : AgentOperationMode.getDefault();
+        this.operationMode = resolvedOperationMode.name();
+        this.localOnly = resolvedOperationMode.isLocalSolo();
+    }
+
     public boolean isLocalOnly() {
-        return localOnly;
+        return getOperationMode().isLocalSolo();
     }
 
     public void setLocalOnly(boolean localOnly) {
-        this.localOnly = localOnly;
+        setOperationMode(localOnly ? AgentOperationMode.LOCAL_SOLO : AgentOperationMode.NETWORK_SYNC);
     }
 
     /**
-     * Можно слать данные на сервер только если есть email, ключ и режим не «только локально».
+     * Можно слать данные на сервер только в NETWORK_SYNC при наличии email и access key.
      */
     public boolean isServerSyncEnabled() {
-        return !localOnly
+        return getOperationMode().isNetworkSync()
                 && StringUtils.isNotBlank(email)
                 && StringUtils.isNotBlank(activationKey);
     }
@@ -228,7 +252,7 @@ public final class UserSettings {
     }
 
     public void applyLocalOnlyMode() {
-        this.localOnly = true;
+        setOperationMode(AgentOperationMode.LOCAL_SOLO);
         this.email = null;
         this.activationKey = null;
         this.accessToken = null;
@@ -239,12 +263,12 @@ public final class UserSettings {
     }
 
     /**
-     * Первичная активация: сохраняет email и access key, остальные настройки не трогает.
+     * Первичная активация / подключение облака: email + access key → NETWORK_SYNC.
      */
     public void applyCredentials(String email, String accessKey) {
         this.email = Objects.requireNonNull(email).trim().toLowerCase();
         this.activationKey = Objects.requireNonNull(accessKey).trim();
-        this.localOnly = false;
+        setOperationMode(AgentOperationMode.NETWORK_SYNC);
         this.setupCompleted = true;
     }
 
@@ -258,7 +282,7 @@ public final class UserSettings {
         this.hardwareId = Objects.requireNonNull(hardwareId).trim();
         this.workerId = workerId;
         this.deviceId = deviceId;
-        this.localOnly = false;
+        setOperationMode(AgentOperationMode.NETWORK_SYNC);
     }
 
     /**
@@ -266,7 +290,7 @@ public final class UserSettings {
      */
     public void updateAccessKey(String accessKey) {
         this.activationKey = Objects.requireNonNull(accessKey).trim();
-        this.localOnly = false;
+        setOperationMode(AgentOperationMode.NETWORK_SYNC);
         this.accessToken = null;
     }
 
@@ -282,7 +306,7 @@ public final class UserSettings {
         setHardwareId(sourceUserSettings.getHardwareId());
         setDeviceId(sourceUserSettings.getDeviceId());
         setWorkerId(sourceUserSettings.getWorkerId());
-        setLocalOnly(sourceUserSettings.isLocalOnly());
+        setOperationMode(sourceUserSettings.getOperationMode());
         setSetupCompleted(sourceUserSettings.isSetupCompleted());
         setAutoStartTracking(sourceUserSettings.isAutoStartTracking());
         setMinorUsageThresholdMinutes(sourceUserSettings.getMinorUsageThresholdMinutes());

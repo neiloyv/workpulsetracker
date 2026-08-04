@@ -56,7 +56,10 @@ public final class TelemetryUploadScheduler implements AutoCloseable {
     private void uploadSafely() {
         try {
             UserSettings userSettings = userSettingsSupplier.get();
-            if (Objects.isNull(userSettings) || !userSettings.isServerSyncEnabled()) {
+            if (Objects.isNull(userSettings) || userSettings.getOperationMode().isLocalSolo()) {
+                return;
+            }
+            if (!userSettings.isServerSyncEnabled()) {
                 return;
             }
             agentSyncClient.uploadTelemetry(userSettings);

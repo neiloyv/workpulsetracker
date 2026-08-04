@@ -5,7 +5,8 @@ import org.apache.commons.lang3.StringUtils;
 import java.util.Locale;
 
 /**
- * Человекочитаемое имя приложения: FileDescription (Win32) с fallback на имя процесса.
+ * Человекочитаемое имя приложения (app_title / displayTitle):
+ * FileDescription через Win32 Version API (JNA), иначе имя процесса без .exe.
  */
 public final class ApplicationTitleResolver {
 
@@ -21,6 +22,7 @@ public final class ApplicationTitleResolver {
         if (StringUtils.isNotBlank(fileDescription)) {
             return fileDescription.trim();
         }
+        // Fallback: техническое имя без расширения (.exe → idea64).
         return ApplicationNameNormalizer.normalize(processName);
     }
 

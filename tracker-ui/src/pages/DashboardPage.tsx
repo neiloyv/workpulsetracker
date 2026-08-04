@@ -3,12 +3,14 @@ import { useEffect, useMemo, useState } from "react";
 import { api, DashboardWorker } from "../api";
 import { AnalyticsModal } from "../components/AnalyticsModal";
 import { ALL_BRANCHES, useApp } from "../context/AppContext";
+import { useLocale } from "../context/LocaleContext";
 import { mapApiError } from "../utils/errors";
 import { exportCsv, formatDuration } from "../utils/format";
 import { toast } from "../utils/toast";
 
 export function DashboardPage() {
   const { structure, selectedBranchId, canManageCompany } = useApp();
+  const { t } = useLocale();
   const [workers, setWorkers] = useState<DashboardWorker[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -55,7 +57,7 @@ export function DashboardPage() {
         })
         .catch((error) => {
           if (!cancelled) {
-            toast(mapApiError(error instanceof Error ? error.message : "", "Не удалось загрузить дашборд"), "error");
+            toast(mapApiError(error instanceof Error ? error.message : "", t("dashboard.loadError")), "error");
           }
         })
         .finally(() => {
@@ -68,28 +70,32 @@ export function DashboardPage() {
       cancelled = true;
       clearTimeout(handle);
     };
-  }, [search, departmentId, selectedBranchId, showTeamFilters]);
+  }, [search, departmentId, selectedBranchId, showTeamFilters, t]);
 
   function onExport() {
     if (workers.length === 0) {
-      toast("Нет данных для экспорта", "info");
+      toast(t("dashboard.exportEmpty"), "info");
       return;
     }
     exportCsv(
       "dashboard_export.csv",
       workers.map((worker) => ({
-        Имя: worker.displayName,
-        Email: worker.email,
-        Отдел: worker.departmentName ?? "—",
-        Филиал: worker.branchName ?? "—",
-        Сегодня: formatDuration(worker.todaySeconds),
-        Неделя: formatDuration(worker.weekSeconds),
-        Месяц: formatDuration(worker.monthSeconds),
-        Год: formatDuration(worker.yearSeconds),
-        Агент: worker.agentInstalled ? `Установлен (${worker.agentVersion ?? ""})` : "Не установлен"
+        [t("dashboard.export.name")]: worker.displayName,
+        [t("dashboard.export.email")]: worker.email,
+        [t("dashboard.export.department")]: worker.departmentName ?? "—",
+        [t("dashboard.export.branch")]: worker.branchName ?? "—",
+        [t("dashboard.export.today")]: formatDuration(worker.todaySeconds),
+        [t("dashboard.export.week")]: formatDuration(worker.weekSeconds),
+        [t("dashboard.export.month")]: formatDuration(worker.monthSeconds),
+        [t("dashboard.export.year")]: formatDuration(worker.yearSeconds),
+        [t("dashboard.export.agent")]: worker.agentInstalled
+          ? worker.agentVersion
+            ? t("dashboard.agent.installedVersion", { version: worker.agentVersion })
+            : t("dashboard.agent.installed")
+          : t("dashboard.agent.notInstalled")
       }))
     );
-    toast("CSV файл скачан", "success");
+    toast(t("dashboard.exportSuccess"), "success");
   }
 
   return (
@@ -98,10 +104,10 @@ export function DashboardPage() {
         <div>
           <div className="flex items-center gap-2 text-sm font-semibold text-brand-600 dark:text-brand-300">
             <LayoutDashboard className="h-4 w-4" />
-            Дашборд
+            {t("dashboard.eyebrow")}
           </div>
           <h1 className="mt-1 font-display text-2xl font-bold text-slate-900 dark:text-white">
-            {showTeamFilters ? "Активность команды" : "Моя активность"}
+            {showTeamFilters ? t("dashboard.title.team") : t("dashboard.title.personal")}
           </h1>
         </div>
         <button
@@ -109,7 +115,7 @@ export function DashboardPage() {
           className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-brand-400 hover:text-brand-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:text-brand-300"
         >
           <Download className="h-4 w-4" />
-          Экспорт CSV
+          {t("dashboard.exportCsv")}
         </button>
       </div>
 
@@ -120,7 +126,7 @@ export function DashboardPage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Поиск по имени или email"
+              placeholder={t("dashboard.searchPlaceholder")}
               className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3.5 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-white/10 dark:bg-white/5 dark:text-white"
             />
           </div>
@@ -129,7 +135,7 @@ export function DashboardPage() {
             onChange={(e) => setDepartmentId(e.target.value)}
             className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-600 outline-none transition focus:border-brand-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-200"
           >
-            <option value="ALL">Все отделы</option>
+            <option value="ALL">{t("dashboard.allDepartments")}</option>
             {departmentOptions.map((department) => (
               <option key={department.id} value={department.id}>
                 {department.label}
@@ -144,13 +150,13 @@ export function DashboardPage() {
           <table className="w-full min-w-[760px] text-left text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-400 dark:border-white/10">
-                <th className="px-5 py-3.5 font-semibold">Сотрудник</th>
-                <th className="px-5 py-3.5 font-semibold">Отдел</th>
-                <th className="px-5 py-3.5 font-semibold">Сегодня</th>
-                <th className="px-5 py-3.5 font-semibold">Неделя</th>
-                <th className="px-5 py-3.5 font-semibold">Месяц</th>
-                <th className="px-5 py-3.5 font-semibold">Год</th>
-                <th className="px-5 py-3.5 font-semibold">Агент</th>
+                <th className="px-5 py-3.5 font-semibold">{t("dashboard.column.employee")}</th>
+                <th className="px-5 py-3.5 font-semibold">{t("dashboard.column.department")}</th>
+                <th className="px-5 py-3.5 font-semibold">{t("dashboard.column.today")}</th>
+                <th className="px-5 py-3.5 font-semibold">{t("dashboard.column.week")}</th>
+                <th className="px-5 py-3.5 font-semibold">{t("dashboard.column.month")}</th>
+                <th className="px-5 py-3.5 font-semibold">{t("dashboard.column.year")}</th>
+                <th className="px-5 py-3.5 font-semibold">{t("dashboard.column.agent")}</th>
               </tr>
             </thead>
             <tbody>
@@ -163,7 +169,7 @@ export function DashboardPage() {
               ) : workers.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-5 py-12 text-center text-slate-400">
-                    Пока нет данных активности. Они появятся после синхронизации агента.
+                    {t("dashboard.empty")}
                   </td>
                 </tr>
               ) : (
@@ -215,18 +221,21 @@ export function DashboardPage() {
 }
 
 function AgentBadge({ installed, version }: { installed: boolean; version: string | null }) {
+  const { t } = useLocale();
   if (installed) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300">
         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-        {version ? `Установлен v${version}` : "Установлен"}
+        {version
+          ? t("dashboard.agent.installedVersionShort", { version })
+          : t("dashboard.agent.installed")}
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500 dark:bg-white/5 dark:text-slate-400">
       <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-      Не установлен
+      {t("dashboard.agent.notInstalled")}
     </span>
   );
 }

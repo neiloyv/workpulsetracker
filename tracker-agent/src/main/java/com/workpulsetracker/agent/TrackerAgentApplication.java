@@ -111,15 +111,19 @@ public final class TrackerAgentApplication {
                 exitAction.run();
                 return;
             }
-            userSettings.applyCredentials(activationDialog.getEmail(), activationDialog.getAccessKey());
-            AgentAccessClient.AgentAuthResult agentAuthResult = activationDialog.getAgentAuthResult();
-            if (Objects.nonNull(agentAuthResult)) {
-                userSettings.applyAgentAuth(
-                        agentAuthResult.accessToken(),
-                        agentAuthResult.hardwareId(),
-                        agentAuthResult.workerId(),
-                        agentAuthResult.deviceId()
-                );
+            if (activationDialog.isLocalSoloSelected()) {
+                userSettings.applyLocalOnlyMode();
+            } else {
+                userSettings.applyCredentials(activationDialog.getEmail(), activationDialog.getAccessKey());
+                AgentAccessClient.AgentAuthResult agentAuthResult = activationDialog.getAgentAuthResult();
+                if (Objects.nonNull(agentAuthResult)) {
+                    userSettings.applyAgentAuth(
+                            agentAuthResult.accessToken(),
+                            agentAuthResult.hardwareId(),
+                            agentAuthResult.workerId(),
+                            agentAuthResult.deviceId()
+                    );
+                }
             }
             userSettingsStore.save(userSettings);
             trackerMainFrame.refreshPanels();

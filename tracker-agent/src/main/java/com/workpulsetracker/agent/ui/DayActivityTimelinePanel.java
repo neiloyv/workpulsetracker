@@ -1,11 +1,11 @@
 package com.workpulsetracker.agent.ui;
 
+import com.workpulsetracker.agent.stats.DayActivityState;
 import com.workpulsetracker.agent.stats.DayActivityTimeline;
 import com.workpulsetracker.agent.stats.DayActivityTimelineSegment;
 import com.workpulsetracker.agent.util.DurationFormatter;
 import com.workpulsetracker.common.i18n.MessageCodes;
 import com.workpulsetracker.common.i18n.Messages;
-import org.apache.commons.lang3.StringUtils;
 
 import javax.swing.JPanel;
 import javax.swing.ToolTipManager;
@@ -22,30 +22,32 @@ import java.awt.geom.RoundRectangle2D;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 /**
- * Горизонтальный таймлайн активности приложений за день.
+ * Суточный таймлайн 00:00–24:00: зелёный = ACTIVE, серый = IDLE, прозрачный = PC Off.
  */
 public final class DayActivityTimelinePanel extends JPanel {
 
     private static final int TRACK_HEIGHT = 28;
     private static final int TRACK_TOP = 8;
-    private static final int HOUR_LABEL_AREA_HEIGHT = 20;
-    private static final int MIN_SEGMENT_WIDTH_PX = 4;
+    private static final int HOUR_LABEL_AREA_HEIGHT = 22;
+    private static final int MIN_SEGMENT_WIDTH_PX = 2;
+    private static final long SECONDS_PER_DAY = 24L * 3600L;
+    private static final int LABEL_HOUR_STEP = 4;
+    private static final int SUB_HOUR_TICK_MINUTES = 10;
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
+
+    private static final Color ACTIVE_COLOR = new Color(0x22, 0xC5, 0x5E);
+    private static final Color IDLE_COLOR = new Color(0x6B, 0x6B, 0x80);
+    private static final Color HOUR_TICK_COLOR = new Color(0x3A, 0x3A, 0x55);
+    private static final Color SUB_HOUR_TICK_COLOR = new Color(0x2A, 0x2A, 0x40);
 
     private DayActivityTimeline dayActivityTimeline = DayActivityTimeline.empty(
             LocalDateTime.now().toLocalDate().atStartOfDay(),
-            LocalDateTime.now()
+            LocalDateTime.now().toLocalDate().plusDays(1).atStartOfDay()
     );
-    private String emptyMessage = Messages.get(MessageCodes.UI_MAIN_NO_APPLICATIONS);
-    private Map<String, Color> colorByApplicationName = Map.of();
     private int hoveredSegmentIndex = -1;
 
     public DayActivityTimelinePanel() {
@@ -80,19 +82,15 @@ public final class DayActivityTimelinePanel extends JPanel {
                 ? dayActivityTimeline
                 : DayActivityTimeline.empty(
                         LocalDateTime.now().toLocalDate().atStartOfDay(),
-                        LocalDateTime.now()
+                        LocalDateTime.now().toLocalDate().plusDays(1).atStartOfDay()
                 );
-        this.colorByApplicationName = buildColorMap(this.dayActivityTimeline.getSegments());
         this.hoveredSegmentIndex = -1;
         repaint();
     }
 
+    @SuppressWarnings("unused")
     public void setEmptyMessage(String emptyMessage) {
-        this.emptyMessage = StringUtils.defaultIfBlank(
-                emptyMessage,
-                Messages.get(MessageCodes.UI_MAIN_NO_APPLICATIONS)
-        );
-        repaint();
+        // Сообщение не рисуется: пустой трек = PC Off на всей оси 00:00–24:00.
     }
 
     @Override
@@ -102,7 +100,10 @@ public final class DayActivityTimelinePanel extends JPanel {
             return null;
         }
         DayActivityTimelineSegment segment = dayActivityTimeline.getSegments().get(segmentIndex);
-        return segment.getApplicationName()
+        String stateLabel = segment.getActivityState() == DayActivityState.ACTIVE
+                ? Messages.get(MessageCodes.UI_MAIN_TIMELINE_STATE_ACTIVE)
+                : Messages.get(MessageCodes.UI_MAIN_TIMELINE_STATE_IDLE);
+        return stateLabel
                 + "  "
                 + TIME_FORMATTER.format(segment.getStartDateTime())
                 + "–"
@@ -121,7 +122,10 @@ public final class DayActivityTimelinePanel extends JPanel {
 
             int trackWidth = Math.max(getWidth() - 4, 1);
             int trackX = 2;
-            graphics2D.setColor(UiTheme.SURFACE_2);
+
+            // Прозрачный/пустой фон трека = PC Off / агент не работал.
+            graphics2D.setColor(new Color(UiTheme.SURFACE_2.getRed(), UiTheme.SURFACE_2.getGreen(),
+                    UiTheme.SURFACE_2.getBlue(), 90));
             graphics2D.fill(new RoundRectangle2D.Double(
                     trackX,
                     TRACK_TOP,
@@ -131,29 +135,15 @@ public final class DayActivityTimelinePanel extends JPanel {
                     10
             ));
 
-            if (dayActivityTimeline.isEmpty()) {
-                paintEmptyState(graphics2D, trackX, trackWidth);
-                paintHourLabels(graphics2D, trackX, trackWidth);
-                return;
-            }
-
-            long rangeSeconds = Math.max(
-                    1L,
-                    Duration.between(
-                            dayActivityTimeline.getRangeStartDateTime(),
-                            dayActivityTimeline.getRangeEndDateTime()
-                    ).getSeconds()
-            );
             List<DayActivityTimelineSegment> segments = dayActivityTimeline.getSegments();
             for (int segmentIndex = 0; segmentIndex < segments.size(); segmentIndex++) {
                 DayActivityTimelineSegment segment = segments.get(segmentIndex);
-                int segmentX = trackX + toPixelOffset(segment.getStartDateTime(), rangeSeconds, trackWidth);
-                int segmentEndX = trackX + toPixelOffset(segment.getEndDateTime(), rangeSeconds, trackWidth);
+                int segmentX = trackX + toPixelOffset(segment.getStartDateTime(), trackWidth);
+                int segmentEndX = trackX + toPixelOffset(segment.getEndDateTime(), trackWidth);
                 int segmentWidth = Math.max(MIN_SEGMENT_WIDTH_PX, segmentEndX - segmentX);
-                Color segmentColor = colorByApplicationName.getOrDefault(
-                        segment.getApplicationName(),
-                        ApplicationUsageColorPalette.colorForIndex(0)
-                );
+                Color segmentColor = segment.getActivityState() == DayActivityState.ACTIVE
+                        ? ACTIVE_COLOR
+                        : IDLE_COLOR;
                 if (segmentIndex == hoveredSegmentIndex) {
                     graphics2D.setColor(segmentColor.brighter());
                 } else {
@@ -161,6 +151,8 @@ public final class DayActivityTimelinePanel extends JPanel {
                 }
                 graphics2D.fillRect(segmentX, TRACK_TOP + 2, segmentWidth, TRACK_HEIGHT - 4);
             }
+
+            paintGrid(graphics2D, trackX, trackWidth);
 
             graphics2D.setColor(UiTheme.BORDER);
             graphics2D.draw(new RoundRectangle2D.Double(
@@ -177,66 +169,50 @@ public final class DayActivityTimelinePanel extends JPanel {
         }
     }
 
-    private void paintEmptyState(Graphics2D graphics2D, int trackX, int trackWidth) {
-        graphics2D.setColor(UiTheme.TEXT_SECONDARY);
-        graphics2D.setFont(getFont().deriveFont(Font.PLAIN, 13f));
-        FontMetrics fontMetrics = graphics2D.getFontMetrics();
-        int textX = trackX + Math.max(0, (trackWidth - fontMetrics.stringWidth(emptyMessage)) / 2);
-        int textY = TRACK_TOP + (TRACK_HEIGHT + fontMetrics.getAscent() - fontMetrics.getDescent()) / 2;
-        graphics2D.drawString(emptyMessage, textX, textY);
+    private void paintGrid(Graphics2D graphics2D, int trackX, int trackWidth) {
+        LocalDateTime rangeStartDateTime = dayActivityTimeline.getRangeStartDateTime();
+        for (int minuteOfDay = 0; minuteOfDay <= 24 * 60; minuteOfDay += SUB_HOUR_TICK_MINUTES) {
+            LocalDateTime tickDateTime = rangeStartDateTime.plusMinutes(minuteOfDay);
+            int tickX = trackX + toPixelOffset(tickDateTime, trackWidth);
+            boolean isHourTick = minuteOfDay % 60 == 0;
+            if (isHourTick) {
+                graphics2D.setColor(HOUR_TICK_COLOR);
+                graphics2D.drawLine(tickX, TRACK_TOP + 2, tickX, TRACK_TOP + TRACK_HEIGHT - 2);
+            } else {
+                graphics2D.setColor(SUB_HOUR_TICK_COLOR);
+                graphics2D.drawLine(tickX, TRACK_TOP + TRACK_HEIGHT / 2, tickX, TRACK_TOP + TRACK_HEIGHT - 2);
+            }
+        }
     }
 
     private void paintHourLabels(Graphics2D graphics2D, int trackX, int trackWidth) {
         LocalDateTime rangeStartDateTime = dayActivityTimeline.getRangeStartDateTime();
-        LocalDateTime rangeEndDateTime = dayActivityTimeline.getRangeEndDateTime();
-        long rangeSeconds = Math.max(1L, Duration.between(rangeStartDateTime, rangeEndDateTime).getSeconds());
-
         graphics2D.setFont(getFont().deriveFont(Font.PLAIN, 11f));
         FontMetrics fontMetrics = graphics2D.getFontMetrics();
         int labelY = TRACK_TOP + TRACK_HEIGHT + fontMetrics.getAscent() + 4;
 
-        long tickStepMinutes;
-        if (rangeSeconds <= 30 * 60L) {
-            tickStepMinutes = 5L;
-        } else if (rangeSeconds <= 2 * 3600L) {
-            tickStepMinutes = 15L;
-        } else if (rangeSeconds <= 6 * 3600L) {
-            tickStepMinutes = 30L;
-        } else {
-            tickStepMinutes = 60L;
-        }
-
-        long startEpochMinute = rangeStartDateTime.getHour() * 60L
-                + rangeStartDateTime.getMinute();
-        long alignedMinute = ((startEpochMinute + tickStepMinutes - 1) / tickStepMinutes) * tickStepMinutes;
-        LocalDateTime tickDateTime = rangeStartDateTime
-                .withHour(0)
-                .withMinute(0)
-                .withSecond(0)
-                .withNano(0)
-                .plusMinutes(alignedMinute);
-        if (tickDateTime.isBefore(rangeStartDateTime)) {
-            tickDateTime = tickDateTime.plusMinutes(tickStepMinutes);
-        }
-
-        while (!tickDateTime.isAfter(rangeEndDateTime)) {
-            int tickX = trackX + toPixelOffset(tickDateTime, rangeSeconds, trackWidth);
-            String tickLabel = tickStepMinutes >= 60L
-                    ? String.valueOf(tickDateTime.getHour())
-                    : TIME_FORMATTER.format(tickDateTime);
+        for (int hour = 0; hour <= 24; hour += LABEL_HOUR_STEP) {
+            LocalDateTime tickDateTime = rangeStartDateTime.plusHours(hour);
+            int tickX = trackX + toPixelOffset(tickDateTime, trackWidth);
+            String tickLabel = hour == 24 ? "24:00" : TIME_FORMATTER.format(tickDateTime);
             int labelWidth = fontMetrics.stringWidth(tickLabel);
-            graphics2D.setColor(UiTheme.BORDER);
-            graphics2D.drawLine(tickX, TRACK_TOP + TRACK_HEIGHT - 4, tickX, TRACK_TOP + TRACK_HEIGHT);
+            int labelX;
+            if (hour == 0) {
+                labelX = tickX;
+            } else if (hour == 24) {
+                labelX = tickX - labelWidth;
+            } else {
+                labelX = tickX - labelWidth / 2;
+            }
             graphics2D.setColor(UiTheme.TEXT_SECONDARY);
-            graphics2D.drawString(tickLabel, tickX - labelWidth / 2, labelY);
-            tickDateTime = tickDateTime.plusMinutes(tickStepMinutes);
+            graphics2D.drawString(tickLabel, labelX, labelY);
         }
     }
 
-    private int toPixelOffset(LocalDateTime dateTime, long rangeSeconds, int trackWidth) {
+    private int toPixelOffset(LocalDateTime dateTime, int trackWidth) {
         long offsetSeconds = Duration.between(dayActivityTimeline.getRangeStartDateTime(), dateTime).getSeconds();
-        offsetSeconds = Math.max(0L, Math.min(rangeSeconds, offsetSeconds));
-        return (int) Math.round((double) offsetSeconds * trackWidth / rangeSeconds);
+        offsetSeconds = Math.max(0L, Math.min(SECONDS_PER_DAY, offsetSeconds));
+        return (int) Math.round((double) offsetSeconds * trackWidth / SECONDS_PER_DAY);
     }
 
     private int findSegmentIndexAtX(int mouseX) {
@@ -248,44 +224,16 @@ public final class DayActivityTimelinePanel extends JPanel {
         if (mouseX < trackX || mouseX > trackX + trackWidth) {
             return -1;
         }
-        long rangeSeconds = Math.max(
-                1L,
-                Duration.between(
-                        dayActivityTimeline.getRangeStartDateTime(),
-                        dayActivityTimeline.getRangeEndDateTime()
-                ).getSeconds()
-        );
         List<DayActivityTimelineSegment> segments = dayActivityTimeline.getSegments();
         for (int segmentIndex = segments.size() - 1; segmentIndex >= 0; segmentIndex--) {
             DayActivityTimelineSegment segment = segments.get(segmentIndex);
-            int segmentX = trackX + toPixelOffset(segment.getStartDateTime(), rangeSeconds, trackWidth);
-            int segmentEndX = trackX + toPixelOffset(segment.getEndDateTime(), rangeSeconds, trackWidth);
+            int segmentX = trackX + toPixelOffset(segment.getStartDateTime(), trackWidth);
+            int segmentEndX = trackX + toPixelOffset(segment.getEndDateTime(), trackWidth);
             int segmentWidth = Math.max(MIN_SEGMENT_WIDTH_PX, segmentEndX - segmentX);
             if (mouseX >= segmentX && mouseX < segmentX + segmentWidth) {
                 return segmentIndex;
             }
         }
         return -1;
-    }
-
-    private static Map<String, Color> buildColorMap(List<DayActivityTimelineSegment> segments) {
-        Map<String, Long> durationByApplicationName = segments.stream()
-                .collect(Collectors.groupingBy(
-                        DayActivityTimelineSegment::getApplicationName,
-                        Collectors.summingLong(DayActivityTimelineSegment::getDurationSeconds)
-                ));
-        List<String> rankedApplicationNames = durationByApplicationName.entrySet().stream()
-                .sorted(Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder())
-                        .thenComparing(Map.Entry.comparingByKey()))
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toList());
-        Map<String, Color> colorByApplicationName = new HashMap<>();
-        for (int applicationIndex = 0; applicationIndex < rankedApplicationNames.size(); applicationIndex++) {
-            colorByApplicationName.put(
-                    rankedApplicationNames.get(applicationIndex),
-                    ApplicationUsageColorPalette.colorForIndex(applicationIndex)
-            );
-        }
-        return colorByApplicationName;
     }
 }

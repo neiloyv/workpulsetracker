@@ -1,31 +1,30 @@
 package com.workpulsetracker.agent.stats;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.List;
 import java.util.Objects;
 
 /**
- * Сегмент таймлайна активности за день.
+ * Сегмент суточного таймлайна: ACTIVE (работа) или IDLE (ПК включён, без активности).
+ * Промежутки без сегментов = PC Off / агент не записывал.
  */
 public final class DayActivityTimelineSegment {
 
-    private final String applicationName;
+    private final DayActivityState activityState;
     private final LocalDateTime startDateTime;
     private final LocalDateTime endDateTime;
 
     public DayActivityTimelineSegment(
-            String applicationName,
+            DayActivityState activityState,
             LocalDateTime startDateTime,
             LocalDateTime endDateTime
     ) {
-        this.applicationName = Objects.requireNonNull(applicationName);
+        this.activityState = Objects.requireNonNull(activityState);
         this.startDateTime = Objects.requireNonNull(startDateTime);
         this.endDateTime = Objects.requireNonNull(endDateTime);
     }
 
-    public String getApplicationName() {
-        return applicationName;
+    public DayActivityState getActivityState() {
+        return activityState;
     }
 
     public LocalDateTime getStartDateTime() {

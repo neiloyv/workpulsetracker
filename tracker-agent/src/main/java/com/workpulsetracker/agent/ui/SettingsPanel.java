@@ -2,6 +2,8 @@ package com.workpulsetracker.agent.ui;
 
 import com.workpulsetracker.agent.api.AgentSyncClient;
 import com.workpulsetracker.agent.icons.ApplicationIconService;
+import com.workpulsetracker.agent.mode.AgentFeature;
+import com.workpulsetracker.agent.mode.FeatureGateService;
 import com.workpulsetracker.agent.stats.ApplicationUsageFilter;
 import com.workpulsetracker.agent.storage.ActivityStore;
 import com.workpulsetracker.agent.storage.LocalDataBackupService;
@@ -54,6 +56,7 @@ public final class SettingsPanel extends JPanel {
     private final TrackingEngine trackingEngine;
     private final LocalDataBackupService localDataBackupService = new LocalDataBackupService();
     private final AgentSyncClient agentSyncClient;
+    private final FeatureGateService featureGateService;
     private final Consumer<AppLanguage> languageChangeListener;
     private final Consumer<Boolean> autoStartChangeListener;
     private final Runnable settingsChangedListener;
@@ -104,6 +107,7 @@ public final class SettingsPanel extends JPanel {
         this.activityStore = activityStore;
         this.trackingEngine = trackingEngine;
         this.agentSyncClient = agentSyncClient;
+        this.featureGateService = new FeatureGateService(userSettings);
         this.languageChangeListener = languageChangeListener;
         this.autoStartChangeListener = autoStartChangeListener;
         this.settingsChangedListener = settingsChangedListener;
@@ -321,6 +325,7 @@ public final class SettingsPanel extends JPanel {
         );
         syncNowButton.setText(Messages.get(MessageCodes.UI_SETTINGS_SYNC_NOW));
         languageComboBox.repaint();
+        updateSyncControlsState();
     }
 
     public void applyTheme() {
@@ -358,9 +363,23 @@ public final class SettingsPanel extends JPanel {
             minimizeToTrayToggle.setSelected(userSettings.isMinimizeToTray());
             timelineVisibleToggle.setSelected(userSettings.isTimelineVisible());
             minorThresholdSpinner.setValue(userSettings.getMinorUsageThresholdMinutes());
+            updateSyncControlsState();
         } finally {
             suppressChangeEvents = false;
         }
+    }
+
+    private void updateSyncControlsState() {
+        boolean cloudSyncAllowed = featureGateService.isFeatureAllowed(AgentFeature.SYNC_TO_CLOUD)
+                && agentSyncClient.isSyncConfigured(userSettings);
+        syncNowButton.setEnabled(cloudSyncAllowed);
+        syncHintLabel.setText(
+                "<html><body style='width:520px'>"
+                        + (cloudSyncAllowed
+                        ? Messages.get(MessageCodes.UI_SETTINGS_SYNC_HINT)
+                        : Messages.get(MessageCodes.UI_SETTINGS_SYNC_NOT_IMPLEMENTED))
+                        + "</body></html>"
+        );
     }
 
     private void selectLanguage(AppLanguage appLanguage) {
@@ -497,7 +516,8 @@ public final class SettingsPanel extends JPanel {
     }
 
     private void onSyncNowClicked() {
-        if (!agentSyncClient.isSyncConfigured(userSettings)) {
+        if (!featureGateService.isFeatureAllowed(AgentFeature.SYNC_TO_CLOUD)
+                || !agentSyncClient.isSyncConfigured(userSettings)) {
             UiDialogs.showMessage(
                     Messages.get(MessageCodes.UI_SETTINGS_SYNC_NOT_IMPLEMENTED),
                     Messages.get(MessageCodes.UI_SETTINGS_SYNC),

@@ -24,8 +24,8 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 /**
- * Долговременное хранилище закрытых интервалов активности (для статистики).
- * Сохраняются только рабочие (не IDLE) закрытые интервалы.
+ * Долговременное хранилище закрытых интервалов активности (для статистики и таймлайна).
+ * Сохраняются и ACTIVE, и IDLE; статистика по приложениям фильтрует IDLE отдельно.
  */
 public final class ActivityStore {
 
@@ -77,9 +77,10 @@ public final class ActivityStore {
     }
 
     public void appendClosedInterval(ActivityInterval activityInterval) {
-        if (Objects.isNull(activityInterval)
-                || activityInterval.isOpen()
-                || activityInterval.isIdle()) {
+        if (Objects.isNull(activityInterval) || activityInterval.isOpen()) {
+            return;
+        }
+        if (activityInterval.getDurationSeconds() <= 0L) {
             return;
         }
 

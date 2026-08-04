@@ -57,7 +57,9 @@ public final class AgentSyncClient {
     }
 
     public boolean isSyncConfigured(UserSettings userSettings) {
-        return Objects.nonNull(userSettings) && userSettings.isServerSyncEnabled();
+        return Objects.nonNull(userSettings)
+                && userSettings.getOperationMode().isNetworkSync()
+                && userSettings.isServerSyncEnabled();
     }
 
     /**
@@ -65,7 +67,7 @@ public final class AgentSyncClient {
      */
     public boolean uploadTelemetry(UserSettings userSettings) {
         Objects.requireNonNull(userSettings);
-        if (!isSyncConfigured(userSettings)) {
+        if (userSettings.getOperationMode().isLocalSolo() || !isSyncConfigured(userSettings)) {
             return false;
         }
         List<LocalAppRuntimeStore.AppRuntimeSnapshot> pendingSnapshots =
@@ -152,7 +154,7 @@ public final class AgentSyncClient {
             boolean allowTokenRefresh
     ) {
         Objects.requireNonNull(userSettings);
-        if (!isSyncConfigured(userSettings)) {
+        if (userSettings.getOperationMode().isLocalSolo() || !isSyncConfigured(userSettings)) {
             return List.of();
         }
         ensureAccessToken(userSettings);
@@ -207,7 +209,7 @@ public final class AgentSyncClient {
      */
     public void synchronize(UserSettings userSettings) {
         Objects.requireNonNull(userSettings);
-        if (!isSyncConfigured(userSettings)) {
+        if (userSettings.getOperationMode().isLocalSolo() || !isSyncConfigured(userSettings)) {
             throw new IllegalStateException("Server sync is not configured");
         }
         uploadTelemetry(userSettings);
@@ -215,6 +217,9 @@ public final class AgentSyncClient {
     }
 
     private void ensureAccessToken(UserSettings userSettings) {
+        if (userSettings.getOperationMode().isLocalSolo()) {
+            throw new IllegalStateException("JWT refresh is disabled in LOCAL_SOLO mode");
+        }
         if (userSettings.hasValidAccessToken()) {
             return;
         }

@@ -28,6 +28,8 @@ public final class MessageCodes {
     public static final String UI_MAIN_USAGE_CHART = "ui.main.usage.chart";
     public static final String UI_MAIN_NO_APPLICATIONS = "ui.main.no.applications";
     public static final String UI_MAIN_TIMELINE_TODAY = "ui.main.timeline.today";
+    public static final String UI_MAIN_TIMELINE_STATE_ACTIVE = "ui.main.timeline.state.active";
+    public static final String UI_MAIN_TIMELINE_STATE_IDLE = "ui.main.timeline.state.idle";
     public static final String UI_MAIN_SYNC = "ui.main.sync";
     public static final String UI_MAIN_SYNC_TOOLTIP = "ui.main.sync.tooltip";
     public static final String UI_MAIN_SYNC_DISABLED_TOOLTIP = "ui.main.sync.disabled.tooltip";
@@ -102,6 +104,20 @@ public final class MessageCodes {
     public static final String UI_SETTINGS_ACCESS_KEY_UPDATED = "ui.settings.access.key.updated";
     public static final String UI_ACCOUNT_TARIFF = "ui.account.tariff";
     public static final String UI_ACCOUNT_TARIFF_FREE = "ui.account.tariff.free";
+    public static final String UI_ACCOUNT_TARIFF_FREE_SOLO = "ui.account.tariff.free.solo";
+    public static final String UI_ACCOUNT_TARIFF_PRO_SYNCED = "ui.account.tariff.pro.synced";
+    public static final String UI_ACCOUNT_MODE_LOCAL_BANNER = "ui.account.mode.local.banner";
+    public static final String UI_ACCOUNT_MODE_SYNCED_BANNER = "ui.account.mode.synced.banner";
+    public static final String UI_ACCOUNT_CONNECT_WEB = "ui.account.connect.web";
+    public static final String UI_ACCOUNT_CONNECT_HINT = "ui.account.connect.hint";
+    public static final String UI_ACCOUNT_CONNECT_SUCCESS = "ui.account.connect.success";
+    public static final String UI_ACCOUNT_DISCONNECT_CLOUD = "ui.account.disconnect.cloud";
+    public static final String UI_ACCOUNT_DISCONNECT_CONFIRM = "ui.account.disconnect.confirm";
+    public static final String UI_ACCOUNT_DISCONNECT_SUCCESS = "ui.account.disconnect.success";
+    public static final String UI_ACCOUNT_LINKED_WORKER = "ui.account.linked.worker";
+    public static final String UI_ACCOUNT_LINKED_DEVICE = "ui.account.linked.device";
+    public static final String UI_ACCOUNT_LINKED_HARDWARE = "ui.account.linked.hardware";
+    public static final String UI_ACCOUNT_FEATURE_RESTRICTED = "ui.account.feature.restricted";
 
     public static final String UI_ACTIVATION_TITLE = "ui.activation.title";
     public static final String UI_ACTIVATION_DESCRIPTION = "ui.activation.description";
@@ -109,6 +125,7 @@ public final class MessageCodes {
     public static final String UI_ACTIVATION_EMAIL_REQUIRED = "ui.activation.email.required";
     public static final String UI_ACTIVATION_KEY_LABEL = "ui.activation.key.label";
     public static final String UI_ACTIVATION_ACTIVATE = "ui.activation.activate";
+    public static final String UI_ACTIVATION_USE_LOCALLY = "ui.activation.use.locally";
     public static final String UI_ACTIVATION_KEY_REQUIRED = "ui.activation.key.required";
     public static final String UI_ACTIVATION_INVALID = "ui.activation.invalid";
 

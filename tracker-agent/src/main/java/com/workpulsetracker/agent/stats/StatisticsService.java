@@ -164,14 +164,19 @@ public final class StatisticsService {
     }
 
     /**
-     * Таймлайн активных (non-idle) интервалов за сегодня для главной панели.
+     * Таймлайн состояний за сегодня (00:00–24:00): ACTIVE / IDLE; пробелы = PC Off.
+     * Соседние сегменты с одинаковым состоянием сливаются, чтобы не было «зебры» при смене приложений.
      */
     public DayActivityTimeline buildTodayActivityTimeline() {
-        InstantRange instantRange = resolveInstantRange(StatsPeriod.DAY, null, null);
-        LocalDateTime rangeStartDateTime = LocalDateTime.ofInstant(instantRange.startInclusive(), zoneId);
-        LocalDateTime rangeEndDateTime = LocalDateTime.ofInstant(instantRange.endExclusive(), zoneId);
+        LocalDate today = LocalDate.now(zoneId);
+        LocalDateTime rangeStartDateTime = today.atStartOfDay();
+        LocalDateTime rangeEndDateTime = today.plusDays(1).atStartOfDay();
+        InstantRange dayRange = new InstantRange(
+                rangeStartDateTime.atZone(zoneId).toInstant(),
+                rangeEndDateTime.atZone(zoneId).toInstant()
+        );
 
-        List<ActivityInterval> clippedIntervals = collectClippedActiveIntervals(instantRange).stream()
+        List<ActivityInterval> clippedIntervals = collectClippedTimelineIntervals(dayRange).stream()
                 .sorted(Comparator.comparing(ActivityInterval::getStartInstant))
                 .collect(Collectors.toList());
         if (clippedIntervals.isEmpty()) {
@@ -182,13 +187,22 @@ public final class StatisticsService {
         ActivityInterval mergeCandidate = clippedIntervals.get(0);
         for (int intervalIndex = 1; intervalIndex < clippedIntervals.size(); intervalIndex++) {
             ActivityInterval nextInterval = clippedIntervals.get(intervalIndex);
-            if (canMergeTimelineIntervals(mergeCandidate, nextInterval)) {
+            if (canMergeTimelineStateIntervals(mergeCandidate, nextInterval)) {
+                Instant mergedEndInstant = Objects.nonNull(nextInterval.getEndInstant())
+                        ? nextInterval.getEndInstant()
+                        : Instant.now();
+                Instant candidateEndInstant = Objects.nonNull(mergeCandidate.getEndInstant())
+                        ? mergeCandidate.getEndInstant()
+                        : Instant.now();
+                Instant effectiveEndInstant = mergedEndInstant.isAfter(candidateEndInstant)
+                        ? mergedEndInstant
+                        : candidateEndInstant;
                 mergeCandidate = new ActivityInterval(
                         mergeCandidate.getStartInstant(),
-                        nextInterval.getEndInstant(),
+                        effectiveEndInstant,
                         mergeCandidate.getApplicationName(),
                         mergeCandidate.getWindowTitle(),
-                        false
+                        mergeCandidate.isIdle()
                 );
             } else {
                 timelineSegments.add(toTimelineSegment(mergeCandidate));
@@ -196,34 +210,28 @@ public final class StatisticsService {
             }
         }
         timelineSegments.add(toTimelineSegment(mergeCandidate));
-
-        LocalDateTime activityRangeStartDateTime = timelineSegments.get(0).getStartDateTime();
-        LocalDateTime activityRangeEndDateTime = timelineSegments.stream()
-                .map(DayActivityTimelineSegment::getEndDateTime)
-                .max(LocalDateTime::compareTo)
-                .orElse(activityRangeStartDateTime);
-        if (!activityRangeStartDateTime.isBefore(activityRangeEndDateTime)) {
-            activityRangeEndDateTime = activityRangeStartDateTime.plusMinutes(1L);
-        }
-        return new DayActivityTimeline(activityRangeStartDateTime, activityRangeEndDateTime, timelineSegments);
+        return new DayActivityTimeline(rangeStartDateTime, rangeEndDateTime, timelineSegments);
     }
 
     private DayActivityTimelineSegment toTimelineSegment(ActivityInterval activityInterval) {
         Instant endInstant = Objects.nonNull(activityInterval.getEndInstant())
                 ? activityInterval.getEndInstant()
                 : Instant.now();
+        DayActivityState activityState = activityInterval.isIdle()
+                ? DayActivityState.IDLE
+                : DayActivityState.ACTIVE;
         return new DayActivityTimelineSegment(
-                activityInterval.getApplicationName(),
+                activityState,
                 LocalDateTime.ofInstant(activityInterval.getStartInstant(), zoneId),
                 LocalDateTime.ofInstant(endInstant, zoneId)
         );
     }
 
-    private static boolean canMergeTimelineIntervals(
+    private static boolean canMergeTimelineStateIntervals(
             ActivityInterval leftInterval,
             ActivityInterval rightInterval
     ) {
-        if (!Objects.equals(leftInterval.getApplicationName(), rightInterval.getApplicationName())) {
+        if (leftInterval.isIdle() != rightInterval.isIdle()) {
             return false;
         }
         Instant leftEndInstant = Objects.nonNull(leftInterval.getEndInstant())
@@ -253,10 +261,29 @@ public final class StatisticsService {
                 .collect(Collectors.toList());
     }
 
+    private List<ActivityInterval> collectClippedTimelineIntervals(InstantRange instantRange) {
+        return collectTimelineIntervals().stream()
+                .map(activityInterval -> clipToRange(activityInterval, instantRange))
+                .filter(Objects::nonNull)
+                .filter(activityInterval -> activityInterval.getDurationSeconds() > 0)
+                .collect(Collectors.toList());
+    }
+
     private List<ActivityInterval> collectActiveIntervals() {
-        List<ActivityInterval> activityIntervals = new ArrayList<>(activityStore.getAllIntervals());
+        List<ActivityInterval> activityIntervals = activityStore.getAllIntervals().stream()
+                .filter(activityInterval -> !activityInterval.isIdle())
+                .collect(Collectors.toCollection(ArrayList::new));
         ActivityInterval currentActivityInterval = dataBuffer.getCurrentInterval();
         if (Objects.nonNull(currentActivityInterval) && !currentActivityInterval.isIdle()) {
+            activityIntervals.add(currentActivityInterval);
+        }
+        return activityIntervals;
+    }
+
+    private List<ActivityInterval> collectTimelineIntervals() {
+        List<ActivityInterval> activityIntervals = new ArrayList<>(activityStore.getAllIntervals());
+        ActivityInterval currentActivityInterval = dataBuffer.getCurrentInterval();
+        if (Objects.nonNull(currentActivityInterval)) {
             activityIntervals.add(currentActivityInterval);
         }
         return activityIntervals;

@@ -72,6 +72,31 @@ java -jar tracker-agent\build\libs\tracker-agent-0.1.0-SNAPSHOT-all.jar
 | Portable (без установки) | `.\gradlew :tracker-agent:jpackagePortable` |
 
 ## Связь с веб-лендингом
-Ссылки скачивания на сайте (`GET /api/downloads`) пока-заглушки из `.env`:
-`DOWNLOAD_WINDOWS_URL`, `DOWNLOAD_MACOS_URL`, `DOWNLOAD_LINUX_URL`.
-Позже сюда можно подставить артефакты `jpackageNative` / `jpackagePortable` / CI.
+
+1. Соберите и опубликуйте Windows portable ZIP (WiX не нужен):
+
+```powershell
+.\gradlew :tracker-agent:publishWindowsDownload
+```
+
+Файл появится как `downloads/workpulsetracker-agent-windows.zip`  
+(внутри — папка с `.exe` и встроенной Java).
+
+Если нужен настоящий установщик `.msi`, поставьте [WiX Toolset](https://wixtoolset.org/) 3.x+, добавьте `light.exe`/`candle.exe` в PATH и выполните:
+
+```powershell
+.\gradlew :tracker-agent:publishWindowsMsi
+```
+
+Затем укажите `DOWNLOAD_WINDOWS_URL=/downloads/workpulsetracker-agent-windows.msi`.
+
+2. Запустите `tracker-server` с рабочей директорией в корне репозитория (или задайте `DOWNLOAD_DIRECTORY` абсолютным путём к `downloads`).
+
+3. Vite проксирует `/downloads` → `:8080`. На лендинге кнопка Windows скачает MSI.
+
+macOS/Linux: соберите `jpackageNative` на соответствующей ОС и положите файлы вручную:
+
+- `downloads/workpulsetracker-agent-macos.dmg`
+- `downloads/workpulsetracker-agent-linux.deb`
+
+Для продакшена можно вместо локальной папки указать внешние URL в `DOWNLOAD_*_URL` (S3 / GitHub Releases / CDN).

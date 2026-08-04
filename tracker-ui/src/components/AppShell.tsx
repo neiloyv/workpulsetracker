@@ -15,9 +15,11 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { ALL_BRANCHES, useApp } from "../context/AppContext";
+import { useLocale } from "../context/LocaleContext";
 import { useTheme } from "../context/ThemeContext";
 import { initials } from "../utils/format";
 import { toast } from "../utils/toast";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 import { StructureModal } from "./StructureModal";
 import { ToastHost } from "./ToastHost";
 
@@ -32,6 +34,7 @@ export function AppShell() {
     structure
   } = useApp();
   const { theme, toggleTheme } = useTheme();
+  const { t } = useLocale();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -80,12 +83,17 @@ export function AppShell() {
           </Link>
 
           <nav className="ml-4 hidden items-center gap-1 rounded-xl bg-slate-100 p-1 dark:bg-white/5 md:flex">
-            <NavTab to="/app" icon={LayoutDashboard} label="Дашборд" active={location.pathname === "/app"} />
+            <NavTab
+              to="/app"
+              icon={LayoutDashboard}
+              label={t("nav.dashboard")}
+              active={location.pathname === "/app"}
+            />
             {showCompanyNav && (
               <NavTab
                 to="/app/workers"
                 icon={Users}
-                label="Сотрудники"
+                label={t("nav.workers")}
                 active={location.pathname.startsWith("/app/workers")}
               />
             )}
@@ -93,7 +101,7 @@ export function AppShell() {
               <NavTab
                 to="/app/managers"
                 icon={ShieldCheck}
-                label="Менеджеры"
+                label={t("nav.managers")}
                 active={location.pathname.startsWith("/app/managers")}
               />
             )}
@@ -101,7 +109,7 @@ export function AppShell() {
               <NavTab
                 to="/app/agent"
                 icon={KeyRound}
-                label="Агент"
+                label={t("nav.agent")}
                 active={location.pathname.startsWith("/app/agent")}
               />
             )}
@@ -116,13 +124,13 @@ export function AppShell() {
                 className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition hover:border-brand-400 hover:text-brand-600 dark:border-white/10 dark:text-slate-300 dark:hover:text-brand-300"
               >
                 <Building2 className="h-4 w-4" />
-                {activeBranch ? activeBranch.name : "Все филиалы"}
+                {activeBranch ? activeBranch.name : t("nav.allBranches")}
                 <ChevronDown className="h-3.5 w-3.5" />
               </button>
               {branchMenuOpen && (
                 <div className="absolute right-0 z-40 mt-2 w-56 animate-fade-in-scale overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-xl dark:border-white/10 dark:bg-slate-900">
                   <MenuItem
-                    label="Все филиалы"
+                    label={t("nav.allBranches")}
                     active={selectedBranchId === ALL_BRANCHES}
                     onClick={() => {
                       setSelectedBranchId(ALL_BRANCHES);
@@ -145,10 +153,12 @@ export function AppShell() {
             </div>
           )}
 
+          <LanguageSwitcher />
+
           <button
             onClick={toggleTheme}
             className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:text-brand-600 dark:border-white/10 dark:text-slate-300 dark:hover:text-brand-300"
-            aria-label="Переключить тему"
+            aria-label={t("common.themeToggle")}
           >
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
@@ -168,21 +178,24 @@ export function AppShell() {
                   </div>
                   <div className="truncate text-xs text-slate-400">{me.email}</div>
                   <div className="mt-1 text-xs text-slate-400">
-                    {me.organizationName} · {isIndividual ? "Личный" : "Компания"} · {me.role}
+                    {me.organizationName} · {isIndividual ? t("nav.org.personal") : t("nav.org.company")} ·{" "}
+                    {me.role}
                   </div>
                 </div>
                 <AvatarMenuItem
                   icon={User}
-                  label="Профиль"
+                  label={t("nav.profile")}
                   onClick={() => {
                     setAvatarOpen(false);
-                    window.alert(`${me.displayName}\n${me.email}\nРоль: ${me.role}`);
+                    window.alert(
+                      `${me.displayName}\n${me.email}\n${t("nav.profileRole", { role: me.role })}`
+                    );
                   }}
                 />
                 {canManageCompany && (
                   <AvatarMenuItem
                     icon={Building2}
-                    label="Структура компании"
+                    label={t("nav.companyStructure")}
                     onClick={() => {
                       setAvatarOpen(false);
                       setStructureOpen(true);
@@ -191,26 +204,31 @@ export function AppShell() {
                 )}
                 <AvatarMenuItem
                   icon={CreditCard}
-                  label="Оплата и тарифы"
+                  label={t("nav.billing")}
                   onClick={() => {
                     setAvatarOpen(false);
-                    toast("Раздел «Оплата и тарифы» скоро появится", "info");
+                    toast(t("nav.billingSoon"), "info");
                   }}
                 />
                 <div className="my-1 border-t border-slate-100 dark:border-white/10" />
-                <AvatarMenuItem icon={LogOut} label="Выйти" danger onClick={onLogout} />
+                <AvatarMenuItem icon={LogOut} label={t("nav.logout")} danger onClick={onLogout} />
               </div>
             )}
           </div>
         </div>
 
         <nav className="flex items-center gap-1 overflow-x-auto border-t border-slate-200/70 px-5 py-2 dark:border-white/10 md:hidden">
-          <NavTab to="/app" icon={LayoutDashboard} label="Дашборд" active={location.pathname === "/app"} />
+          <NavTab
+            to="/app"
+            icon={LayoutDashboard}
+            label={t("nav.dashboard")}
+            active={location.pathname === "/app"}
+          />
           {showCompanyNav && (
             <NavTab
               to="/app/workers"
               icon={Users}
-              label="Сотрудники"
+              label={t("nav.workers")}
               active={location.pathname.startsWith("/app/workers")}
             />
           )}
@@ -218,7 +236,7 @@ export function AppShell() {
             <NavTab
               to="/app/managers"
               icon={ShieldCheck}
-              label="Менеджеры"
+              label={t("nav.managers")}
               active={location.pathname.startsWith("/app/managers")}
             />
           )}
@@ -226,7 +244,7 @@ export function AppShell() {
             <NavTab
               to="/app/agent"
               icon={KeyRound}
-              label="Агент"
+              label={t("nav.agent")}
               active={location.pathname.startsWith("/app/agent")}
             />
           )}

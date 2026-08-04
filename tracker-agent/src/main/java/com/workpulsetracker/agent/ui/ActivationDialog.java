@@ -25,13 +25,13 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Первый запуск: ввод email и access key для привязки к веб-аккаунту.
- * Без успешной активации приложение не запускается.
+ * Первый запуск: привязка к веб-аккаунту или автономный Free Solo.
  */
 public final class ActivationDialog extends JDialog {
 
     private final AgentAccessClient agentAccessClient;
     private final AtomicBoolean confirmed = new AtomicBoolean(false);
+    private final AtomicBoolean localSoloSelected = new AtomicBoolean(false);
     private final JTextField emailTextField = new JTextField();
     private final JPasswordField accessKeyPasswordField = new JPasswordField();
     private AgentAccessClient.AgentAuthResult agentAuthResult;
@@ -40,7 +40,7 @@ public final class ActivationDialog extends JDialog {
         super(ownerFrame, Messages.get(MessageCodes.UI_ACTIVATION_TITLE), true);
         this.agentAccessClient = agentAccessClient;
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
-        setMinimumSize(new Dimension(440, 320));
+        setMinimumSize(new Dimension(460, 380));
         setLocationRelativeTo(null);
         buildContent();
         pack();
@@ -61,7 +61,7 @@ public final class ActivationDialog extends JDialog {
         titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel descriptionLabel = new JLabel(
-                "<html><body style='width:320px'>"
+                "<html><body style='width:340px'>"
                         + Messages.get(MessageCodes.UI_ACTIVATION_DESCRIPTION)
                         + "</body></html>"
         );
@@ -97,6 +97,12 @@ public final class ActivationDialog extends JDialog {
 
         JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         buttonsPanel.setOpaque(false);
+
+        JButton useLocallyButton = new JButton(Messages.get(MessageCodes.UI_ACTIVATION_USE_LOCALLY));
+        UiTheme.styleSecondaryButton(useLocallyButton);
+        useLocallyButton.addActionListener(actionEvent -> onUseLocally());
+        buttonsPanel.add(useLocallyButton);
+
         JButton activateButton = new JButton(Messages.get(MessageCodes.UI_ACTIVATION_ACTIVATE));
         UiTheme.stylePrimaryButton(activateButton);
         activateButton.addActionListener(actionEvent -> onActivate());
@@ -105,6 +111,12 @@ public final class ActivationDialog extends JDialog {
         rootPanel.add(cardPanel, BorderLayout.CENTER);
         rootPanel.add(buttonsPanel, BorderLayout.SOUTH);
         setContentPane(rootPanel);
+    }
+
+    private void onUseLocally() {
+        localSoloSelected.set(true);
+        confirmed.set(true);
+        dispose();
     }
 
     private void onActivate() {
@@ -129,6 +141,7 @@ public final class ActivationDialog extends JDialog {
             return;
         }
         this.agentAuthResult = authResult;
+        localSoloSelected.set(false);
         confirmed.set(true);
         dispose();
     }
@@ -144,6 +157,10 @@ public final class ActivationDialog extends JDialog {
     public boolean showAndWait() {
         setVisible(true);
         return confirmed.get();
+    }
+
+    public boolean isLocalSoloSelected() {
+        return localSoloSelected.get();
     }
 
     public String getEmail() {

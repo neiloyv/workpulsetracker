@@ -64,8 +64,9 @@ public final class DataBuffer {
             );
             ActivityInterval openedActivityInterval = currentActivityInterval;
             logger.debug(
-                    "Opened interval: app={}, title={}, idle={}, appIdentifier={}",
+                    "Opened interval: app={}, displayTitle={}, title={}, idle={}, appIdentifier={}",
                     applicationName,
+                    openedActivityInterval.getDisplayTitle(),
                     windowTitle,
                     idle,
                     openedActivityInterval.getAppIdentifier()
