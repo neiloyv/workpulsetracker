@@ -2,6 +2,8 @@ package com.workpulsetracker.agent.report;
 
 import com.workpulsetracker.agent.stats.ApplicationUsageMatrix;
 import com.workpulsetracker.agent.stats.StatisticsService;
+import com.workpulsetracker.agent.stats.StatsPeriod;
+import com.workpulsetracker.agent.util.ApplicationDisplayNameResolver;
 import com.workpulsetracker.agent.util.DurationFormatter;
 import com.workpulsetracker.common.i18n.MessageCodes;
 import com.workpulsetracker.common.i18n.Messages;
@@ -24,10 +26,11 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDate;
 import java.util.Objects;
 
 /**
- * Excel-отчёт: лист на период; таблицы (для месяца — по неделям) + круговая диаграмма в конце.
+ * Excel-отчёт: лист на период; таблица приложений × бакеты + круговая диаграмма.
  */
 public final class StatisticsExcelReportWriter {
 
@@ -65,6 +68,45 @@ public final class StatisticsExcelReportWriter {
                             totalLeftCellStyle,
                             totalCenterCellStyle
                     ));
+
+            workbook.write(outputStream);
+        }
+    }
+
+    public void writeSelectedPeriodToFile(
+            Path reportFilePath,
+            StatsPeriod statsPeriod,
+            LocalDate anchorDate
+    ) throws IOException {
+        Objects.requireNonNull(reportFilePath);
+        Objects.requireNonNull(statsPeriod);
+        try (Workbook workbook = new XSSFWorkbook();
+             OutputStream outputStream = Files.newOutputStream(reportFilePath)) {
+            CellStyle titleCellStyle = createBoldCellStyle(workbook, 14, HorizontalAlignment.LEFT);
+            CellStyle sectionCellStyle = createBoldCellStyle(workbook, 12, HorizontalAlignment.LEFT);
+            CellStyle headerCellStyle = createBoldCellStyle(workbook, 11, HorizontalAlignment.CENTER);
+            CellStyle bodyCenterCellStyle = createCellStyle(workbook, 11, HorizontalAlignment.CENTER);
+            CellStyle bodyLeftCellStyle = createCellStyle(workbook, 11, HorizontalAlignment.LEFT);
+            CellStyle totalLeftCellStyle = createBoldCellStyle(workbook, 11, HorizontalAlignment.LEFT);
+            CellStyle totalCenterCellStyle = createBoldCellStyle(workbook, 11, HorizontalAlignment.CENTER);
+
+            StatisticsReportSection statisticsReportSection = StatisticsReportSection.buildForAnchor(
+                    statisticsService,
+                    statsPeriod,
+                    anchorDate,
+                    minorUsageThresholdMinutes
+            );
+            writePeriodSheet(
+                    workbook,
+                    statisticsReportSection,
+                    titleCellStyle,
+                    sectionCellStyle,
+                    headerCellStyle,
+                    bodyLeftCellStyle,
+                    bodyCenterCellStyle,
+                    totalLeftCellStyle,
+                    totalCenterCellStyle
+            );
 
             workbook.write(outputStream);
         }
@@ -214,7 +256,9 @@ public final class StatisticsExcelReportWriter {
         createCell(
                 dataRow,
                 0,
-                applicationUsageMatrix.getApplicationNames().get(applicationIndex),
+                ApplicationDisplayNameResolver.resolveDisplayName(
+                        applicationUsageMatrix.getApplicationNames().get(applicationIndex)
+                ),
                 bodyLeftCellStyle
         );
         createCell(
@@ -232,7 +276,7 @@ public final class StatisticsExcelReportWriter {
                     bucketIndex + 2,
                     formatDurationCell(
                             applicationUsageMatrix.getDurationSeconds(applicationIndex, bucketIndex),
-                            applicationUsageMatrix.getTotalActiveSeconds()
+                            applicationUsageMatrix.getBucketTotalSeconds(bucketIndex)
                     ),
                     bodyCenterCellStyle
             );
@@ -256,16 +300,11 @@ public final class StatisticsExcelReportWriter {
                 totalCenterCellStyle
         );
         for (int bucketIndex = 0; bucketIndex < applicationUsageMatrix.getPeriodBuckets().size(); bucketIndex++) {
-            long bucketTotalSeconds = 0L;
-            for (int applicationIndex = 0;
-                 applicationIndex < applicationUsageMatrix.getApplicationNames().size();
-                 applicationIndex++) {
-                bucketTotalSeconds += applicationUsageMatrix.getDurationSeconds(applicationIndex, bucketIndex);
-            }
+            long bucketTotalSeconds = applicationUsageMatrix.getBucketTotalSeconds(bucketIndex);
             createCell(
                     dataRow,
                     bucketIndex + 2,
-                    formatDurationCell(bucketTotalSeconds, applicationUsageMatrix.getTotalActiveSeconds()),
+                    formatDurationCell(bucketTotalSeconds, bucketTotalSeconds),
                     totalCenterCellStyle
             );
         }

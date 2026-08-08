@@ -1,10 +1,17 @@
 package com.workpulsetracker.agent.storage;
 
 import com.workpulsetracker.agent.mode.AgentOperationMode;
+import com.workpulsetracker.agent.util.ProgramApplicationKeyResolver;
 import com.workpulsetracker.common.i18n.AppLanguage;
 import org.apache.commons.lang3.StringUtils;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Локальные настройки пользователя агента (язык, режим работы, привязка к веб-аккаунту).
@@ -29,6 +36,7 @@ public final class UserSettings {
     private boolean localOnly = true;
     private boolean setupCompleted;
     private boolean autoStartTracking;
+    private Boolean launchAtLogin = true;
     private Integer minorUsageThresholdMinutes = 5;
     private Boolean timelineVisible = true;
     private Boolean minimizeToTray = true;
@@ -39,6 +47,19 @@ public final class UserSettings {
     private Integer pomodoroShortBreakMinutes = 5;
     private Integer pomodoroLongBreakMinutes = 15;
     private Integer pomodoroSessionsUntilLongBreak = 4;
+    /**
+     * Пользовательские категории программ (дефолтные хранятся в коде, не здесь).
+     */
+    private List<String> customProgramCategories = new ArrayList<>();
+    /**
+     * Категория по ключу программы ({@link ProgramApplicationKeyResolver}).
+     * Отсутствующий ключ = {@link ProgramCategoryIds#OTHER}.
+     */
+    private Map<String, String> applicationCategoryByKey = new LinkedHashMap<>();
+    /**
+     * Track ON/OFF по ключу программы. Отсутствующий ключ / null = Track ON.
+     */
+    private Map<String, Boolean> applicationTrackedByKey = new LinkedHashMap<>();
 
     public String getLanguageCode() {
         return languageCode;
@@ -154,6 +175,14 @@ public final class UserSettings {
         this.autoStartTracking = autoStartTracking;
     }
 
+    public boolean isLaunchAtLogin() {
+        return Objects.isNull(launchAtLogin) || launchAtLogin;
+    }
+
+    public void setLaunchAtLogin(boolean launchAtLogin) {
+        this.launchAtLogin = launchAtLogin;
+    }
+
     public int getMinorUsageThresholdMinutes() {
         if (Objects.isNull(minorUsageThresholdMinutes) || minorUsageThresholdMinutes < 0) {
             return 5;
@@ -244,6 +273,142 @@ public final class UserSettings {
         this.pomodoroSessionsUntilLongBreak = Math.max(1, Math.min(pomodoroSessionsUntilLongBreak, 12));
     }
 
+    public List<String> getCustomProgramCategories() {
+        if (Objects.isNull(customProgramCategories)) {
+            customProgramCategories = new ArrayList<>();
+        }
+        return customProgramCategories;
+    }
+
+    public void setCustomProgramCategories(List<String> customProgramCategories) {
+        this.customProgramCategories = Objects.nonNull(customProgramCategories)
+                ? new ArrayList<>(customProgramCategories)
+                : new ArrayList<>();
+    }
+
+    public Map<String, String> getApplicationCategoryByKey() {
+        if (Objects.isNull(applicationCategoryByKey)) {
+            applicationCategoryByKey = new LinkedHashMap<>();
+        }
+        return applicationCategoryByKey;
+    }
+
+    public void setApplicationCategoryByKey(Map<String, String> applicationCategoryByKey) {
+        this.applicationCategoryByKey = Objects.nonNull(applicationCategoryByKey)
+                ? new LinkedHashMap<>(applicationCategoryByKey)
+                : new LinkedHashMap<>();
+    }
+
+    public Map<String, Boolean> getApplicationTrackedByKey() {
+        if (Objects.isNull(applicationTrackedByKey)) {
+            applicationTrackedByKey = new LinkedHashMap<>();
+        }
+        return applicationTrackedByKey;
+    }
+
+    public void setApplicationTrackedByKey(Map<String, Boolean> applicationTrackedByKey) {
+        this.applicationTrackedByKey = Objects.nonNull(applicationTrackedByKey)
+                ? new LinkedHashMap<>(applicationTrackedByKey)
+                : new LinkedHashMap<>();
+    }
+
+    /**
+     * Все категории: дефолтные + пользовательские (без дубликатов дефолтных имён).
+     */
+    public List<String> listAllProgramCategoryIds() {
+        List<String> customCategoryIds = getCustomProgramCategories().stream()
+                .filter(StringUtils::isNotBlank)
+                .map(String::trim)
+                .filter(categoryId -> !ProgramCategoryIds.isDefaultCategoryId(categoryId))
+                .distinct()
+                .collect(Collectors.toList());
+        return Stream.concat(ProgramCategoryIds.DEFAULT_CATEGORY_IDS.stream(), customCategoryIds.stream())
+                .collect(Collectors.toList());
+    }
+
+    public String getApplicationCategoryId(String applicationNameOrKey) {
+        String programKey = ProgramApplicationKeyResolver.resolveProgramKey(applicationNameOrKey);
+        String categoryId = getApplicationCategoryByKey().get(programKey);
+        if (StringUtils.isBlank(categoryId)) {
+            return ProgramCategoryIds.OTHER;
+        }
+        if (ProgramCategoryIds.isDefaultCategoryId(categoryId)) {
+            return ProgramCategoryIds.normalizeDefaultCategoryId(categoryId);
+        }
+        boolean categoryExists = listAllProgramCategoryIds().stream()
+                .anyMatch(existingCategoryId -> existingCategoryId.equalsIgnoreCase(categoryId.trim()));
+        return categoryExists ? categoryId.trim() : ProgramCategoryIds.OTHER;
+    }
+
+    public void setApplicationCategoryId(String applicationNameOrKey, String categoryId) {
+        String programKey = ProgramApplicationKeyResolver.resolveProgramKey(applicationNameOrKey);
+        String resolvedCategoryId = resolveExistingCategoryId(categoryId);
+        getApplicationCategoryByKey().put(programKey, resolvedCategoryId);
+    }
+
+    public boolean isApplicationTracked(String applicationNameOrKey) {
+        String programKey = ProgramApplicationKeyResolver.resolveProgramKey(applicationNameOrKey);
+        Boolean tracked = getApplicationTrackedByKey().get(programKey);
+        return Objects.isNull(tracked) || tracked;
+    }
+
+    public void setApplicationTracked(String applicationNameOrKey, boolean tracked) {
+        String programKey = ProgramApplicationKeyResolver.resolveProgramKey(applicationNameOrKey);
+        getApplicationTrackedByKey().put(programKey, tracked);
+    }
+
+    public boolean addCustomProgramCategory(String categoryName) {
+        if (StringUtils.isBlank(categoryName)) {
+            return false;
+        }
+        String trimmedCategoryName = categoryName.trim();
+        if (ProgramCategoryIds.isDefaultCategoryId(trimmedCategoryName)) {
+            return false;
+        }
+        boolean alreadyExists = listAllProgramCategoryIds().stream()
+                .anyMatch(existingCategoryId -> existingCategoryId.equalsIgnoreCase(trimmedCategoryName));
+        if (alreadyExists) {
+            return false;
+        }
+        getCustomProgramCategories().add(trimmedCategoryName);
+        return true;
+    }
+
+    /**
+     * Удаляет пользовательскую категорию; приложения из неё переводятся в Other.
+     */
+    public boolean removeCustomProgramCategory(String categoryId) {
+        if (StringUtils.isBlank(categoryId) || ProgramCategoryIds.isDefaultCategoryId(categoryId)) {
+            return false;
+        }
+        String trimmedCategoryId = categoryId.trim();
+        boolean removed = getCustomProgramCategories().removeIf(
+                customCategoryId -> customCategoryId.equalsIgnoreCase(trimmedCategoryId)
+        );
+        if (!removed) {
+            return false;
+        }
+        getApplicationCategoryByKey().entrySet().stream()
+                .filter(entry -> StringUtils.isNotBlank(entry.getValue())
+                        && entry.getValue().equalsIgnoreCase(trimmedCategoryId))
+                .forEach(entry -> entry.setValue(ProgramCategoryIds.OTHER));
+        return true;
+    }
+
+    private String resolveExistingCategoryId(String categoryId) {
+        if (StringUtils.isBlank(categoryId)) {
+            return ProgramCategoryIds.OTHER;
+        }
+        String trimmedCategoryId = categoryId.trim();
+        if (ProgramCategoryIds.isDefaultCategoryId(trimmedCategoryId)) {
+            return ProgramCategoryIds.normalizeDefaultCategoryId(trimmedCategoryId);
+        }
+        return listAllProgramCategoryIds().stream()
+                .filter(existingCategoryId -> existingCategoryId.equalsIgnoreCase(trimmedCategoryId))
+                .findFirst()
+                .orElse(ProgramCategoryIds.OTHER);
+    }
+
     private static int normalizePomodoroMinutes(Integer minutes, int defaultMinutes) {
         if (Objects.isNull(minutes) || minutes < 1) {
             return defaultMinutes;
@@ -309,6 +474,7 @@ public final class UserSettings {
         setOperationMode(sourceUserSettings.getOperationMode());
         setSetupCompleted(sourceUserSettings.isSetupCompleted());
         setAutoStartTracking(sourceUserSettings.isAutoStartTracking());
+        setLaunchAtLogin(sourceUserSettings.isLaunchAtLogin());
         setMinorUsageThresholdMinutes(sourceUserSettings.getMinorUsageThresholdMinutes());
         setTimelineVisible(sourceUserSettings.isTimelineVisible());
         setMinimizeToTray(sourceUserSettings.isMinimizeToTray());
@@ -319,5 +485,8 @@ public final class UserSettings {
         setPomodoroShortBreakMinutes(sourceUserSettings.getPomodoroShortBreakMinutes());
         setPomodoroLongBreakMinutes(sourceUserSettings.getPomodoroLongBreakMinutes());
         setPomodoroSessionsUntilLongBreak(sourceUserSettings.getPomodoroSessionsUntilLongBreak());
+        setCustomProgramCategories(sourceUserSettings.getCustomProgramCategories());
+        setApplicationCategoryByKey(sourceUserSettings.getApplicationCategoryByKey());
+        setApplicationTrackedByKey(sourceUserSettings.getApplicationTrackedByKey());
     }
 }

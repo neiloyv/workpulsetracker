@@ -15,6 +15,7 @@ public final class MessageCodes {
     public static final String UI_APP_TITLE = "ui.app.title";
     public static final String UI_TAB_MAIN = "ui.tab.main";
     public static final String UI_TAB_STATISTICS = "ui.tab.statistics";
+    public static final String UI_TAB_PROGRAMS = "ui.tab.programs";
     public static final String UI_TAB_POMODORO = "ui.tab.pomodoro";
     public static final String UI_TAB_SETTINGS = "ui.tab.settings";
     public static final String UI_TAB_ACCOUNT = "ui.tab.account";
@@ -24,12 +25,14 @@ public final class MessageCodes {
     public static final String UI_MAIN_PAUSE = "ui.main.pause";
     public static final String UI_MAIN_STATUS_RUNNING = "ui.main.status.running";
     public static final String UI_MAIN_STATUS_PAUSED = "ui.main.status.paused";
+    public static final String UI_MAIN_STATUS_EXCLUDED = "ui.main.status.excluded";
     public static final String UI_MAIN_APPLICATIONS_TODAY = "ui.main.applications.today";
     public static final String UI_MAIN_USAGE_CHART = "ui.main.usage.chart";
     public static final String UI_MAIN_NO_APPLICATIONS = "ui.main.no.applications";
     public static final String UI_MAIN_TIMELINE_TODAY = "ui.main.timeline.today";
     public static final String UI_MAIN_TIMELINE_STATE_ACTIVE = "ui.main.timeline.state.active";
     public static final String UI_MAIN_TIMELINE_STATE_IDLE = "ui.main.timeline.state.idle";
+    public static final String UI_MAIN_TIMELINE_STATE_EXCLUDED = "ui.main.timeline.state.excluded";
     public static final String UI_MAIN_SYNC = "ui.main.sync";
     public static final String UI_MAIN_SYNC_TOOLTIP = "ui.main.sync.tooltip";
     public static final String UI_MAIN_SYNC_DISABLED_TOOLTIP = "ui.main.sync.disabled.tooltip";
@@ -40,6 +43,19 @@ public final class MessageCodes {
     public static final String UI_TABLE_PERCENT = "ui.table.percent";
     public static final String UI_TABLE_TOTAL = "ui.table.total";
 
+    public static final String UI_PROGRAMS_COLUMN_CATEGORY = "ui.programs.column.category";
+    public static final String UI_PROGRAMS_COLUMN_TRACK = "ui.programs.column.track";
+    public static final String UI_PROGRAMS_CATEGORIES = "ui.programs.categories";
+    public static final String UI_PROGRAMS_ADD_CATEGORY = "ui.programs.add.category";
+    public static final String UI_PROGRAMS_ADD_CATEGORY_PROMPT = "ui.programs.add.category.prompt";
+    public static final String UI_PROGRAMS_REMOVE_CATEGORY = "ui.programs.remove.category";
+    public static final String UI_PROGRAMS_REMOVE_CATEGORY_CONFIRM = "ui.programs.remove.category.confirm";
+    public static final String UI_PROGRAMS_EMPTY = "ui.programs.empty";
+    public static final String UI_PROGRAMS_CATEGORY_WORK = "ui.programs.category.work";
+    public static final String UI_PROGRAMS_CATEGORY_COMMUNICATION = "ui.programs.category.communication";
+    public static final String UI_PROGRAMS_CATEGORY_TRAINING = "ui.programs.category.training";
+    public static final String UI_PROGRAMS_CATEGORY_OTHER = "ui.programs.category.other";
+
     public static final String UI_STATS_PERIOD = "ui.stats.period";
     public static final String UI_STATS_PERIOD_DAY = "ui.stats.period.day";
     public static final String UI_STATS_PERIOD_WEEK = "ui.stats.period.week";
@@ -49,10 +65,16 @@ public final class MessageCodes {
     public static final String UI_STATS_PERIOD_CUSTOM = "ui.stats.period.custom";
     public static final String UI_STATS_PERIOD_FROM = "ui.stats.period.from";
     public static final String UI_STATS_PERIOD_TO = "ui.stats.period.to";
+    public static final String UI_STATS_PERIOD_PREVIOUS = "ui.stats.period.previous";
+    public static final String UI_STATS_PERIOD_NEXT = "ui.stats.period.next";
+    public static final String UI_STATS_PERIOD_PREVIOUS_WEEK = "ui.stats.period.previous.week";
+    public static final String UI_STATS_PERIOD_NEXT_WEEK = "ui.stats.period.next.week";
     public static final String UI_STATS_TOTAL = "ui.stats.total";
     public static final String UI_STATS_BY_DAY = "ui.stats.by.day";
     public static final String UI_STATS_BY_APP = "ui.stats.by.app";
     public static final String UI_STATS_MATRIX = "ui.stats.matrix";
+    public static final String UI_STATS_VIEW_MATRIX = "ui.stats.view.matrix";
+    public static final String UI_STATS_VIEW_TIMELINE = "ui.stats.view.timeline";
     public static final String UI_STATS_EMPTY = "ui.stats.empty";
     public static final String UI_STATS_OTHERS = "ui.stats.others";
     public static final String UI_STATS_DOWNLOAD_REPORT = "ui.stats.download.report";
@@ -63,12 +85,15 @@ public final class MessageCodes {
     public static final String UI_STATS_DOWNLOAD_FAILED = "ui.stats.download.failed";
 
     public static final String UI_SETTINGS_TITLE = "ui.settings.title";
+    public static final String UI_SETTINGS_GENERAL = "ui.settings.general";
     public static final String UI_SETTINGS_TRACKING = "ui.settings.tracking";
     public static final String UI_SETTINGS_LANGUAGE = "ui.settings.language";
     public static final String UI_SETTINGS_LANGUAGE_EN = "ui.settings.language.en";
     public static final String UI_SETTINGS_LANGUAGE_UK = "ui.settings.language.uk";
     public static final String UI_SETTINGS_AUTO_START = "ui.settings.auto.start";
     public static final String UI_SETTINGS_AUTO_START_HINT = "ui.settings.auto.start.hint";
+    public static final String UI_SETTINGS_LAUNCH_AT_LOGIN = "ui.settings.launch.at.login";
+    public static final String UI_SETTINGS_LAUNCH_AT_LOGIN_HINT = "ui.settings.launch.at.login.hint";
     public static final String UI_SETTINGS_MINOR_THRESHOLD = "ui.settings.minor.threshold";
     public static final String UI_SETTINGS_MINOR_THRESHOLD_HINT = "ui.settings.minor.threshold.hint";
     public static final String UI_SETTINGS_MINOR_THRESHOLD_UNIT = "ui.settings.minor.threshold.unit";
@@ -147,6 +172,7 @@ public final class MessageCodes {
     public static final String UI_POMODORO_NOTIFY_WORK_DONE = "ui.pomodoro.notify.work.done";
     public static final String UI_POMODORO_NOTIFY_SHORT_BREAK_DONE = "ui.pomodoro.notify.short.break.done";
     public static final String UI_POMODORO_NOTIFY_LONG_BREAK_DONE = "ui.pomodoro.notify.long.break.done";
+    public static final String UI_POMODORO_ALERT_OK = "ui.pomodoro.alert.ok";
 
     public static final String UI_TRAY_OPEN = "ui.tray.open";
     public static final String UI_TRAY_EXIT = "ui.tray.exit";

@@ -10,6 +10,7 @@ import com.workpulsetracker.agent.tracking.TrackingEngine;
 import com.workpulsetracker.common.i18n.MessageCodes;
 import com.workpulsetracker.common.i18n.Messages;
 import com.workpulsetracker.common.i18n.UserLocaleContext;
+import com.formdev.flatlaf.FlatClientProperties;
 
 import javax.swing.JFrame;
 import javax.swing.JTabbedPane;
@@ -28,6 +29,7 @@ public final class TrackerMainFrame extends JFrame {
 
     private final MainPanel mainPanel;
     private final StatisticsPanel statisticsPanel;
+    private final ProgramsPanel programsPanel;
     private final PomodoroPanel pomodoroPanel;
     private final SettingsPanel settingsPanel;
     private final AccountPanel accountPanel;
@@ -53,6 +55,12 @@ public final class TrackerMainFrame extends JFrame {
         this.mainPanel = new MainPanel(trackingEngine, statisticsService, userSettings);
         this.statisticsPanel = new StatisticsPanel(statisticsService, userSettings, userSettingsStore);
         this.trayService = new TrayService(this, exitAction);
+        this.programsPanel = new ProgramsPanel(
+                statisticsService,
+                userSettings,
+                userSettingsStore,
+                this::refreshPanels
+        );
         this.pomodoroPanel = new PomodoroPanel(
                 userSettings,
                 userSettingsStore,
@@ -61,20 +69,19 @@ public final class TrackerMainFrame extends JFrame {
         this.settingsPanel = new SettingsPanel(
                 userSettings,
                 userSettingsStore,
-                activityStore,
-                trackingEngine,
-                agentSyncClient,
                 appLanguage -> retranslateUi(),
                 this::onAutoStartSettingChanged,
-                this::refreshPanels,
-                this::onLocalDataRestored
+                this::refreshPanels
         );
         this.accountPanel = new AccountPanel(
                 userSettings,
                 userSettingsStore,
                 agentAccessClient,
                 agentSyncClient,
-                this::onAccountModeOrCredentialsChanged
+                activityStore,
+                trackingEngine,
+                this::onAccountModeOrCredentialsChanged,
+                this::onLocalDataRestored
         );
 
         setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
@@ -96,14 +103,33 @@ public final class TrackerMainFrame extends JFrame {
     private void buildContent() {
         setIconImages(UiImages.loadWindowIconImages());
 
+        tabbedPane.putClientProperty(
+                FlatClientProperties.TABBED_PANE_TAB_TYPE,
+                FlatClientProperties.TABBED_PANE_TAB_TYPE_UNDERLINED
+        );
+        tabbedPane.putClientProperty(FlatClientProperties.TABBED_PANE_SHOW_TAB_SEPARATORS, false);
+        tabbedPane.putClientProperty(FlatClientProperties.STYLE,
+                "tabHeight: 44;"
+                        + "tabInsets: 10,20,10,20;"
+                        + "foreground: #9E9EB5;"
+                        + "selectedForeground: #EDEDF6;"
+                        + "hoverColor: #1A1A2B;"
+                        + "underlineColor: #7458FF;"
+                        + "inactiveUnderlineColor: #2F2F47;"
+                        + "contentAreaColor: #0A0A14"
+        );
+
         tabbedPane.addTab(Messages.get(MessageCodes.UI_TAB_MAIN), mainPanel);
         tabbedPane.addTab(Messages.get(MessageCodes.UI_TAB_STATISTICS), statisticsPanel);
+        tabbedPane.addTab(Messages.get(MessageCodes.UI_TAB_PROGRAMS), programsPanel);
         tabbedPane.addTab(Messages.get(MessageCodes.UI_TAB_POMODORO), pomodoroPanel);
         tabbedPane.addTab(Messages.get(MessageCodes.UI_TAB_SETTINGS), settingsPanel);
         tabbedPane.addTab(Messages.get(MessageCodes.UI_TAB_ACCOUNT), accountPanel);
         tabbedPane.addChangeListener(changeEvent -> {
             if (tabbedPane.getSelectedComponent() == statisticsPanel) {
                 statisticsPanel.refresh();
+            } else if (tabbedPane.getSelectedComponent() == programsPanel) {
+                programsPanel.refresh();
             }
         });
 
@@ -139,7 +165,9 @@ public final class TrackerMainFrame extends JFrame {
 
     public void refreshPanels() {
         mainPanel.refresh();
-        statisticsPanel.refresh();
+        if (tabbedPane.getSelectedComponent() == statisticsPanel) {
+            statisticsPanel.refresh();
+        }
     }
 
     private void onAccountModeOrCredentialsChanged() {
@@ -157,6 +185,7 @@ public final class TrackerMainFrame extends JFrame {
         UserLocaleContext.setLanguage(userSettings.getLanguage());
         settingsPanel.reloadFromSettings();
         pomodoroPanel.reloadFromSettings();
+        programsPanel.refresh();
         accountPanel.retranslate();
         statisticsPanel.onOperationModeChanged();
         mainPanel.applyAutoStartSetting(userSettings.isAutoStartTracking());
@@ -168,11 +197,13 @@ public final class TrackerMainFrame extends JFrame {
         setTitle(Messages.get(MessageCodes.UI_APP_TITLE));
         tabbedPane.setTitleAt(0, Messages.get(MessageCodes.UI_TAB_MAIN));
         tabbedPane.setTitleAt(1, Messages.get(MessageCodes.UI_TAB_STATISTICS));
-        tabbedPane.setTitleAt(2, Messages.get(MessageCodes.UI_TAB_POMODORO));
-        tabbedPane.setTitleAt(3, Messages.get(MessageCodes.UI_TAB_SETTINGS));
-        tabbedPane.setTitleAt(4, Messages.get(MessageCodes.UI_TAB_ACCOUNT));
+        tabbedPane.setTitleAt(2, Messages.get(MessageCodes.UI_TAB_PROGRAMS));
+        tabbedPane.setTitleAt(3, Messages.get(MessageCodes.UI_TAB_POMODORO));
+        tabbedPane.setTitleAt(4, Messages.get(MessageCodes.UI_TAB_SETTINGS));
+        tabbedPane.setTitleAt(5, Messages.get(MessageCodes.UI_TAB_ACCOUNT));
         mainPanel.retranslate();
         statisticsPanel.retranslate();
+        programsPanel.retranslate();
         pomodoroPanel.retranslate();
         settingsPanel.retranslate();
         accountPanel.retranslate();

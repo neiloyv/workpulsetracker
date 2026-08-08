@@ -5,5 +5,9 @@ package com.workpulsetracker.agent.stats;
  */
 public enum DayActivityState {
     ACTIVE,
-    IDLE
+    IDLE,
+    /**
+     * Приложение с Track OFF: человек за ПК, но время не считается обычной работой.
+     */
+    EXCLUDED
 }

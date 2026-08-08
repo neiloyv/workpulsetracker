@@ -1,26 +1,34 @@
 package com.workpulsetracker.agent.ui;
 
-import com.workpulsetracker.agent.mode.AgentFeature;
-import com.workpulsetracker.agent.mode.FeatureGateService;
 import com.workpulsetracker.agent.report.StatisticsExcelReportWriter;
 import com.workpulsetracker.agent.report.StatisticsPdfReportWriter;
 import com.workpulsetracker.agent.report.StatisticsReportFormat;
 import com.workpulsetracker.agent.stats.ApplicationUsageBrowserGrouper;
 import com.workpulsetracker.agent.stats.ApplicationUsageFilter;
 import com.workpulsetracker.agent.stats.ApplicationUsageMatrix;
+import com.workpulsetracker.agent.stats.DayActivityState;
+import com.workpulsetracker.agent.stats.DayActivityTimeline;
+import com.workpulsetracker.agent.stats.DayActivityTimelineRow;
+import com.workpulsetracker.agent.stats.DayActivityTimelineSegment;
+import com.workpulsetracker.agent.stats.PeriodBucket;
 import com.workpulsetracker.agent.stats.StatisticsService;
 import com.workpulsetracker.agent.stats.StatisticsSnapshot;
 import com.workpulsetracker.agent.stats.StatsPeriod;
 import com.workpulsetracker.agent.storage.UserSettings;
 import com.workpulsetracker.agent.storage.UserSettingsStore;
 import com.workpulsetracker.agent.util.DurationFormatter;
+import com.workpulsetracker.agent.util.PercentageCalculator;
 import com.workpulsetracker.common.i18n.MessageCodes;
 import com.workpulsetracker.common.i18n.Messages;
+import com.workpulsetracker.common.i18n.UserLocaleContext;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
@@ -28,9 +36,8 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JSpinner;
 import javax.swing.JTable;
-import javax.swing.SpinnerDateModel;
+import javax.swing.JToggleButton;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -40,23 +47,29 @@ import javax.swing.table.JTableHeader;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.GridLayout;
+import java.awt.GridBagLayout;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.io.File;
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.Calendar;
-import java.util.Date;
+import java.time.format.TextStyle;
+import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.stream.IntStream;
 
 /**
- * Вкладка локальной статистики: период, таблица с закреплёнными колонками, выгрузка отчёта.
+ * Вкладка локальной статистики: Week/Month/Year, матрица приложений и таймлайн по дням.
  */
 public final class StatisticsPanel extends JPanel {
 
@@ -65,32 +78,69 @@ public final class StatisticsPanel extends JPanel {
     private static final int APPLICATION_COLUMN_PREFERRED_WIDTH = 180;
     private static final int TOTAL_COLUMN_PREFERRED_WIDTH = 120;
     private static final int PERIOD_COLUMN_PREFERRED_WIDTH = 110;
+    private static final String CONTENT_CARD_MATRIX = "matrix";
+    private static final String CONTENT_CARD_TIMELINE = "timeline";
+    private static final String BODY_CARD_DATA = "data";
+    private static final String BODY_CARD_EMPTY = "empty";
+
+    private enum StatisticsViewMode {
+        MATRIX,
+        TIMELINE
+    }
 
     private final StatisticsService statisticsService;
     private final UserSettings userSettings;
     private final UserSettingsStore userSettingsStore;
-    private final FeatureGateService featureGateService;
 
-    private final JComboBox<StatsPeriodItem> periodComboBox = new JComboBox<>();
-    private final JLabel periodLabel = new JLabel();
+    private final JToggleButton weekPeriodButton = new JToggleButton();
+    private final JToggleButton monthPeriodButton = new JToggleButton();
+    private final JToggleButton yearPeriodButton = new JToggleButton();
+    private final JToggleButton matrixViewButton = new JToggleButton();
+    private final JToggleButton timelineViewButton = new JToggleButton();
+    private final JButton previousPeriodButton = new JButton("‹");
+    private final JButton nextPeriodButton = new JButton("›");
+    private final JButton previousWeekInMonthButton = new JButton("‹");
+    private final JButton nextWeekInMonthButton = new JButton("›");
+    private final JLabel periodCaptionLabel = new JLabel();
+    private final JLabel weekInMonthCaptionLabel = new JLabel();
+    private final JPanel weekInMonthNavigationPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
     private final JLabel totalCaptionLabel = new JLabel();
     private final JLabel totalTimeValueLabel = new JLabel("0:00");
     private final JLabel tableCaptionLabel = new JLabel();
+    private final JLabel matrixEmptyLabel = new JLabel();
+    private final JLabel timelineEmptyLabel = new JLabel();
+    private final JLabel timelineLegendActiveLabel = new JLabel();
+    private final JLabel timelineLegendIdleLabel = new JLabel();
+    private final JLabel timelineLegendExcludedLabel = new JLabel();
+    private final JPanel timelineLegendActiveSwatch = createLegendSwatch(DayActivityTimelinePanel.activeColor());
+    private final JPanel timelineLegendIdleSwatch = createLegendSwatch(DayActivityTimelinePanel.idleColor());
+    private final JPanel timelineLegendExcludedSwatch = createLegendSwatch(DayActivityTimelinePanel.excludedColor());
     private final JLabel reportFormatLabel = new JLabel();
-    private final JLabel dateFromLabel = new JLabel();
-    private final JLabel dateToLabel = new JLabel();
     private final JComboBox<ReportFormatItem> reportFormatComboBox = new JComboBox<>();
     private final JButton downloadReportButton = new JButton();
-    private final JSpinner dateFromSpinner = createDateSpinner(LocalDate.now().minusWeeks(2));
-    private final JSpinner dateToSpinner = createDateSpinner(LocalDate.now());
     private final JPanel headerCard = new JPanel(new BorderLayout(8, 10));
-    private final JPanel customRangePanel = new JPanel(new BorderLayout(12, 0));
     private final JPanel tablePanel = new JPanel(new BorderLayout(4, 8));
+    private final CardLayout matrixBodyCardLayout = new CardLayout();
+    private final JPanel matrixBodyPanel = new JPanel(matrixBodyCardLayout);
+    private final JPanel timelineViewPanel = new JPanel(new BorderLayout(4, 8));
+    private final CardLayout timelineBodyCardLayout = new CardLayout();
+    private final JPanel timelineBodyPanel = new JPanel(timelineBodyCardLayout);
+    private final JPanel timelineRowsPanel = new JPanel();
+    private final JScrollPane timelineScrollPane = new JScrollPane(timelineRowsPanel);
+    private final CardLayout contentCardLayout = new CardLayout();
+    private final JPanel contentCardPanel = new JPanel(contentCardLayout);
     private final JPanel footerCard = new JPanel(new BorderLayout(12, 0));
     private final ApplicationUsageMatrixTableModel statisticsTableModel = new ApplicationUsageMatrixTableModel();
     private final JTable statisticsTable = new JTable(statisticsTableModel);
     private JScrollPane statisticsScrollPane;
+
+    private StatsPeriod selectedStatsPeriod = StatsPeriod.WEEK;
+    private StatisticsViewMode selectedViewMode = StatisticsViewMode.MATRIX;
+    private LocalDate periodAnchorDate = LocalDate.now();
+    private LocalDate monthWeekAnchorDate = LocalDate.now();
+    private int currentPeriodBucketIndex = -1;
     private boolean suppressPeriodChangeEvents;
+    private boolean suppressViewChangeEvents;
 
     public StatisticsPanel(
             StatisticsService statisticsService,
@@ -100,76 +150,106 @@ public final class StatisticsPanel extends JPanel {
         this.statisticsService = statisticsService;
         this.userSettings = userSettings;
         this.userSettingsStore = userSettingsStore;
-        this.featureGateService = new FeatureGateService(userSettings);
         setLayout(new BorderLayout(0, 12));
         setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
         setBackground(UiTheme.BACKGROUND);
         buildContent();
-        refresh();
     }
 
     private void buildContent() {
-        rebuildPeriodOptions(false);
-        periodComboBox.addActionListener(actionEvent -> onPeriodSelectionChanged());
+        ButtonGroup periodButtonGroup = new ButtonGroup();
+        periodButtonGroup.add(weekPeriodButton);
+        periodButtonGroup.add(monthPeriodButton);
+        periodButtonGroup.add(yearPeriodButton);
+        weekPeriodButton.setSelected(true);
 
-        dateFromSpinner.addChangeListener(changeEvent -> {
-            if (isCustomPeriodSelected()) {
-                refresh();
-            }
-        });
-        dateToSpinner.addChangeListener(changeEvent -> {
-            if (isCustomPeriodSelected()) {
-                refresh();
-            }
-        });
+        ButtonGroup viewButtonGroup = new ButtonGroup();
+        viewButtonGroup.add(matrixViewButton);
+        viewButtonGroup.add(timelineViewButton);
+        matrixViewButton.setSelected(true);
+
+        weekPeriodButton.addActionListener(actionEvent -> onPeriodModeSelected(StatsPeriod.WEEK));
+        monthPeriodButton.addActionListener(actionEvent -> onPeriodModeSelected(StatsPeriod.MONTH));
+        yearPeriodButton.addActionListener(actionEvent -> onPeriodModeSelected(StatsPeriod.YEAR));
+        matrixViewButton.addActionListener(actionEvent -> onViewModeSelected(StatisticsViewMode.MATRIX));
+        timelineViewButton.addActionListener(actionEvent -> onViewModeSelected(StatisticsViewMode.TIMELINE));
+        previousPeriodButton.addActionListener(actionEvent -> navigatePeriod(-1));
+        nextPeriodButton.addActionListener(actionEvent -> navigatePeriod(1));
+        previousWeekInMonthButton.addActionListener(actionEvent -> navigateWeekInMonth(-1));
+        nextWeekInMonthButton.addActionListener(actionEvent -> navigateWeekInMonth(1));
+
+        stylePeriodModeButton(weekPeriodButton);
+        stylePeriodModeButton(monthPeriodButton);
+        stylePeriodModeButton(yearPeriodButton);
+        stylePeriodModeButton(matrixViewButton);
+        stylePeriodModeButton(timelineViewButton);
+        UiTheme.styleCompactSecondaryButton(previousPeriodButton);
+        UiTheme.styleCompactSecondaryButton(nextPeriodButton);
+        UiTheme.styleCompactSecondaryButton(previousWeekInMonthButton);
+        UiTheme.styleCompactSecondaryButton(nextWeekInMonthButton);
+        previousPeriodButton.setPreferredSize(new Dimension(40, 32));
+        nextPeriodButton.setPreferredSize(new Dimension(40, 32));
+        previousWeekInMonthButton.setPreferredSize(new Dimension(40, 32));
+        nextWeekInMonthButton.setPreferredSize(new Dimension(40, 32));
 
         UiTheme.styleSurfaceCard(headerCard);
 
-        JPanel periodBlock = new JPanel(new BorderLayout(8, 0));
-        periodBlock.setOpaque(false);
-        UiTheme.styleMutedLabel(periodLabel);
-        periodBlock.add(periodLabel, BorderLayout.WEST);
-        periodBlock.add(periodComboBox, BorderLayout.CENTER);
+        JPanel viewModePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        viewModePanel.setOpaque(false);
+        viewModePanel.add(matrixViewButton);
+        viewModePanel.add(timelineViewButton);
 
-        JPanel totalBlock = new JPanel(new BorderLayout(8, 0));
+        JPanel periodModePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        periodModePanel.setOpaque(false);
+        periodModePanel.add(weekPeriodButton);
+        periodModePanel.add(monthPeriodButton);
+        periodModePanel.add(yearPeriodButton);
+
+        JPanel periodNavigationPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        periodNavigationPanel.setOpaque(false);
+        periodNavigationPanel.add(previousPeriodButton);
+        periodCaptionLabel.setFont(periodCaptionLabel.getFont().deriveFont(Font.BOLD, 15f));
+        periodCaptionLabel.setForeground(UiTheme.TEXT_PRIMARY);
+        periodNavigationPanel.add(periodCaptionLabel);
+        periodNavigationPanel.add(nextPeriodButton);
+
+        weekInMonthNavigationPanel.setOpaque(false);
+        weekInMonthNavigationPanel.setVisible(false);
+        weekInMonthNavigationPanel.add(previousWeekInMonthButton);
+        weekInMonthCaptionLabel.setFont(weekInMonthCaptionLabel.getFont().deriveFont(Font.PLAIN, 14f));
+        weekInMonthCaptionLabel.setForeground(UiTheme.TEXT_PRIMARY);
+        weekInMonthNavigationPanel.add(weekInMonthCaptionLabel);
+        weekInMonthNavigationPanel.add(nextWeekInMonthButton);
+
+        JPanel periodFiltersPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+        periodFiltersPanel.setOpaque(false);
+        periodFiltersPanel.add(periodModePanel);
+        periodFiltersPanel.add(periodNavigationPanel);
+        periodFiltersPanel.add(weekInMonthNavigationPanel);
+
+        JPanel leftHeaderPanel = new JPanel();
+        leftHeaderPanel.setOpaque(false);
+        leftHeaderPanel.setLayout(new BoxLayout(leftHeaderPanel, BoxLayout.X_AXIS));
+        viewModePanel.setAlignmentY(Component.CENTER_ALIGNMENT);
+        periodFiltersPanel.setAlignmentY(Component.CENTER_ALIGNMENT);
+        leftHeaderPanel.add(viewModePanel);
+        leftHeaderPanel.add(Box.createHorizontalStrut(50));
+        leftHeaderPanel.add(periodFiltersPanel);
+
+        JPanel totalBlock = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         totalBlock.setOpaque(false);
         UiTheme.styleMutedLabel(totalCaptionLabel);
         totalTimeValueLabel.setFont(totalTimeValueLabel.getFont().deriveFont(Font.BOLD, 20f));
         totalTimeValueLabel.setForeground(UiTheme.TEXT_PRIMARY);
         totalTimeValueLabel.setHorizontalAlignment(SwingConstants.RIGHT);
-        totalBlock.add(totalCaptionLabel, BorderLayout.WEST);
-        totalBlock.add(totalTimeValueLabel, BorderLayout.CENTER);
+        totalBlock.add(totalCaptionLabel);
+        totalBlock.add(totalTimeValueLabel);
 
-        JPanel topRow = new JPanel(new GridLayout(1, 2, 16, 0));
+        JPanel topRow = new JPanel(new BorderLayout(16, 0));
         topRow.setOpaque(false);
-        topRow.add(periodBlock);
-        topRow.add(totalBlock);
-
-        customRangePanel.setOpaque(false);
-        customRangePanel.setVisible(false);
-        customRangePanel.setLayout(new GridLayout(1, 2, 16, 0));
-        UiTheme.styleMutedLabel(dateFromLabel);
-        UiTheme.styleMutedLabel(dateToLabel);
-
-        JPanel fromPanel = new JPanel(new BorderLayout(8, 0));
-        fromPanel.setOpaque(false);
-        fromPanel.add(dateFromLabel, BorderLayout.WEST);
-        fromPanel.add(dateFromSpinner, BorderLayout.CENTER);
-
-        JPanel toPanel = new JPanel(new BorderLayout(8, 0));
-        toPanel.setOpaque(false);
-        toPanel.add(dateToLabel, BorderLayout.WEST);
-        toPanel.add(dateToSpinner, BorderLayout.CENTER);
-
-        customRangePanel.add(fromPanel);
-        customRangePanel.add(toPanel);
-
-        JPanel headerCenterPanel = new JPanel(new BorderLayout(0, 10));
-        headerCenterPanel.setOpaque(false);
-        headerCenterPanel.add(topRow, BorderLayout.NORTH);
-        headerCenterPanel.add(customRangePanel, BorderLayout.SOUTH);
-
-        headerCard.add(headerCenterPanel, BorderLayout.CENTER);
+        topRow.add(leftHeaderPanel, BorderLayout.WEST);
+        topRow.add(totalBlock, BorderLayout.EAST);
+        headerCard.add(topRow, BorderLayout.CENTER);
 
         UiTheme.styleSurfaceCard(tablePanel);
         UiTheme.styleMutedLabel(tableCaptionLabel);
@@ -183,8 +263,27 @@ public final class StatisticsPanel extends JPanel {
                 stretchColumnsToViewport();
             }
         });
+        matrixBodyPanel.setOpaque(false);
+        matrixBodyPanel.add(statisticsScrollPane, BODY_CARD_DATA);
+        matrixBodyPanel.add(createEmptyStatePanel(matrixEmptyLabel), BODY_CARD_EMPTY);
         tablePanel.add(tableCaptionLabel, BorderLayout.NORTH);
-        tablePanel.add(statisticsScrollPane, BorderLayout.CENTER);
+        tablePanel.add(matrixBodyPanel, BorderLayout.CENTER);
+
+        UiTheme.styleSurfaceCard(timelineViewPanel);
+        timelineRowsPanel.setOpaque(false);
+        timelineRowsPanel.setLayout(new BoxLayout(timelineRowsPanel, BoxLayout.Y_AXIS));
+        timelineScrollPane.setBorder(BorderFactory.createEmptyBorder());
+        timelineScrollPane.getViewport().setBackground(UiTheme.SURFACE);
+        timelineScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        timelineBodyPanel.setOpaque(false);
+        timelineBodyPanel.add(timelineScrollPane, BODY_CARD_DATA);
+        timelineBodyPanel.add(createEmptyStatePanel(timelineEmptyLabel), BODY_CARD_EMPTY);
+        timelineViewPanel.add(timelineBodyPanel, BorderLayout.CENTER);
+        timelineViewPanel.add(createTimelineLegendPanel(), BorderLayout.SOUTH);
+
+        contentCardPanel.setOpaque(false);
+        contentCardPanel.add(tablePanel, CONTENT_CARD_MATRIX);
+        contentCardPanel.add(timelineViewPanel, CONTENT_CARD_TIMELINE);
 
         downloadReportButton.addActionListener(actionEvent -> onDownloadReportClicked());
         UiTheme.styleSecondaryButton(downloadReportButton);
@@ -208,104 +307,161 @@ public final class StatisticsPanel extends JPanel {
         footerCard.add(downloadReportButton, BorderLayout.EAST);
 
         add(headerCard, BorderLayout.NORTH);
-        add(tablePanel, BorderLayout.CENTER);
+        add(contentCardPanel, BorderLayout.CENTER);
         add(footerCard, BorderLayout.SOUTH);
         retranslate();
     }
 
-    private void onPeriodSelectionChanged() {
+    private void stylePeriodModeButton(JToggleButton toggleButton) {
+        toggleButton.setFocusPainted(false);
+        toggleButton.putClientProperty(
+                com.formdev.flatlaf.FlatClientProperties.STYLE,
+                "arc: 999;"
+                        + "background: #141422;"
+                        + "foreground: #EDEDF6;"
+                        + "borderColor: #2F2F47;"
+                        + "selectedBackground: #7458FF;"
+                        + "selectedForeground: #FFFFFF;"
+                        + "hoverBackground: #1A1A2B;"
+                        + "margin: 6,14,6,14"
+        );
+    }
+
+    private void onPeriodModeSelected(StatsPeriod statsPeriod) {
         if (suppressPeriodChangeEvents) {
             return;
         }
-        customRangePanel.setVisible(isCustomPeriodSelected());
-        revalidate();
+        selectedStatsPeriod = statsPeriod;
+        periodAnchorDate = statisticsService.normalizeAnchorDate(statsPeriod, LocalDate.now());
+        if (statsPeriod == StatsPeriod.MONTH) {
+            YearMonth yearMonth = YearMonth.from(periodAnchorDate);
+            monthWeekAnchorDate = statisticsService.resolveDefaultWeekMondayForMonth(yearMonth);
+        }
         refresh();
     }
 
-    private boolean isCustomPeriodSelected() {
-        StatsPeriodItem selectedPeriodItem = (StatsPeriodItem) periodComboBox.getSelectedItem();
-        return Objects.nonNull(selectedPeriodItem) && selectedPeriodItem.statsPeriod() == StatsPeriod.CUSTOM;
+    private void onViewModeSelected(StatisticsViewMode statisticsViewMode) {
+        if (suppressViewChangeEvents) {
+            return;
+        }
+        selectedViewMode = statisticsViewMode;
+        if (selectedViewMode == StatisticsViewMode.TIMELINE && selectedStatsPeriod == StatsPeriod.YEAR) {
+            selectedStatsPeriod = StatsPeriod.WEEK;
+            periodAnchorDate = statisticsService.normalizeAnchorDate(StatsPeriod.WEEK, LocalDate.now());
+        }
+        refresh();
     }
 
-    private void rebuildPeriodOptions(boolean preserveSelection) {
-        StatsPeriod previouslySelectedPeriod = null;
-        if (preserveSelection) {
-            StatsPeriodItem selectedPeriodItem = (StatsPeriodItem) periodComboBox.getSelectedItem();
-            if (Objects.nonNull(selectedPeriodItem)) {
-                previouslySelectedPeriod = selectedPeriodItem.statsPeriod();
-            }
+    private void navigatePeriod(int periodOffset) {
+        LocalDate nextAnchorDate = statisticsService.shiftAnchorDate(
+                selectedStatsPeriod,
+                periodAnchorDate,
+                periodOffset
+        );
+        if (periodOffset > 0
+                && !statisticsService.canNavigateToNextPeriod(selectedStatsPeriod, periodAnchorDate)) {
+            return;
         }
-
-        suppressPeriodChangeEvents = true;
-        try {
-            periodComboBox.removeAllItems();
-            periodComboBox.addItem(new StatsPeriodItem(StatsPeriod.WEEK, MessageCodes.UI_STATS_PERIOD_WEEK));
-            periodComboBox.addItem(new StatsPeriodItem(StatsPeriod.MONTH, MessageCodes.UI_STATS_PERIOD_MONTH));
-            boolean extendedHistoryAllowed = featureGateService.isFeatureAllowed(AgentFeature.EXTENDED_HISTORY_EXPORT);
-            if (extendedHistoryAllowed) {
-                periodComboBox.addItem(new StatsPeriodItem(StatsPeriod.YEAR, MessageCodes.UI_STATS_PERIOD_YEAR));
-                periodComboBox.addItem(new StatsPeriodItem(StatsPeriod.ALL_TIME, MessageCodes.UI_STATS_PERIOD_ALL));
-            }
-            periodComboBox.addItem(new StatsPeriodItem(StatsPeriod.CUSTOM, MessageCodes.UI_STATS_PERIOD_CUSTOM));
-
-            if (Objects.nonNull(previouslySelectedPeriod)) {
-                for (int itemIndex = 0; itemIndex < periodComboBox.getItemCount(); itemIndex++) {
-                    StatsPeriodItem statsPeriodItem = periodComboBox.getItemAt(itemIndex);
-                    if (Objects.equals(statsPeriodItem.statsPeriod(), previouslySelectedPeriod)) {
-                        periodComboBox.setSelectedIndex(itemIndex);
-                        customRangePanel.setVisible(isCustomPeriodSelected());
-                        return;
-                    }
-                }
-            }
-            periodComboBox.setSelectedIndex(0);
-            customRangePanel.setVisible(false);
-        } finally {
-            suppressPeriodChangeEvents = false;
+        if (periodOffset < 0
+                && !statisticsService.canNavigateToPreviousPeriod(selectedStatsPeriod, periodAnchorDate)) {
+            return;
         }
+        periodAnchorDate = statisticsService.normalizeAnchorDate(selectedStatsPeriod, nextAnchorDate);
+        if (selectedStatsPeriod == StatsPeriod.MONTH) {
+            YearMonth yearMonth = YearMonth.from(periodAnchorDate);
+            monthWeekAnchorDate = statisticsService.resolveDefaultWeekMondayForMonth(yearMonth);
+        }
+        refresh();
+    }
+
+    private void navigateWeekInMonth(int weekOffset) {
+        if (selectedStatsPeriod != StatsPeriod.MONTH) {
+            return;
+        }
+        YearMonth yearMonth = YearMonth.from(periodAnchorDate);
+        if (weekOffset > 0
+                && !statisticsService.canNavigateToNextWeekInMonth(yearMonth, monthWeekAnchorDate)) {
+            return;
+        }
+        if (weekOffset < 0
+                && !statisticsService.canNavigateToPreviousWeekInMonth(yearMonth, monthWeekAnchorDate)) {
+            return;
+        }
+        monthWeekAnchorDate = statisticsService.shiftWeekMondayInMonth(
+                yearMonth,
+                monthWeekAnchorDate,
+                weekOffset
+        );
+        refresh();
     }
 
     /**
-     * Пересобирает периоды после смены LOCAL_SOLO / NETWORK_SYNC.
+     * После смены режима работы — перерисовка (Year теперь доступен всегда).
      */
     public void onOperationModeChanged() {
-        rebuildPeriodOptions(true);
         refresh();
     }
 
     public void retranslate() {
-        periodLabel.setText(Messages.get(MessageCodes.UI_STATS_PERIOD));
+        weekPeriodButton.setText(Messages.get(MessageCodes.UI_STATS_PERIOD_WEEK));
+        monthPeriodButton.setText(Messages.get(MessageCodes.UI_STATS_PERIOD_MONTH));
+        yearPeriodButton.setText(Messages.get(MessageCodes.UI_STATS_PERIOD_YEAR));
+        matrixViewButton.setText(Messages.get(MessageCodes.UI_STATS_VIEW_MATRIX));
+        timelineViewButton.setText(Messages.get(MessageCodes.UI_STATS_VIEW_TIMELINE));
+        previousPeriodButton.setToolTipText(Messages.get(MessageCodes.UI_STATS_PERIOD_PREVIOUS));
+        nextPeriodButton.setToolTipText(Messages.get(MessageCodes.UI_STATS_PERIOD_NEXT));
+        previousWeekInMonthButton.setToolTipText(Messages.get(MessageCodes.UI_STATS_PERIOD_PREVIOUS_WEEK));
+        nextWeekInMonthButton.setToolTipText(Messages.get(MessageCodes.UI_STATS_PERIOD_NEXT_WEEK));
         totalCaptionLabel.setText(Messages.get(MessageCodes.UI_STATS_TOTAL));
         tableCaptionLabel.setText(Messages.get(MessageCodes.UI_STATS_BY_APP));
+        matrixEmptyLabel.setText(Messages.get(MessageCodes.UI_STATS_EMPTY));
+        timelineEmptyLabel.setText(Messages.get(MessageCodes.UI_STATS_EMPTY));
+        timelineLegendActiveLabel.setText(Messages.get(MessageCodes.UI_MAIN_TIMELINE_STATE_ACTIVE));
+        timelineLegendIdleLabel.setText(Messages.get(MessageCodes.UI_MAIN_TIMELINE_STATE_IDLE));
+        timelineLegendExcludedLabel.setText(Messages.get(MessageCodes.UI_MAIN_TIMELINE_STATE_EXCLUDED));
         reportFormatLabel.setText(Messages.get(MessageCodes.UI_STATS_DOWNLOAD_FORMAT));
         downloadReportButton.setText(Messages.get(MessageCodes.UI_STATS_DOWNLOAD_REPORT));
-        dateFromLabel.setText(Messages.get(MessageCodes.UI_STATS_PERIOD_FROM));
-        dateToLabel.setText(Messages.get(MessageCodes.UI_STATS_PERIOD_TO));
-        rebuildPeriodOptions(true);
-        periodComboBox.repaint();
         reportFormatComboBox.repaint();
         statisticsTableModel.retranslate();
         refresh();
+        if (selectedViewMode == StatisticsViewMode.MATRIX && !statisticsTableModel.isEmpty()) {
+            rebuildFrozenColumnsScrollPane();
+        }
     }
 
     public void applyTheme() {
         setBackground(UiTheme.BACKGROUND);
         UiTheme.styleSurfaceCard(headerCard);
         UiTheme.styleSurfaceCard(tablePanel);
+        UiTheme.styleSurfaceCard(timelineViewPanel);
         UiTheme.styleSurfaceCard(footerCard);
-        UiTheme.styleMutedLabel(periodLabel);
         UiTheme.styleMutedLabel(totalCaptionLabel);
         UiTheme.styleMutedLabel(tableCaptionLabel);
+        UiTheme.styleMutedLabel(matrixEmptyLabel);
+        UiTheme.styleMutedLabel(timelineEmptyLabel);
+        UiTheme.styleMutedLabel(timelineLegendActiveLabel);
+        UiTheme.styleMutedLabel(timelineLegendIdleLabel);
+        UiTheme.styleMutedLabel(timelineLegendExcludedLabel);
         UiTheme.styleMutedLabel(reportFormatLabel);
-        UiTheme.styleMutedLabel(dateFromLabel);
-        UiTheme.styleMutedLabel(dateToLabel);
+        periodCaptionLabel.setForeground(UiTheme.TEXT_PRIMARY);
+        weekInMonthCaptionLabel.setForeground(UiTheme.TEXT_PRIMARY);
         totalTimeValueLabel.setForeground(UiTheme.TEXT_PRIMARY);
+        stylePeriodModeButton(weekPeriodButton);
+        stylePeriodModeButton(monthPeriodButton);
+        stylePeriodModeButton(yearPeriodButton);
+        stylePeriodModeButton(matrixViewButton);
+        stylePeriodModeButton(timelineViewButton);
+        UiTheme.styleCompactSecondaryButton(previousPeriodButton);
+        UiTheme.styleCompactSecondaryButton(nextPeriodButton);
+        UiTheme.styleCompactSecondaryButton(previousWeekInMonthButton);
+        UiTheme.styleCompactSecondaryButton(nextWeekInMonthButton);
         UiTheme.styleSecondaryButton(downloadReportButton);
         UiTheme.styleUsageTable(statisticsTable);
         statisticsTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         if (Objects.nonNull(statisticsScrollPane)) {
             statisticsScrollPane.getViewport().setBackground(UiTheme.SURFACE);
         }
+        timelineScrollPane.getViewport().setBackground(UiTheme.SURFACE);
         refresh();
     }
 
@@ -315,38 +471,376 @@ public final class StatisticsPanel extends JPanel {
             return;
         }
 
-        StatsPeriodItem selectedPeriodItem = (StatsPeriodItem) periodComboBox.getSelectedItem();
-        StatsPeriod statsPeriod = selectedPeriodItem != null
-                ? selectedPeriodItem.statsPeriod()
-                : StatsPeriod.WEEK;
-        if ((statsPeriod == StatsPeriod.YEAR || statsPeriod == StatsPeriod.ALL_TIME)
-                && !featureGateService.isFeatureAllowed(AgentFeature.EXTENDED_HISTORY_EXPORT)) {
-            rebuildPeriodOptions(false);
-            statsPeriod = StatsPeriod.WEEK;
+        if (selectedViewMode == StatisticsViewMode.TIMELINE && selectedStatsPeriod == StatsPeriod.YEAR) {
+            selectedStatsPeriod = StatsPeriod.WEEK;
+            periodAnchorDate = statisticsService.normalizeAnchorDate(StatsPeriod.WEEK, periodAnchorDate);
         }
-        LocalDate rangeStartDate = readSpinnerDate(dateFromSpinner);
-        LocalDate rangeEndDate = readSpinnerDate(dateToSpinner);
 
-        StatisticsSnapshot statisticsSnapshot = statisticsService.buildSnapshot(
-                statsPeriod,
-                rangeStartDate,
-                rangeEndDate
+        periodAnchorDate = statisticsService.normalizeAnchorDate(selectedStatsPeriod, periodAnchorDate);
+        suppressPeriodChangeEvents = true;
+        suppressViewChangeEvents = true;
+        try {
+            weekPeriodButton.setSelected(selectedStatsPeriod == StatsPeriod.WEEK);
+            monthPeriodButton.setSelected(selectedStatsPeriod == StatsPeriod.MONTH);
+            yearPeriodButton.setSelected(selectedStatsPeriod == StatsPeriod.YEAR);
+            matrixViewButton.setSelected(selectedViewMode == StatisticsViewMode.MATRIX);
+            timelineViewButton.setSelected(selectedViewMode == StatisticsViewMode.TIMELINE);
+        } finally {
+            suppressPeriodChangeEvents = false;
+            suppressViewChangeEvents = false;
+        }
+
+        yearPeriodButton.setVisible(selectedViewMode == StatisticsViewMode.MATRIX);
+
+        boolean monthMode = selectedStatsPeriod == StatsPeriod.MONTH;
+        weekInMonthNavigationPanel.setVisible(monthMode);
+
+        periodCaptionLabel.setText(
+                statisticsService.formatPeriodCaption(selectedStatsPeriod, periodAnchorDate)
+        );
+        previousPeriodButton.setEnabled(
+                statisticsService.canNavigateToPreviousPeriod(selectedStatsPeriod, periodAnchorDate)
+        );
+        nextPeriodButton.setEnabled(
+                statisticsService.canNavigateToNextPeriod(selectedStatsPeriod, periodAnchorDate)
+        );
+
+        StatsPeriod matrixStatsPeriod = selectedStatsPeriod;
+        LocalDate matrixAnchorDate = periodAnchorDate;
+        if (monthMode) {
+            YearMonth yearMonth = YearMonth.from(periodAnchorDate);
+            if (!statisticsService.weekIntersectsMonth(monthWeekAnchorDate, yearMonth)) {
+                monthWeekAnchorDate = statisticsService.resolveDefaultWeekMondayForMonth(yearMonth);
+            }
+            monthWeekAnchorDate = statisticsService.normalizeAnchorDate(StatsPeriod.WEEK, monthWeekAnchorDate);
+            weekInMonthCaptionLabel.setText(statisticsService.formatWeekRangeCaption(monthWeekAnchorDate));
+            previousWeekInMonthButton.setEnabled(
+                    statisticsService.canNavigateToPreviousWeekInMonth(yearMonth, monthWeekAnchorDate)
+            );
+            nextWeekInMonthButton.setEnabled(
+                    statisticsService.canNavigateToNextWeekInMonth(yearMonth, monthWeekAnchorDate)
+            );
+            matrixStatsPeriod = StatsPeriod.WEEK;
+            matrixAnchorDate = monthWeekAnchorDate;
+        }
+
+        StatisticsSnapshot statisticsSnapshot = statisticsService.buildSnapshotForAnchor(
+                matrixStatsPeriod,
+                matrixAnchorDate
         );
         totalTimeValueLabel.setText(
                 DurationFormatter.formatHoursMinutes(statisticsSnapshot.getTotalActiveSeconds())
         );
 
-        ApplicationUsageMatrix applicationUsageMatrix = ApplicationUsageFilter.groupMinorApplications(
-                ApplicationUsageBrowserGrouper.collapseBrowserApplications(
-                        statisticsService.buildApplicationUsageMatrix(statsPeriod, rangeStartDate, rangeEndDate)
-                ),
-                userSettings.getMinorUsageThresholdMinutes()
+        if (selectedViewMode == StatisticsViewMode.TIMELINE) {
+            contentCardLayout.show(contentCardPanel, CONTENT_CARD_TIMELINE);
+            if (statisticsSnapshot.getTotalActiveSeconds() <= 0L) {
+                timelineRowsPanel.removeAll();
+                timelineBodyCardLayout.show(timelineBodyPanel, BODY_CARD_EMPTY);
+            } else {
+                rebuildTimelineRows(matrixAnchorDate);
+                timelineBodyCardLayout.show(timelineBodyPanel, BODY_CARD_DATA);
+            }
+        } else {
+            contentCardLayout.show(contentCardPanel, CONTENT_CARD_MATRIX);
+            ApplicationUsageMatrix applicationUsageMatrix = ApplicationUsageFilter.groupMinorApplications(
+                    ApplicationUsageBrowserGrouper.collapseBrowserApplications(
+                            statisticsService.buildApplicationUsageMatrixForAnchor(
+                                    matrixStatsPeriod,
+                                    matrixAnchorDate
+                            )
+                    ),
+                    userSettings.getMinorUsageThresholdMinutes()
+            );
+            currentPeriodBucketIndex = findCurrentPeriodBucketIndex(applicationUsageMatrix);
+            boolean structureChanged = statisticsTableModel.setMatrix(applicationUsageMatrix);
+            if (applicationUsageMatrix.getApplicationNames().isEmpty()
+                    || applicationUsageMatrix.getTotalActiveSeconds() <= 0L) {
+                tableCaptionLabel.setVisible(false);
+                matrixBodyCardLayout.show(matrixBodyPanel, BODY_CARD_EMPTY);
+            } else {
+                tableCaptionLabel.setVisible(true);
+                if (structureChanged || !isFrozenColumnsLayoutReady(applicationUsageMatrix)) {
+                    rebuildFrozenColumnsScrollPane();
+                }
+                matrixBodyCardLayout.show(matrixBodyPanel, BODY_CARD_DATA);
+            }
+        }
+        revalidate();
+        repaint();
+    }
+
+    private boolean isFrozenColumnsLayoutReady(ApplicationUsageMatrix applicationUsageMatrix) {
+        int columnCount = 2 + applicationUsageMatrix.getPeriodBuckets().size();
+        if (columnCount <= FROZEN_COLUMN_COUNT) {
+            return Objects.isNull(statisticsScrollPane.getRowHeader())
+                    || Objects.isNull(statisticsScrollPane.getRowHeader().getView());
+        }
+        return Objects.nonNull(statisticsScrollPane.getRowHeader())
+                && Objects.nonNull(statisticsScrollPane.getRowHeader().getView())
+                && statisticsTable.getColumnModel().getColumnCount() == columnCount - FROZEN_COLUMN_COUNT;
+    }
+
+    private int findCurrentPeriodBucketIndex(ApplicationUsageMatrix applicationUsageMatrix) {
+        ZoneId zoneId = ZoneId.systemDefault();
+        LocalDate today = LocalDate.now(zoneId);
+        YearMonth currentYearMonth = YearMonth.from(today);
+        StatsPeriod statsPeriod = applicationUsageMatrix.getStatsPeriod();
+        List<PeriodBucket> periodBuckets = applicationUsageMatrix.getPeriodBuckets();
+        return IntStream.range(0, periodBuckets.size())
+                .filter(bucketIndex -> {
+                    LocalDate bucketStartDate = LocalDate.ofInstant(
+                            periodBuckets.get(bucketIndex).getStartInclusive(),
+                            zoneId
+                    );
+                    if (statsPeriod == StatsPeriod.YEAR) {
+                        return YearMonth.from(bucketStartDate).equals(currentYearMonth);
+                    }
+                    return bucketStartDate.equals(today);
+                })
+                .findFirst()
+                .orElse(-1);
+    }
+
+    private void rebuildTimelineRows(LocalDate weekAnchorDate) {
+        timelineRowsPanel.removeAll();
+        List<DayActivityTimelineRow> timelineRows = statisticsService.buildWeekActivityTimelines(weekAnchorDate);
+        Locale locale = UserLocaleContext.getLanguage().toLocale();
+        DateTimeFormatter dayDateFormatter = DateTimeFormatter.ofPattern("d MMMM", locale);
+        timelineRows.forEach(timelineRow -> {
+            timelineRowsPanel.add(createTimelineDayRow(timelineRow, dayDateFormatter, locale));
+            timelineRowsPanel.add(Box.createVerticalStrut(6));
+        });
+        timelineRowsPanel.revalidate();
+        timelineRowsPanel.repaint();
+    }
+
+    private JPanel createTimelineDayRow(
+            DayActivityTimelineRow timelineRow,
+            DateTimeFormatter dayDateFormatter,
+            Locale locale
+    ) {
+        String dayDateText = dayDateFormatter.format(timelineRow.getDayDate());
+        String dayOfWeekShortName = timelineRow.getDayDate()
+                .getDayOfWeek()
+                .getDisplayName(TextStyle.SHORT, locale);
+        JLabel dayCaptionLabel = new JLabel(dayDateText + " (" + dayOfWeekShortName + ")");
+        dayCaptionLabel.setFont(dayCaptionLabel.getFont().deriveFont(Font.BOLD, 12f));
+        dayCaptionLabel.setForeground(UiTheme.TEXT_PRIMARY);
+
+        int trackAreaHeight = DayActivityTimelinePanel.trackAreaHeight();
+        int hourLabelAreaHeight = DayActivityTimelinePanel.hourLabelAreaHeight();
+        int captionSideInset = 8;
+        int timelineGap = 8;
+
+        // Колонка даты ровно по высоте полоски таймлайна; подпись по центру этой зоны.
+        JPanel dayLabelPanel = new JPanel(new GridBagLayout());
+        dayLabelPanel.setOpaque(false);
+        dayLabelPanel.setBorder(BorderFactory.createEmptyBorder(0, captionSideInset, 0, captionSideInset));
+        dayLabelPanel.add(dayCaptionLabel);
+
+        int captionWidth = dayCaptionLabel.getPreferredSize().width + captionSideInset * 2;
+        Dimension trackAlignedSize = new Dimension(captionWidth, trackAreaHeight);
+        dayLabelPanel.setPreferredSize(trackAlignedSize);
+        dayLabelPanel.setMinimumSize(trackAlignedSize);
+        dayLabelPanel.setMaximumSize(trackAlignedSize);
+        dayLabelPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JPanel dayLabelColumn = new JPanel();
+        dayLabelColumn.setOpaque(false);
+        dayLabelColumn.setLayout(new BoxLayout(dayLabelColumn, BoxLayout.Y_AXIS));
+        dayLabelColumn.add(dayLabelPanel);
+        dayLabelColumn.add(Box.createVerticalStrut(hourLabelAreaHeight));
+        dayLabelColumn.setPreferredSize(new Dimension(captionWidth, trackAreaHeight + hourLabelAreaHeight));
+        dayLabelColumn.setMinimumSize(new Dimension(captionWidth, trackAreaHeight + hourLabelAreaHeight));
+        dayLabelColumn.setMaximumSize(new Dimension(captionWidth, trackAreaHeight + hourLabelAreaHeight));
+
+        JPanel daySummaryColumn = createTimelineDaySummaryColumn(
+                timelineRow.getDayActivityTimeline(),
+                trackAreaHeight,
+                hourLabelAreaHeight
         );
-        statisticsTableModel.setMatrix(applicationUsageMatrix);
-        rebuildFrozenColumnsScrollPane();
+
+        JPanel leftColumnsPanel = new JPanel();
+        leftColumnsPanel.setOpaque(false);
+        leftColumnsPanel.setLayout(new BoxLayout(leftColumnsPanel, BoxLayout.X_AXIS));
+        leftColumnsPanel.add(dayLabelColumn);
+        leftColumnsPanel.add(Box.createHorizontalStrut(8));
+        leftColumnsPanel.add(daySummaryColumn);
+
+        DayActivityTimelinePanel dayActivityTimelinePanel = new DayActivityTimelinePanel();
+        dayActivityTimelinePanel.setShowHourLabels(true);
+        dayActivityTimelinePanel.setTimeline(timelineRow.getDayActivityTimeline());
+        dayActivityTimelinePanel.setAlignmentY(Component.TOP_ALIGNMENT);
+
+        boolean isTodayRow = timelineRow.getDayDate().equals(LocalDate.now());
+        int rowHeight = trackAreaHeight + hourLabelAreaHeight + 8;
+        JPanel rowPanel = new JPanel(new BorderLayout(timelineGap, 0));
+        rowPanel.setOpaque(isTodayRow);
+        if (isTodayRow) {
+            rowPanel.setBackground(UiTheme.CURRENT_PERIOD_HIGHLIGHT);
+            rowPanel.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(UiTheme.BORDER),
+                    BorderFactory.createEmptyBorder(4, 4, 4, 4)
+            ));
+        } else {
+            rowPanel.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
+        }
+        rowPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        rowPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, rowHeight));
+        rowPanel.add(leftColumnsPanel, BorderLayout.WEST);
+        rowPanel.add(dayActivityTimelinePanel, BorderLayout.CENTER);
+        return rowPanel;
+    }
+
+    private JPanel createTimelineDaySummaryColumn(
+            DayActivityTimeline dayActivityTimeline,
+            int trackAreaHeight,
+            int hourLabelAreaHeight
+    ) {
+        long activeSeconds = sumTimelineSecondsByState(dayActivityTimeline, DayActivityState.ACTIVE);
+        long idleSeconds = sumTimelineSecondsByState(dayActivityTimeline, DayActivityState.IDLE);
+        long computerSeconds = activeSeconds + idleSeconds;
+        int activePercentage = PercentageCalculator.calculatePercentage(activeSeconds, computerSeconds);
+        int idlePercentage = computerSeconds <= 0L ? 0 : Math.max(0, 100 - activePercentage);
+
+        JLabel activeDurationLabel = new JLabel(DurationFormatter.formatHoursMinutes(activeSeconds));
+        JLabel idleDurationLabel = new JLabel(DurationFormatter.formatHoursMinutes(idleSeconds));
+        JLabel activePercentLabel = new JLabel(activePercentage + "%");
+        JLabel idlePercentLabel = new JLabel(idlePercentage + "%");
+        styleTimelineDayMetricLabel(activeDurationLabel, DayActivityTimelinePanel.activeColor(), Font.BOLD, 12f);
+        styleTimelineDayMetricLabel(idleDurationLabel, DayActivityTimelinePanel.idleColor(), Font.BOLD, 12f);
+        styleTimelineDayMetricLabel(activePercentLabel, DayActivityTimelinePanel.activeColor(), Font.PLAIN, 12f);
+        styleTimelineDayMetricLabel(idlePercentLabel, DayActivityTimelinePanel.idleColor(), Font.PLAIN, 12f);
+
+        JPanel durationRowPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 0));
+        durationRowPanel.setOpaque(false);
+        durationRowPanel.add(activeDurationLabel);
+        durationRowPanel.add(createVerticalSeparator());
+        durationRowPanel.add(idleDurationLabel);
+
+        JPanel percentRowPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 0));
+        percentRowPanel.setOpaque(false);
+        percentRowPanel.add(activePercentLabel);
+        percentRowPanel.add(createVerticalSeparator());
+        percentRowPanel.add(idlePercentLabel);
+
+        JPanel summaryContentPanel = new JPanel();
+        summaryContentPanel.setOpaque(false);
+        summaryContentPanel.setLayout(new BoxLayout(summaryContentPanel, BoxLayout.Y_AXIS));
+        durationRowPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        percentRowPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        summaryContentPanel.add(durationRowPanel);
+        summaryContentPanel.add(percentRowPanel);
+
+        JPanel summaryTrackPanel = new JPanel(new GridBagLayout());
+        summaryTrackPanel.setOpaque(false);
+        summaryTrackPanel.add(summaryContentPanel);
+
+        int summaryWidth = 110;
+        Dimension trackAlignedSize = new Dimension(summaryWidth, trackAreaHeight);
+        summaryTrackPanel.setPreferredSize(trackAlignedSize);
+        summaryTrackPanel.setMinimumSize(trackAlignedSize);
+        summaryTrackPanel.setMaximumSize(trackAlignedSize);
+
+        JPanel summaryColumn = new JPanel();
+        summaryColumn.setOpaque(false);
+        summaryColumn.setLayout(new BoxLayout(summaryColumn, BoxLayout.Y_AXIS));
+        summaryColumn.add(summaryTrackPanel);
+        summaryColumn.add(Box.createVerticalStrut(hourLabelAreaHeight));
+        summaryColumn.setPreferredSize(new Dimension(summaryWidth, trackAreaHeight + hourLabelAreaHeight));
+        summaryColumn.setMinimumSize(new Dimension(summaryWidth, trackAreaHeight + hourLabelAreaHeight));
+        summaryColumn.setMaximumSize(new Dimension(summaryWidth, trackAreaHeight + hourLabelAreaHeight));
+        return summaryColumn;
+    }
+
+    private static long sumTimelineSecondsByState(
+            DayActivityTimeline dayActivityTimeline,
+            DayActivityState activityState
+    ) {
+        return dayActivityTimeline.getSegments().stream()
+                .filter(segment -> segment.getActivityState() == activityState)
+                .mapToLong(DayActivityTimelineSegment::getDurationSeconds)
+                .sum();
+    }
+
+    private static void styleTimelineDayMetricLabel(
+            JLabel metricLabel,
+            Color foregroundColor,
+            int fontStyle,
+            float fontSize
+    ) {
+        metricLabel.setForeground(foregroundColor);
+        metricLabel.setFont(metricLabel.getFont().deriveFont(fontStyle, fontSize));
+        metricLabel.setHorizontalAlignment(SwingConstants.CENTER);
+    }
+
+    private int resolvePeriodColumnPreferredWidth() {
+        return PERIOD_COLUMN_PREFERRED_WIDTH;
+    }
+
+    private static JPanel createEmptyStatePanel(JLabel emptyLabel) {
+        emptyLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        emptyLabel.setVerticalAlignment(SwingConstants.CENTER);
+        emptyLabel.setFont(emptyLabel.getFont().deriveFont(Font.PLAIN, 15f));
+        UiTheme.styleMutedLabel(emptyLabel);
+
+        JPanel emptyStatePanel = new JPanel(new GridBagLayout());
+        emptyStatePanel.setOpaque(false);
+        emptyStatePanel.add(emptyLabel);
+        return emptyStatePanel;
+    }
+
+    private JPanel createTimelineLegendPanel() {
+        UiTheme.styleMutedLabel(timelineLegendActiveLabel);
+        UiTheme.styleMutedLabel(timelineLegendIdleLabel);
+        UiTheme.styleMutedLabel(timelineLegendExcludedLabel);
+
+        JPanel legendPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        legendPanel.setOpaque(false);
+        legendPanel.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
+        legendPanel.add(createLegendItem(timelineLegendActiveSwatch, timelineLegendActiveLabel));
+        legendPanel.add(createLegendItem(timelineLegendIdleSwatch, timelineLegendIdleLabel));
+        legendPanel.add(createLegendItem(timelineLegendExcludedSwatch, timelineLegendExcludedLabel));
+        return legendPanel;
+    }
+
+    private static JPanel createLegendItem(JPanel colorSwatch, JLabel captionLabel) {
+        JPanel legendItemPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        legendItemPanel.setOpaque(false);
+        legendItemPanel.add(colorSwatch);
+        legendItemPanel.add(captionLabel);
+        return legendItemPanel;
+    }
+
+    private static JPanel createLegendSwatch(Color color) {
+        JPanel colorSwatch = new JPanel();
+        colorSwatch.setOpaque(true);
+        colorSwatch.setBackground(color);
+        Dimension swatchSize = new Dimension(12, 12);
+        colorSwatch.setPreferredSize(swatchSize);
+        colorSwatch.setMinimumSize(swatchSize);
+        colorSwatch.setMaximumSize(swatchSize);
+        return colorSwatch;
+    }
+
+    private static JPanel createVerticalSeparator() {
+        JPanel separatorPanel = new JPanel();
+        separatorPanel.setOpaque(true);
+        separatorPanel.setBackground(UiTheme.BORDER);
+        Dimension separatorSize = new Dimension(1, 14);
+        separatorPanel.setPreferredSize(separatorSize);
+        separatorPanel.setMinimumSize(separatorSize);
+        separatorPanel.setMaximumSize(separatorSize);
+        return separatorPanel;
     }
 
     private void rebuildFrozenColumnsScrollPane() {
+        // После предыдущего split в таблице остаются только «плавающие» колонки —
+        // сначала восстанавливаем полный набор из модели.
+        statisticsTable.setAutoCreateColumnsFromModel(true);
+        statisticsTable.setColumnModel(new DefaultTableColumnModel());
+        statisticsTable.createDefaultColumnsFromModel();
         configureStatisticsColumns(statisticsTable);
         if (statisticsTable.getColumnModel().getColumnCount() <= FROZEN_COLUMN_COUNT) {
             configureNonFrozenTableRenderers(statisticsTable);
@@ -398,10 +892,6 @@ public final class StatisticsPanel extends JPanel {
         SwingUtilities.invokeLater(this::stretchColumnsToViewport);
     }
 
-    /**
-     * Растягивает колонки на всю ширину viewport, если места больше «базовой» ширины.
-     * Если колонок много — остаётся горизонтальный скролл.
-     */
     private void stretchColumnsToViewport() {
         if (Objects.isNull(statisticsScrollPane)) {
             return;
@@ -418,19 +908,20 @@ public final class StatisticsPanel extends JPanel {
 
         boolean frozenMode = Objects.nonNull(statisticsScrollPane.getRowHeader())
                 && Objects.nonNull(statisticsScrollPane.getRowHeader().getView());
+        int periodColumnPreferredWidth = resolvePeriodColumnPreferredWidth();
 
         int[] baseWidths = new int[columnCount];
         int totalBaseWidth = 0;
         for (int columnIndex = 0; columnIndex < columnCount; columnIndex++) {
             int baseWidth;
             if (frozenMode) {
-                baseWidth = PERIOD_COLUMN_PREFERRED_WIDTH;
+                baseWidth = periodColumnPreferredWidth;
             } else if (columnIndex == 0) {
                 baseWidth = APPLICATION_COLUMN_PREFERRED_WIDTH;
             } else if (columnIndex == 1) {
                 baseWidth = TOTAL_COLUMN_PREFERRED_WIDTH;
             } else {
-                baseWidth = PERIOD_COLUMN_PREFERRED_WIDTH;
+                baseWidth = periodColumnPreferredWidth;
             }
             baseWidths[columnIndex] = baseWidth;
             totalBaseWidth += baseWidth;
@@ -468,9 +959,9 @@ public final class StatisticsPanel extends JPanel {
             return;
         }
         DefaultTableCellRenderer applicationCellRenderer = new ApplicationNameCellRenderer();
-        DefaultTableCellRenderer totalColumnRenderer = createCenteredBoldCapableRenderer(true);
-        DefaultTableCellRenderer leftHeaderRenderer = createHeaderRenderer(SwingConstants.LEFT);
-        DefaultTableCellRenderer centerHeaderRenderer = createHeaderRenderer(SwingConstants.CENTER);
+        DefaultTableCellRenderer totalColumnRenderer = createCenteredBoldCapableRenderer(true, false);
+        DefaultTableCellRenderer leftHeaderRenderer = createHeaderRenderer(SwingConstants.LEFT, false);
+        DefaultTableCellRenderer centerHeaderRenderer = createHeaderRenderer(SwingConstants.CENTER, false);
 
         table.getColumnModel().getColumn(0).setCellRenderer(applicationCellRenderer);
         table.getColumnModel().getColumn(0).setHeaderRenderer(leftHeaderRenderer);
@@ -479,8 +970,14 @@ public final class StatisticsPanel extends JPanel {
             table.getColumnModel().getColumn(1).setHeaderRenderer(centerHeaderRenderer);
         }
         for (int columnIndex = 2; columnIndex < table.getColumnModel().getColumnCount(); columnIndex++) {
-            table.getColumnModel().getColumn(columnIndex).setCellRenderer(createCenteredBoldCapableRenderer(false));
-            table.getColumnModel().getColumn(columnIndex).setHeaderRenderer(centerHeaderRenderer);
+            int periodBucketIndex = columnIndex - 2;
+            boolean highlightCurrentPeriod = periodBucketIndex == currentPeriodBucketIndex;
+            table.getColumnModel().getColumn(columnIndex).setCellRenderer(
+                    createCenteredBoldCapableRenderer(false, highlightCurrentPeriod)
+            );
+            table.getColumnModel().getColumn(columnIndex).setHeaderRenderer(
+                    createHeaderRenderer(SwingConstants.CENTER, highlightCurrentPeriod)
+            );
         }
     }
 
@@ -488,6 +985,7 @@ public final class StatisticsPanel extends JPanel {
         if (table.getColumnModel().getColumnCount() == 0) {
             return;
         }
+        int periodColumnPreferredWidth = resolvePeriodColumnPreferredWidth();
         table.getColumnModel().getColumn(0).setPreferredWidth(APPLICATION_COLUMN_PREFERRED_WIDTH);
         table.getColumnModel().getColumn(0).setMinWidth(140);
         if (table.getColumnModel().getColumnCount() > 1) {
@@ -495,16 +993,16 @@ public final class StatisticsPanel extends JPanel {
             table.getColumnModel().getColumn(1).setMinWidth(100);
         }
         for (int columnIndex = 2; columnIndex < table.getColumnModel().getColumnCount(); columnIndex++) {
-            table.getColumnModel().getColumn(columnIndex).setPreferredWidth(PERIOD_COLUMN_PREFERRED_WIDTH);
-            table.getColumnModel().getColumn(columnIndex).setMinWidth(88);
+            table.getColumnModel().getColumn(columnIndex).setPreferredWidth(periodColumnPreferredWidth);
+            table.getColumnModel().getColumn(columnIndex).setMinWidth(72);
         }
     }
 
     private void configureFrozenTableRenderers(JTable frozenTable) {
         DefaultTableCellRenderer applicationCellRenderer = new ApplicationNameCellRenderer();
-        DefaultTableCellRenderer totalColumnRenderer = createCenteredBoldCapableRenderer(true);
-        DefaultTableCellRenderer leftHeaderRenderer = createHeaderRenderer(SwingConstants.LEFT);
-        DefaultTableCellRenderer centerHeaderRenderer = createHeaderRenderer(SwingConstants.CENTER);
+        DefaultTableCellRenderer totalColumnRenderer = createCenteredBoldCapableRenderer(true, false);
+        DefaultTableCellRenderer leftHeaderRenderer = createHeaderRenderer(SwingConstants.LEFT, false);
+        DefaultTableCellRenderer centerHeaderRenderer = createHeaderRenderer(SwingConstants.CENTER, false);
 
         frozenTable.getColumnModel().getColumn(0).setCellRenderer(applicationCellRenderer);
         frozenTable.getColumnModel().getColumn(0).setHeaderRenderer(leftHeaderRenderer);
@@ -515,15 +1013,21 @@ public final class StatisticsPanel extends JPanel {
     }
 
     private void configureScrollableTableRenderers(JTable scrollableTable) {
-        DefaultTableCellRenderer centeredCellRenderer = createCenteredBoldCapableRenderer(false);
-        DefaultTableCellRenderer centerHeaderRenderer = createHeaderRenderer(SwingConstants.CENTER);
         for (int columnIndex = 0; columnIndex < scrollableTable.getColumnModel().getColumnCount(); columnIndex++) {
-            scrollableTable.getColumnModel().getColumn(columnIndex).setCellRenderer(centeredCellRenderer);
-            scrollableTable.getColumnModel().getColumn(columnIndex).setHeaderRenderer(centerHeaderRenderer);
+            boolean highlightCurrentPeriod = columnIndex == currentPeriodBucketIndex;
+            scrollableTable.getColumnModel().getColumn(columnIndex).setCellRenderer(
+                    createCenteredBoldCapableRenderer(false, highlightCurrentPeriod)
+            );
+            scrollableTable.getColumnModel().getColumn(columnIndex).setHeaderRenderer(
+                    createHeaderRenderer(SwingConstants.CENTER, highlightCurrentPeriod)
+            );
         }
     }
 
-    private DefaultTableCellRenderer createCenteredBoldCapableRenderer(boolean alwaysBold) {
+    private DefaultTableCellRenderer createCenteredBoldCapableRenderer(
+            boolean alwaysBold,
+            boolean highlightCurrentPeriod
+    ) {
         DefaultTableCellRenderer centeredCellRenderer = new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(
@@ -547,19 +1051,59 @@ public final class StatisticsPanel extends JPanel {
                     } else {
                         label.setFont(table.getFont());
                     }
+                    if (!isSelected) {
+                        label.setOpaque(true);
+                        if (highlightCurrentPeriod) {
+                            label.setBackground(UiTheme.CURRENT_PERIOD_HIGHLIGHT);
+                        } else {
+                            label.setBackground(table.getBackground());
+                        }
+                        label.setForeground(table.getForeground());
+                    }
                 }
                 return component;
             }
         };
         centeredCellRenderer.setHorizontalAlignment(SwingConstants.CENTER);
         centeredCellRenderer.setVerticalAlignment(SwingConstants.CENTER);
+        if (highlightCurrentPeriod) {
+            centeredCellRenderer.setBackground(UiTheme.CURRENT_PERIOD_HIGHLIGHT);
+            centeredCellRenderer.setOpaque(true);
+        }
         return centeredCellRenderer;
     }
 
-    private DefaultTableCellRenderer createHeaderRenderer(int horizontalAlignment) {
-        DefaultTableCellRenderer headerRenderer = new DefaultTableCellRenderer();
+    private DefaultTableCellRenderer createHeaderRenderer(int horizontalAlignment, boolean highlightCurrentPeriod) {
+        DefaultTableCellRenderer headerRenderer = new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(
+                    JTable table,
+                    Object value,
+                    boolean isSelected,
+                    boolean hasFocus,
+                    int row,
+                    int column
+            ) {
+                Component component = super.getTableCellRendererComponent(
+                        table, value, isSelected, hasFocus, row, column
+                );
+                component.setBackground(
+                        highlightCurrentPeriod
+                                ? UiTheme.CURRENT_PERIOD_HIGHLIGHT
+                                : UiTheme.SURFACE_2
+                );
+                component.setForeground(UiTheme.TEXT_SECONDARY);
+                if (component instanceof JLabel label) {
+                    label.setHorizontalAlignment(horizontalAlignment);
+                    label.setOpaque(true);
+                }
+                return component;
+            }
+        };
         headerRenderer.setHorizontalAlignment(horizontalAlignment);
-        headerRenderer.setBackground(UiTheme.SURFACE_2);
+        headerRenderer.setBackground(
+                highlightCurrentPeriod ? UiTheme.CURRENT_PERIOD_HIGHLIGHT : UiTheme.SURFACE_2
+        );
         headerRenderer.setForeground(UiTheme.TEXT_SECONDARY);
         return headerRenderer;
     }
@@ -596,16 +1140,22 @@ public final class StatisticsPanel extends JPanel {
         }
 
         try {
+            StatsPeriod exportStatsPeriod = selectedStatsPeriod == StatsPeriod.MONTH
+                    ? StatsPeriod.WEEK
+                    : selectedStatsPeriod;
+            LocalDate exportAnchorDate = selectedStatsPeriod == StatsPeriod.MONTH
+                    ? monthWeekAnchorDate
+                    : periodAnchorDate;
             if (reportFormat == StatisticsReportFormat.PDF) {
                 new StatisticsPdfReportWriter(
                         statisticsService,
                         userSettings.getMinorUsageThresholdMinutes()
-                ).writeToFile(reportFilePath);
+                ).writeSelectedPeriodToFile(reportFilePath, exportStatsPeriod, exportAnchorDate);
             } else {
                 new StatisticsExcelReportWriter(
                         statisticsService,
                         userSettings.getMinorUsageThresholdMinutes()
-                ).writeToFile(reportFilePath);
+                ).writeSelectedPeriodToFile(reportFilePath, exportStatsPeriod, exportAnchorDate);
             }
             rememberReportDirectory(reportFilePath);
             UiDialogs.showMessage(Messages.get(MessageCodes.UI_STATS_DOWNLOAD_SUCCESS),
@@ -613,7 +1163,7 @@ public final class StatisticsPanel extends JPanel {
                     JOptionPane.INFORMATION_MESSAGE
             );
         } catch (Exception exception) {
-            logger.error("Failed to export statistics report: {}", exception.getMessage(), exception);
+            logger.error("schema={} Failed to export statistics report: {}", "local", exception.getMessage(), exception);
             UiDialogs.showMessage(Messages.get(MessageCodes.UI_STATS_DOWNLOAD_FAILED, exception.getMessage()),
                     Messages.get(MessageCodes.UI_STATS_DOWNLOAD_REPORT),
                     JOptionPane.ERROR_MESSAGE
@@ -643,32 +1193,9 @@ public final class StatisticsPanel extends JPanel {
 
     private String buildDefaultReportFileName(StatisticsReportFormat reportFormat) {
         String dateSuffix = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE);
-        return "WorkPulseTracker-report-" + dateSuffix + "." + reportFormat.getFileExtension();
-    }
-
-    private static JSpinner createDateSpinner(LocalDate localDate) {
-        Date date = Date.from(localDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
-        SpinnerDateModel spinnerDateModel = new SpinnerDateModel(date, null, null, Calendar.DAY_OF_MONTH);
-        JSpinner dateSpinner = new JSpinner(spinnerDateModel);
-        dateSpinner.setEditor(new JSpinner.DateEditor(dateSpinner, "dd.MM.yyyy"));
-        dateSpinner.setMaximumSize(new Dimension(140, 32));
-        dateSpinner.setPreferredSize(new Dimension(140, 32));
-        return dateSpinner;
-    }
-
-    private static LocalDate readSpinnerDate(JSpinner dateSpinner) {
-        Object spinnerValue = dateSpinner.getValue();
-        if (!(spinnerValue instanceof Date dateValue)) {
-            return LocalDate.now();
-        }
-        return dateValue.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
-    }
-
-    private record StatsPeriodItem(StatsPeriod statsPeriod, String messageCode) {
-        @Override
-        public String toString() {
-            return Messages.get(messageCode);
-        }
+        String periodSuffix = selectedStatsPeriod.name().toLowerCase();
+        return "WorkPulseTracker-report-" + periodSuffix + "-" + dateSuffix
+                + "." + reportFormat.getFileExtension();
     }
 
     private record ReportFormatItem(StatisticsReportFormat reportFormat, String messageCode) {

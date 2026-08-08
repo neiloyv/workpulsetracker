@@ -3,6 +3,10 @@ package com.workpulsetracker.agent.stats;
 import com.workpulsetracker.agent.buffer.ActivityInterval;
 import com.workpulsetracker.agent.buffer.DataBuffer;
 import com.workpulsetracker.agent.storage.ActivityStore;
+import com.workpulsetracker.agent.storage.UserSettings;
+import com.workpulsetracker.agent.util.ProgramApplicationKeyResolver;
+import com.workpulsetracker.common.i18n.MessageCodes;
+import com.workpulsetracker.common.i18n.Messages;
 import com.workpulsetracker.common.i18n.UserLocaleContext;
 
 import java.time.DayOfWeek;
@@ -33,20 +37,27 @@ public final class StatisticsService {
 
     private final ActivityStore activityStore;
     private final DataBuffer dataBuffer;
+    private final UserSettings userSettings;
     private final ZoneId zoneId;
 
-    public StatisticsService(ActivityStore activityStore, DataBuffer dataBuffer) {
-        this(activityStore, dataBuffer, ZoneId.systemDefault());
+    public StatisticsService(ActivityStore activityStore, DataBuffer dataBuffer, UserSettings userSettings) {
+        this(activityStore, dataBuffer, userSettings, ZoneId.systemDefault());
     }
 
-    public StatisticsService(ActivityStore activityStore, DataBuffer dataBuffer, ZoneId zoneId) {
+    public StatisticsService(
+            ActivityStore activityStore,
+            DataBuffer dataBuffer,
+            UserSettings userSettings,
+            ZoneId zoneId
+    ) {
         this.activityStore = activityStore;
         this.dataBuffer = dataBuffer;
+        this.userSettings = Objects.requireNonNull(userSettings);
         this.zoneId = zoneId;
     }
 
     public StatisticsSnapshot buildSnapshot(StatsPeriod statsPeriod) {
-        return buildSnapshot(statsPeriod, null, null);
+        return buildSnapshotForAnchor(statsPeriod, LocalDate.now(zoneId));
     }
 
     public StatisticsSnapshot buildSnapshot(
@@ -54,7 +65,23 @@ public final class StatisticsService {
             LocalDate rangeStartDate,
             LocalDate rangeEndDate
     ) {
-        InstantRange instantRange = resolveInstantRange(statsPeriod, rangeStartDate, rangeEndDate);
+        if (statsPeriod == StatsPeriod.CUSTOM) {
+            InstantRange instantRange = resolveInstantRange(statsPeriod, null, rangeStartDate, rangeEndDate);
+            return buildSnapshotFromRange(statsPeriod, instantRange);
+        }
+        return buildSnapshotForAnchor(statsPeriod, LocalDate.now(zoneId));
+    }
+
+    /**
+     * Снимок за календарный период, содержащий {@code anchorDate}.
+     */
+    public StatisticsSnapshot buildSnapshotForAnchor(StatsPeriod statsPeriod, LocalDate anchorDate) {
+        LocalDate resolvedAnchorDate = Objects.nonNull(anchorDate) ? anchorDate : LocalDate.now(zoneId);
+        InstantRange instantRange = resolveInstantRange(statsPeriod, resolvedAnchorDate, null, null);
+        return buildSnapshotFromRange(statsPeriod, instantRange);
+    }
+
+    private StatisticsSnapshot buildSnapshotFromRange(StatsPeriod statsPeriod, InstantRange instantRange) {
         List<ActivityInterval> relevantIntervals = collectClippedActiveIntervals(instantRange);
 
         long totalActiveSeconds = relevantIntervals.stream()
@@ -83,10 +110,10 @@ public final class StatisticsService {
     }
 
     /**
-     * Матрица: приложения × колонки периода (дни / недели / месяцы / годы).
+     * Матрица: приложения × колонки периода (дни / месяцы / годы).
      */
     public ApplicationUsageMatrix buildApplicationUsageMatrix(StatsPeriod statsPeriod) {
-        return buildApplicationUsageMatrix(statsPeriod, null, null);
+        return buildApplicationUsageMatrixForAnchor(statsPeriod, LocalDate.now(zoneId));
     }
 
     public ApplicationUsageMatrix buildApplicationUsageMatrix(
@@ -94,7 +121,33 @@ public final class StatisticsService {
             LocalDate rangeStartDate,
             LocalDate rangeEndDate
     ) {
-        List<PeriodBucket> periodBuckets = buildPeriodBuckets(statsPeriod, rangeStartDate, rangeEndDate);
+        if (statsPeriod == StatsPeriod.CUSTOM) {
+            return buildApplicationUsageMatrixFromBuckets(
+                    statsPeriod,
+                    buildPeriodBuckets(statsPeriod, null, rangeStartDate, rangeEndDate)
+            );
+        }
+        return buildApplicationUsageMatrixForAnchor(statsPeriod, LocalDate.now(zoneId));
+    }
+
+    /**
+     * Матрица за календарный период, содержащий {@code anchorDate}.
+     */
+    public ApplicationUsageMatrix buildApplicationUsageMatrixForAnchor(
+            StatsPeriod statsPeriod,
+            LocalDate anchorDate
+    ) {
+        LocalDate resolvedAnchorDate = Objects.nonNull(anchorDate) ? anchorDate : LocalDate.now(zoneId);
+        return buildApplicationUsageMatrixFromBuckets(
+                statsPeriod,
+                buildPeriodBuckets(statsPeriod, resolvedAnchorDate, null, null)
+        );
+    }
+
+    private ApplicationUsageMatrix buildApplicationUsageMatrixFromBuckets(
+            StatsPeriod statsPeriod,
+            List<PeriodBucket> periodBuckets
+    ) {
         if (periodBuckets.isEmpty()) {
             return ApplicationUsageMatrix.empty(statsPeriod, periodBuckets);
         }
@@ -153,6 +206,196 @@ public final class StatisticsService {
     }
 
     /**
+     * Годы, по которым есть локальная активность (включая текущий).
+     */
+    public List<Integer> listAvailableYears() {
+        int currentYear = LocalDate.now(zoneId).getYear();
+        int earliestYear = collectActiveIntervals().stream()
+                .map(activityInterval -> toLocalDate(activityInterval.getStartInstant()).getYear())
+                .min(Integer::compareTo)
+                .orElse(currentYear);
+        return IntStream.rangeClosed(earliestYear, currentYear)
+                .boxed()
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Человекочитаемая подпись выбранного периода для шапки UI.
+     */
+    public String formatPeriodCaption(StatsPeriod statsPeriod, LocalDate anchorDate) {
+        LocalDate resolvedAnchorDate = Objects.nonNull(anchorDate) ? anchorDate : LocalDate.now(zoneId);
+        Locale locale = UserLocaleContext.getLanguage().toLocale();
+        return switch (statsPeriod) {
+            case WEEK -> formatWeekRangeCaption(resolvedAnchorDate);
+            case MONTH -> formatMonthCaption(YearMonth.from(resolvedAnchorDate));
+            case YEAR -> String.valueOf(resolvedAnchorDate.getYear());
+            case DAY -> resolvedAnchorDate.format(DateTimeFormatter.ofPattern("d MMMM yyyy", locale));
+            case ALL_TIME -> Messages.get(MessageCodes.UI_STATS_PERIOD_ALL);
+            case CUSTOM -> resolvedAnchorDate.format(DateTimeFormatter.ofPattern("d MMM yyyy", locale));
+        };
+    }
+
+    public String formatMonthCaption(YearMonth yearMonth) {
+        Objects.requireNonNull(yearMonth);
+        Locale locale = UserLocaleContext.getLanguage().toLocale();
+        return yearMonth.getMonth().getDisplayName(TextStyle.FULL, locale) + " " + yearMonth.getYear();
+    }
+
+    public String formatWeekRangeCaption(LocalDate anchorDate) {
+        LocalDate weekStartDate = Objects.nonNull(anchorDate)
+                ? anchorDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                : LocalDate.now(zoneId).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate weekEndDate = weekStartDate.plusDays(6);
+        Locale locale = UserLocaleContext.getLanguage().toLocale();
+        DateTimeFormatter dayMonthFormatter = DateTimeFormatter.ofPattern("d MMM", locale);
+        if (weekStartDate.getYear() == weekEndDate.getYear()) {
+            return weekStartDate.format(dayMonthFormatter)
+                    + " – "
+                    + weekEndDate.format(dayMonthFormatter)
+                    + " "
+                    + weekEndDate.getYear();
+        }
+        DateTimeFormatter dayMonthYearFormatter = DateTimeFormatter.ofPattern("d MMM yyyy", locale);
+        return weekStartDate.format(dayMonthYearFormatter)
+                + " – "
+                + weekEndDate.format(dayMonthYearFormatter);
+    }
+
+    /**
+     * Понедельник первой календарной недели, пересекающей месяц.
+     */
+    public LocalDate firstWeekMondayOfMonth(YearMonth yearMonth) {
+        Objects.requireNonNull(yearMonth);
+        return yearMonth.atDay(1).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+    }
+
+    /**
+     * Понедельник последней календарной недели, пересекающей месяц.
+     */
+    public LocalDate lastWeekMondayOfMonth(YearMonth yearMonth) {
+        Objects.requireNonNull(yearMonth);
+        return yearMonth.atEndOfMonth().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+    }
+
+    public boolean weekIntersectsMonth(LocalDate weekMonday, YearMonth yearMonth) {
+        Objects.requireNonNull(yearMonth);
+        LocalDate monday = Objects.nonNull(weekMonday)
+                ? weekMonday.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                : LocalDate.now(zoneId).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate sunday = monday.plusDays(6);
+        LocalDate monthStartDate = yearMonth.atDay(1);
+        LocalDate monthEndDate = yearMonth.atEndOfMonth();
+        return !sunday.isBefore(monthStartDate) && !monday.isAfter(monthEndDate);
+    }
+
+    /**
+     * Стартовая неделя месяца: текущая (если этот месяц), иначе первая неделя месяца.
+     */
+    public LocalDate resolveDefaultWeekMondayForMonth(YearMonth yearMonth) {
+        Objects.requireNonNull(yearMonth);
+        LocalDate today = LocalDate.now(zoneId);
+        YearMonth currentYearMonth = YearMonth.from(today);
+        if (yearMonth.equals(currentYearMonth)) {
+            return today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        }
+        if (yearMonth.isAfter(currentYearMonth)) {
+            return firstWeekMondayOfMonth(currentYearMonth);
+        }
+        return firstWeekMondayOfMonth(yearMonth);
+    }
+
+    public boolean canNavigateToPreviousWeekInMonth(YearMonth yearMonth, LocalDate weekMonday) {
+        LocalDate currentWeekMonday = Objects.nonNull(weekMonday)
+                ? weekMonday.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                : resolveDefaultWeekMondayForMonth(yearMonth);
+        LocalDate previousWeekMonday = currentWeekMonday.minusWeeks(1);
+        return weekIntersectsMonth(previousWeekMonday, yearMonth);
+    }
+
+    public boolean canNavigateToNextWeekInMonth(YearMonth yearMonth, LocalDate weekMonday) {
+        LocalDate today = LocalDate.now(zoneId);
+        LocalDate currentWeekMonday = Objects.nonNull(weekMonday)
+                ? weekMonday.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                : resolveDefaultWeekMondayForMonth(yearMonth);
+        LocalDate nextWeekMonday = currentWeekMonday.plusWeeks(1);
+        if (!weekIntersectsMonth(nextWeekMonday, yearMonth)) {
+            return false;
+        }
+        LocalDate todayWeekMonday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        return !nextWeekMonday.isAfter(todayWeekMonday);
+    }
+
+    public LocalDate shiftWeekMondayInMonth(YearMonth yearMonth, LocalDate weekMonday, int weekOffset) {
+        LocalDate currentWeekMonday = Objects.nonNull(weekMonday)
+                ? weekMonday.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                : resolveDefaultWeekMondayForMonth(yearMonth);
+        LocalDate shiftedWeekMonday = currentWeekMonday.plusWeeks(weekOffset);
+        if (!weekIntersectsMonth(shiftedWeekMonday, yearMonth)) {
+            return currentWeekMonday;
+        }
+        LocalDate todayWeekMonday = LocalDate.now(zoneId).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        if (shiftedWeekMonday.isAfter(todayWeekMonday)) {
+            return currentWeekMonday;
+        }
+        return shiftedWeekMonday;
+    }
+
+    /**
+     * Нормализует якорь к началу выбранного периода (пн / 1-е число / 1 янв).
+     */
+    public LocalDate normalizeAnchorDate(StatsPeriod statsPeriod, LocalDate anchorDate) {
+        LocalDate resolvedAnchorDate = Objects.nonNull(anchorDate) ? anchorDate : LocalDate.now(zoneId);
+        LocalDate today = LocalDate.now(zoneId);
+        LocalDate clampedAnchorDate = resolvedAnchorDate.isAfter(today) ? today : resolvedAnchorDate;
+        return switch (statsPeriod) {
+            case WEEK -> clampedAnchorDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+            case MONTH -> clampedAnchorDate.withDayOfMonth(1);
+            case YEAR -> LocalDate.of(clampedAnchorDate.getYear(), 1, 1);
+            case DAY, ALL_TIME, CUSTOM -> clampedAnchorDate;
+        };
+    }
+
+    public boolean canNavigateToPreviousPeriod(StatsPeriod statsPeriod, LocalDate anchorDate) {
+        LocalDate normalizedAnchorDate = normalizeAnchorDate(statsPeriod, anchorDate);
+        if (statsPeriod == StatsPeriod.YEAR) {
+            List<Integer> availableYears = listAvailableYears();
+            int earliestYear = availableYears.isEmpty()
+                    ? LocalDate.now(zoneId).getYear()
+                    : availableYears.get(0);
+            return normalizedAnchorDate.getYear() > earliestYear;
+        }
+        LocalDate previousAnchorDate = shiftAnchorDate(statsPeriod, normalizedAnchorDate, -1);
+        // Не уходим раньше первой локальной активности (если она есть).
+        LocalDate earliestActivityDate = collectActiveIntervals().stream()
+                .map(activityInterval -> toLocalDate(activityInterval.getStartInstant()))
+                .min(LocalDate::compareTo)
+                .orElse(null);
+        if (Objects.isNull(earliestActivityDate)) {
+            return false;
+        }
+        LocalDate earliestPeriodAnchorDate = normalizeAnchorDate(statsPeriod, earliestActivityDate);
+        return !previousAnchorDate.isBefore(earliestPeriodAnchorDate);
+    }
+
+    public boolean canNavigateToNextPeriod(StatsPeriod statsPeriod, LocalDate anchorDate) {
+        LocalDate normalizedAnchorDate = normalizeAnchorDate(statsPeriod, anchorDate);
+        LocalDate nextAnchorDate = shiftAnchorDate(statsPeriod, normalizedAnchorDate, 1);
+        LocalDate today = LocalDate.now(zoneId);
+        return !normalizeAnchorDate(statsPeriod, nextAnchorDate).isAfter(normalizeAnchorDate(statsPeriod, today));
+    }
+
+    public LocalDate shiftAnchorDate(StatsPeriod statsPeriod, LocalDate anchorDate, int periodOffset) {
+        LocalDate normalizedAnchorDate = normalizeAnchorDate(statsPeriod, anchorDate);
+        return switch (statsPeriod) {
+            case WEEK -> normalizedAnchorDate.plusWeeks(periodOffset);
+            case MONTH -> normalizedAnchorDate.plusMonths(periodOffset);
+            case YEAR -> normalizedAnchorDate.plusYears(periodOffset);
+            case DAY -> normalizedAnchorDate.plusDays(periodOffset);
+            case ALL_TIME, CUSTOM -> normalizedAnchorDate;
+        };
+    }
+
+    /**
      * Разбивка по приложениям за сегодня (для главной панели).
      */
     public List<ApplicationUsageSummary> buildTodayApplicationUsage() {
@@ -163,14 +406,29 @@ public final class StatisticsService {
         return buildSnapshot(StatsPeriod.DAY).getTotalActiveSeconds();
     }
 
+    public long buildTodayIdleSeconds() {
+        InstantRange dayRange = resolveInstantRange(StatsPeriod.DAY, LocalDate.now(zoneId), null, null);
+        return collectClippedTimelineIntervals(dayRange).stream()
+                .filter(ActivityInterval::isIdle)
+                .mapToLong(ActivityInterval::getDurationSeconds)
+                .sum();
+    }
+
     /**
-     * Таймлайн состояний за сегодня (00:00–24:00): ACTIVE / IDLE; пробелы = PC Off.
-     * Соседние сегменты с одинаковым состоянием сливаются, чтобы не было «зебры» при смене приложений.
+     * Таймлайн состояний за сегодня (00:00–24:00): ACTIVE / IDLE / EXCLUDED; пробелы = PC Off.
      */
     public DayActivityTimeline buildTodayActivityTimeline() {
-        LocalDate today = LocalDate.now(zoneId);
-        LocalDateTime rangeStartDateTime = today.atStartOfDay();
-        LocalDateTime rangeEndDateTime = today.plusDays(1).atStartOfDay();
+        return buildActivityTimelineForDate(LocalDate.now(zoneId));
+    }
+
+    /**
+     * Таймлайн состояний за указанный день (00:00–24:00): ACTIVE / IDLE / EXCLUDED; пробелы = PC Off.
+     * Соседние сегменты с одинаковым состоянием сливаются, чтобы не было «зебры» при смене приложений.
+     */
+    public DayActivityTimeline buildActivityTimelineForDate(LocalDate dayDate) {
+        LocalDate resolvedDayDate = Objects.nonNull(dayDate) ? dayDate : LocalDate.now(zoneId);
+        LocalDateTime rangeStartDateTime = resolvedDayDate.atStartOfDay();
+        LocalDateTime rangeEndDateTime = resolvedDayDate.plusDays(1).atStartOfDay();
         InstantRange dayRange = new InstantRange(
                 rangeStartDateTime.atZone(zoneId).toInstant(),
                 rangeEndDateTime.atZone(zoneId).toInstant()
@@ -213,25 +471,63 @@ public final class StatisticsService {
         return new DayActivityTimeline(rangeStartDateTime, rangeEndDateTime, timelineSegments);
     }
 
+    /**
+     * Семь дат недели (пн–вс) для якоря недели.
+     */
+    public List<LocalDate> listWeekDates(LocalDate weekAnchorDate) {
+        LocalDate weekMonday = normalizeAnchorDate(StatsPeriod.WEEK, weekAnchorDate);
+        return IntStream.range(0, 7)
+                .mapToObj(weekMonday::plusDays)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Таймлайны по дням недели для якоря (пн–вс).
+     */
+    public List<DayActivityTimelineRow> buildWeekActivityTimelines(LocalDate weekAnchorDate) {
+        return listWeekDates(weekAnchorDate).stream()
+                .map(dayDate -> new DayActivityTimelineRow(dayDate, buildActivityTimelineForDate(dayDate)))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Ключи программ, по которым когда-либо было non-IDLE время (для вкладки Programs).
+     */
+    public List<String> listKnownProgramApplicationKeys() {
+        return collectNonIdleIntervalsIncludingExcluded().stream()
+                .map(ActivityInterval::getApplicationName)
+                .map(ProgramApplicationKeyResolver::resolveProgramKey)
+                .distinct()
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .collect(Collectors.toList());
+    }
+
     private DayActivityTimelineSegment toTimelineSegment(ActivityInterval activityInterval) {
         Instant endInstant = Objects.nonNull(activityInterval.getEndInstant())
                 ? activityInterval.getEndInstant()
                 : Instant.now();
-        DayActivityState activityState = activityInterval.isIdle()
-                ? DayActivityState.IDLE
-                : DayActivityState.ACTIVE;
         return new DayActivityTimelineSegment(
-                activityState,
+                resolveTimelineState(activityInterval),
                 LocalDateTime.ofInstant(activityInterval.getStartInstant(), zoneId),
                 LocalDateTime.ofInstant(endInstant, zoneId)
         );
     }
 
-    private static boolean canMergeTimelineStateIntervals(
+    private DayActivityState resolveTimelineState(ActivityInterval activityInterval) {
+        if (activityInterval.isIdle()) {
+            return DayActivityState.IDLE;
+        }
+        if (!userSettings.isApplicationTracked(activityInterval.getApplicationName())) {
+            return DayActivityState.EXCLUDED;
+        }
+        return DayActivityState.ACTIVE;
+    }
+
+    private boolean canMergeTimelineStateIntervals(
             ActivityInterval leftInterval,
             ActivityInterval rightInterval
     ) {
-        if (leftInterval.isIdle() != rightInterval.isIdle()) {
+        if (resolveTimelineState(leftInterval) != resolveTimelineState(rightInterval)) {
             return false;
         }
         Instant leftEndInstant = Objects.nonNull(leftInterval.getEndInstant())
@@ -269,7 +565,16 @@ public final class StatisticsService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * ACTIVE-интервалы для work time / usage: non-IDLE и Track ON.
+     */
     private List<ActivityInterval> collectActiveIntervals() {
+        return collectNonIdleIntervalsIncludingExcluded().stream()
+                .filter(activityInterval -> userSettings.isApplicationTracked(activityInterval.getApplicationName()))
+                .collect(Collectors.toCollection(ArrayList::new));
+    }
+
+    private List<ActivityInterval> collectNonIdleIntervalsIncludingExcluded() {
         List<ActivityInterval> activityIntervals = activityStore.getAllIntervals().stream()
                 .filter(activityInterval -> !activityInterval.isIdle())
                 .collect(Collectors.toCollection(ArrayList::new));
@@ -291,22 +596,31 @@ public final class StatisticsService {
 
     private List<PeriodBucket> buildPeriodBuckets(
             StatsPeriod statsPeriod,
+            LocalDate anchorDate,
             LocalDate rangeStartDate,
             LocalDate rangeEndDate
     ) {
         ZonedDateTime now = ZonedDateTime.now(zoneId);
         LocalDate today = now.toLocalDate();
         Locale locale = UserLocaleContext.getLanguage().toLocale();
+        LocalDate resolvedAnchorDate = Objects.nonNull(anchorDate) ? anchorDate : today;
 
         return switch (statsPeriod) {
-            case DAY -> List.of(new PeriodBucket(
-                    today.format(DateTimeFormatter.ofPattern("dd.MM", locale)),
-                    today.atStartOfDay(zoneId).toInstant(),
-                    now.toInstant()
-            ));
-            case WEEK -> buildWeekDayBuckets(today, now, locale);
-            case MONTH -> buildMonthWeekBuckets(today, now, locale);
-            case YEAR -> buildYearMonthBuckets(today, now, locale);
+            case DAY -> {
+                LocalDate dayDate = resolvedAnchorDate.isAfter(today) ? today : resolvedAnchorDate;
+                Instant startInclusive = dayDate.atStartOfDay(zoneId).toInstant();
+                Instant endExclusive = dayDate.equals(today)
+                        ? now.toInstant()
+                        : dayDate.plusDays(1).atStartOfDay(zoneId).toInstant();
+                yield List.of(new PeriodBucket(
+                        dayDate.format(DateTimeFormatter.ofPattern("dd.MM", locale)),
+                        startInclusive,
+                        endExclusive
+                ));
+            }
+            case WEEK -> buildWeekDayBuckets(resolvedAnchorDate, today, now, locale);
+            case MONTH -> buildMonthDayBuckets(resolvedAnchorDate, today, now, locale);
+            case YEAR -> buildYearMonthBuckets(resolvedAnchorDate, today, now, locale);
             case ALL_TIME -> buildAllTimeYearBuckets(now);
             case CUSTOM -> buildCustomDayBuckets(rangeStartDate, rangeEndDate, today, now, locale);
         };
@@ -347,15 +661,25 @@ public final class StatisticsService {
         return periodBuckets;
     }
 
-    private List<PeriodBucket> buildWeekDayBuckets(LocalDate today, ZonedDateTime now, Locale locale) {
-        LocalDate weekStartDate = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+    private List<PeriodBucket> buildWeekDayBuckets(
+            LocalDate anchorDate,
+            LocalDate today,
+            ZonedDateTime now,
+            Locale locale
+    ) {
+        LocalDate weekStartDate = anchorDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
         return IntStream.range(0, 7)
                 .mapToObj(dayOffset -> {
                     LocalDate bucketDate = weekStartDate.plusDays(dayOffset);
                     Instant startInclusive = bucketDate.atStartOfDay(zoneId).toInstant();
-                    Instant endExclusive = bucketDate.equals(today)
-                            ? now.toInstant()
-                            : bucketDate.plusDays(1).atStartOfDay(zoneId).toInstant();
+                    Instant endExclusive;
+                    if (bucketDate.isAfter(today)) {
+                        endExclusive = startInclusive;
+                    } else if (bucketDate.equals(today)) {
+                        endExclusive = now.toInstant();
+                    } else {
+                        endExclusive = bucketDate.plusDays(1).atStartOfDay(zoneId).toInstant();
+                    }
                     String label = bucketDate.getDayOfWeek().getDisplayName(TextStyle.SHORT, locale)
                             + " "
                             + bucketDate.getDayOfMonth();
@@ -364,34 +688,34 @@ public final class StatisticsService {
                 .collect(Collectors.toList());
     }
 
-    private List<PeriodBucket> buildMonthWeekBuckets(LocalDate today, ZonedDateTime now, Locale locale) {
-        YearMonth yearMonth = YearMonth.from(today);
-        LocalDate monthStartDate = yearMonth.atDay(1);
-        LocalDate monthEndDate = yearMonth.atEndOfMonth();
-        List<PeriodBucket> periodBuckets = new ArrayList<>();
-
-        LocalDate bucketStartDate = monthStartDate;
-        int weekNumber = 1;
-        while (!bucketStartDate.isAfter(monthEndDate)) {
-            LocalDate weekEndDate = bucketStartDate.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
-            if (weekEndDate.isAfter(monthEndDate)) {
-                weekEndDate = monthEndDate;
-            }
-            LocalDate exclusiveEndDate = weekEndDate.plusDays(1);
-            Instant startInclusive = bucketStartDate.atStartOfDay(zoneId).toInstant();
-            Instant endExclusive = exclusiveEndDate.isAfter(today)
-                    ? now.toInstant()
-                    : exclusiveEndDate.atStartOfDay(zoneId).toInstant();
-            String label = formatWeekBucketLabel(weekNumber, bucketStartDate, weekEndDate, locale);
-            periodBuckets.add(new PeriodBucket(label, startInclusive, endExclusive));
-            bucketStartDate = weekEndDate.plusDays(1);
-            weekNumber++;
-        }
-        return periodBuckets;
+    private List<PeriodBucket> buildMonthDayBuckets(
+            LocalDate anchorDate,
+            LocalDate today,
+            ZonedDateTime now,
+            Locale locale
+    ) {
+        YearMonth yearMonth = YearMonth.from(anchorDate);
+        int daysInMonth = yearMonth.lengthOfMonth();
+        return IntStream.rangeClosed(1, daysInMonth)
+                .mapToObj(dayOfMonth -> {
+                    LocalDate bucketDate = yearMonth.atDay(dayOfMonth);
+                    Instant startInclusive = bucketDate.atStartOfDay(zoneId).toInstant();
+                    Instant endExclusive;
+                    if (bucketDate.isAfter(today)) {
+                        endExclusive = startInclusive;
+                    } else if (bucketDate.equals(today)) {
+                        endExclusive = now.toInstant();
+                    } else {
+                        endExclusive = bucketDate.plusDays(1).atStartOfDay(zoneId).toInstant();
+                    }
+                    String label = String.valueOf(dayOfMonth);
+                    return new PeriodBucket(label, startInclusive, endExclusive);
+                })
+                .collect(Collectors.toList());
     }
 
     /**
-     * Недели текущего месяца до сегодня (пн–вс, обрезанные границами месяца) — для недельных таблиц отчёта.
+     * Недели текущего месяца до сегодня (пн–вс, обрезанные границами месяца) — для совместимости отчётов.
      */
     public List<MonthWeekRange> listCurrentMonthWeekRanges() {
         LocalDate today = ZonedDateTime.now(zoneId).toLocalDate();
@@ -431,8 +755,13 @@ public final class StatisticsService {
         return "W" + weekNumber + " (" + startDate.format(dayFormatter) + "–" + endDate.format(dayFormatter) + ")";
     }
 
-    private List<PeriodBucket> buildYearMonthBuckets(LocalDate today, ZonedDateTime now, Locale locale) {
-        int year = today.getYear();
+    private List<PeriodBucket> buildYearMonthBuckets(
+            LocalDate anchorDate,
+            LocalDate today,
+            ZonedDateTime now,
+            Locale locale
+    ) {
+        int year = anchorDate.getYear();
         return IntStream.rangeClosed(1, 12)
                 .mapToObj(monthNumber -> {
                     Month month = Month.of(monthNumber);
@@ -474,31 +803,67 @@ public final class StatisticsService {
 
     private InstantRange resolveInstantRange(
             StatsPeriod statsPeriod,
+            LocalDate anchorDate,
             LocalDate rangeStartDate,
             LocalDate rangeEndDate
     ) {
         ZonedDateTime now = ZonedDateTime.now(zoneId);
         LocalDate today = now.toLocalDate();
+        LocalDate resolvedAnchorDate = Objects.nonNull(anchorDate) ? anchorDate : today;
         return switch (statsPeriod) {
-            case DAY -> new InstantRange(
-                    today.atStartOfDay(zoneId).toInstant(),
-                    now.toInstant()
-            );
+            case DAY -> {
+                LocalDate dayDate = resolvedAnchorDate.isAfter(today) ? today : resolvedAnchorDate;
+                Instant endExclusive = dayDate.equals(today)
+                        ? now.toInstant()
+                        : dayDate.plusDays(1).atStartOfDay(zoneId).toInstant();
+                yield new InstantRange(dayDate.atStartOfDay(zoneId).toInstant(), endExclusive);
+            }
             case WEEK -> {
-                LocalDate weekStartDate = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+                LocalDate weekStartDate = resolvedAnchorDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+                LocalDate weekEndDate = weekStartDate.plusDays(6);
+                Instant endExclusive;
+                if (weekEndDate.isBefore(today)) {
+                    endExclusive = weekStartDate.plusWeeks(1).atStartOfDay(zoneId).toInstant();
+                } else {
+                    endExclusive = now.toInstant();
+                }
                 yield new InstantRange(
                         weekStartDate.atStartOfDay(zoneId).toInstant(),
-                        now.toInstant()
+                        endExclusive
                 );
             }
-            case MONTH -> new InstantRange(
-                    today.withDayOfMonth(1).atStartOfDay(zoneId).toInstant(),
-                    now.toInstant()
-            );
-            case YEAR -> new InstantRange(
-                    LocalDate.of(today.getYear(), 1, 1).atStartOfDay(zoneId).toInstant(),
-                    now.toInstant()
-            );
+            case MONTH -> {
+                YearMonth yearMonth = YearMonth.from(resolvedAnchorDate);
+                LocalDate monthStartDate = yearMonth.atDay(1);
+                Instant endExclusive;
+                if (yearMonth.equals(YearMonth.from(today))) {
+                    endExclusive = now.toInstant();
+                } else if (monthStartDate.isAfter(today)) {
+                    endExclusive = monthStartDate.atStartOfDay(zoneId).toInstant();
+                } else {
+                    endExclusive = yearMonth.plusMonths(1).atDay(1).atStartOfDay(zoneId).toInstant();
+                }
+                yield new InstantRange(
+                        monthStartDate.atStartOfDay(zoneId).toInstant(),
+                        endExclusive
+                );
+            }
+            case YEAR -> {
+                int year = resolvedAnchorDate.getYear();
+                LocalDate yearStartDate = LocalDate.of(year, 1, 1);
+                Instant endExclusive;
+                if (year == today.getYear()) {
+                    endExclusive = now.toInstant();
+                } else if (year > today.getYear()) {
+                    endExclusive = yearStartDate.atStartOfDay(zoneId).toInstant();
+                } else {
+                    endExclusive = yearStartDate.plusYears(1).atStartOfDay(zoneId).toInstant();
+                }
+                yield new InstantRange(
+                        yearStartDate.atStartOfDay(zoneId).toInstant(),
+                        endExclusive
+                );
+            }
             case ALL_TIME -> new InstantRange(Instant.EPOCH, now.toInstant());
             case CUSTOM -> {
                 if (Objects.isNull(rangeStartDate) || Objects.isNull(rangeEndDate)) {

@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Суточный таймлайн активности: ось всегда 00:00–24:00, сегменты ACTIVE/IDLE.
+ * Суточный таймлайн активности: ось всегда 00:00–24:00, сегменты ACTIVE / IDLE / EXCLUDED.
  */
 public final class DayActivityTimeline {
 

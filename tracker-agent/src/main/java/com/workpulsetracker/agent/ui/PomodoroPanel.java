@@ -12,7 +12,6 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
-import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSpinner;
@@ -25,9 +24,9 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.awt.Toolkit;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
 import java.util.function.BiConsumer;
 
@@ -40,7 +39,6 @@ public final class PomodoroPanel extends JPanel {
     private final UserSettingsStore userSettingsStore;
     private final PomodoroEngine pomodoroEngine = new PomodoroEngine();
     private final BiConsumer<String, String> notificationPublisher;
-    private final List<JLabel> durationUnitLabels = new ArrayList<>();
 
     private final JLabel titleLabel = new JLabel();
     private final JLabel enableLabel = new JLabel();
@@ -63,6 +61,7 @@ public final class PomodoroPanel extends JPanel {
     private final JPanel timerCard = new JPanel();
     private final Timer tickTimer;
     private boolean suppressChangeEvents;
+    private boolean phaseAlertVisible;
 
     public PomodoroPanel(
             UserSettings userSettings,
@@ -94,11 +93,16 @@ public final class PomodoroPanel extends JPanel {
         UiTheme.styleMutedLabel(enableHintLabel);
         UiTheme.styleToggleSwitch(enableToggle);
         enableToggle.addActionListener(actionEvent -> onEnableChanged());
-        settingsCard.add(createSettingRow(
-                createStackedTextPanel(enableLabel, enableHintLabel),
-                enableToggle
-        ));
-        settingsCard.add(Box.createVerticalStrut(12));
+
+        JPanel enableRow = new JPanel(new BorderLayout(12, 0));
+        enableRow.setOpaque(false);
+        enableRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        enableRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 72));
+        enableRow.add(createStackedTextPanel(enableLabel, enableHintLabel), BorderLayout.CENTER);
+        JPanel enableToggleWrapper = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        enableToggleWrapper.setOpaque(false);
+        enableToggleWrapper.add(enableToggle);
+        enableRow.add(enableToggleWrapper, BorderLayout.EAST);
 
         workMinutesLabel.setForeground(UiTheme.TEXT_PRIMARY);
         shortBreakLabel.setForeground(UiTheme.TEXT_PRIMARY);
@@ -110,16 +114,24 @@ public final class PomodoroPanel extends JPanel {
         longBreakSpinner.addChangeListener(changeEvent -> onDurationsChanged());
         sessionsUntilLongBreakSpinner.addChangeListener(changeEvent -> onDurationsChanged());
 
-        settingsCard.add(createDurationRow(workMinutesLabel, workMinutesSpinner, true));
-        settingsCard.add(Box.createVerticalStrut(8));
-        settingsCard.add(createDurationRow(shortBreakLabel, shortBreakSpinner, true));
-        settingsCard.add(Box.createVerticalStrut(8));
-        settingsCard.add(createDurationRow(longBreakLabel, longBreakSpinner, true));
-        settingsCard.add(Box.createVerticalStrut(8));
-        settingsCard.add(createDurationRow(sessionsUntilLongBreakLabel, sessionsUntilLongBreakSpinner, false));
+        JPanel durationsStackPanel = new JPanel();
+        durationsStackPanel.setOpaque(false);
+        durationsStackPanel.setLayout(new BoxLayout(durationsStackPanel, BoxLayout.Y_AXIS));
+        durationsStackPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        durationsStackPanel.add(createCompactDurationCell(workMinutesLabel, workMinutesSpinner));
+        durationsStackPanel.add(Box.createVerticalStrut(10));
+        durationsStackPanel.add(createCompactDurationCell(shortBreakLabel, shortBreakSpinner));
+        durationsStackPanel.add(Box.createVerticalStrut(10));
+        durationsStackPanel.add(createCompactDurationCell(longBreakLabel, longBreakSpinner));
+        durationsStackPanel.add(Box.createVerticalStrut(10));
+        durationsStackPanel.add(createCompactDurationCell(sessionsUntilLongBreakLabel, sessionsUntilLongBreakSpinner));
 
-        timerCard.setLayout(new BoxLayout(timerCard, BoxLayout.Y_AXIS));
-        UiTheme.styleSurfaceCard(timerCard);
+        settingsCard.add(enableRow);
+        settingsCard.add(Box.createVerticalStrut(14));
+        settingsCard.add(createDivider());
+        settingsCard.add(Box.createVerticalStrut(14));
+        settingsCard.add(durationsStackPanel);
+        settingsCard.add(Box.createVerticalGlue());
 
         phaseLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         phaseLabel.setHorizontalAlignment(SwingConstants.CENTER);
@@ -136,43 +148,86 @@ public final class PomodoroPanel extends JPanel {
 
         startPauseButton.setAlignmentX(Component.CENTER_ALIGNMENT);
         skipButton.setAlignmentX(Component.CENTER_ALIGNMENT);
-        startPauseButton.setMaximumSize(new Dimension(220, 44));
-        skipButton.setMaximumSize(new Dimension(220, 40));
         startPauseButton.addActionListener(actionEvent -> onStartPauseClicked());
         skipButton.addActionListener(actionEvent -> pomodoroEngine.skip());
         UiTheme.stylePrimaryButton(startPauseButton);
         UiTheme.styleSecondaryButton(skipButton);
+        constrainButtonWidth(startPauseButton, 280, 44);
+        constrainButtonWidth(skipButton, 280, 44);
 
         JPanel buttonsPanel = new JPanel();
         buttonsPanel.setOpaque(false);
         buttonsPanel.setLayout(new BoxLayout(buttonsPanel, BoxLayout.Y_AXIS));
         buttonsPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
         buttonsPanel.add(startPauseButton);
-        buttonsPanel.add(Box.createVerticalStrut(10));
+        buttonsPanel.add(Box.createVerticalStrut(12));
         buttonsPanel.add(skipButton);
 
-        timerCard.add(phaseLabel);
-        timerCard.add(Box.createVerticalStrut(8));
-        timerCard.add(timerLabel);
-        timerCard.add(Box.createVerticalStrut(8));
-        timerCard.add(completedTodayLabel);
-        timerCard.add(Box.createVerticalStrut(18));
-        timerCard.add(buttonsPanel);
+        JPanel timerContentPanel = new JPanel();
+        timerContentPanel.setOpaque(false);
+        timerContentPanel.setLayout(new BoxLayout(timerContentPanel, BoxLayout.Y_AXIS));
+        timerContentPanel.add(phaseLabel);
+        timerContentPanel.add(Box.createVerticalStrut(8));
+        timerContentPanel.add(timerLabel);
+        timerContentPanel.add(Box.createVerticalStrut(8));
+        timerContentPanel.add(completedTodayLabel);
+        timerContentPanel.add(Box.createVerticalStrut(18));
+        timerContentPanel.add(buttonsPanel);
 
-        JPanel contentPanel = new JPanel();
-        contentPanel.setOpaque(false);
-        contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
+        timerCard.setLayout(new GridBagLayout());
+        UiTheme.styleSurfaceCard(timerCard);
+        GridBagConstraints timerContentConstraints = new GridBagConstraints();
+        timerContentConstraints.gridx = 0;
+        timerContentConstraints.gridy = 0;
+        timerContentConstraints.weightx = 1;
+        timerContentConstraints.weighty = 1;
+        timerContentConstraints.anchor = GridBagConstraints.NORTH;
+        timerContentConstraints.insets = new java.awt.Insets(48, 0, 0, 0);
+        timerCard.add(timerContentPanel, timerContentConstraints);
+
         titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        settingsCard.setAlignmentX(Component.LEFT_ALIGNMENT);
-        timerCard.setAlignmentX(Component.LEFT_ALIGNMENT);
-        contentPanel.add(titleLabel);
-        contentPanel.add(Box.createVerticalStrut(12));
-        contentPanel.add(settingsCard);
-        contentPanel.add(Box.createVerticalStrut(12));
-        contentPanel.add(timerCard);
+        JPanel titlePanel = new JPanel(new BorderLayout());
+        titlePanel.setOpaque(false);
+        titlePanel.add(titleLabel, BorderLayout.WEST);
 
-        add(contentPanel, BorderLayout.NORTH);
+        // Предпочтительные размеры обнуляем, чтобы weightx задал ровно 1/3 и 2/3.
+        settingsCard.setPreferredSize(new Dimension(0, 0));
+        timerCard.setPreferredSize(new Dimension(0, 0));
+
+        JPanel contentSplitPanel = new JPanel(new GridBagLayout());
+        contentSplitPanel.setOpaque(false);
+
+        GridBagConstraints settingsConstraints = new GridBagConstraints();
+        settingsConstraints.gridx = 0;
+        settingsConstraints.gridy = 0;
+        settingsConstraints.weightx = 1;
+        settingsConstraints.weighty = 1;
+        settingsConstraints.fill = GridBagConstraints.BOTH;
+        settingsConstraints.insets = new java.awt.Insets(0, 0, 0, 12);
+        contentSplitPanel.add(settingsCard, settingsConstraints);
+
+        GridBagConstraints timerConstraints = new GridBagConstraints();
+        timerConstraints.gridx = 1;
+        timerConstraints.gridy = 0;
+        timerConstraints.weightx = 2;
+        timerConstraints.weighty = 1;
+        timerConstraints.fill = GridBagConstraints.BOTH;
+        timerConstraints.insets = new java.awt.Insets(0, 0, 0, 0);
+        contentSplitPanel.add(timerCard, timerConstraints);
+
+        add(titlePanel, BorderLayout.NORTH);
+        add(contentSplitPanel, BorderLayout.CENTER);
         retranslate();
+    }
+
+    private static void constrainButtonWidth(JButton button, int preferredWidth, int preferredHeight) {
+        Dimension preferredSize = button.getPreferredSize();
+        int buttonWidth = Math.max(preferredWidth, preferredSize.width);
+        int buttonHeight = Math.max(preferredHeight, preferredSize.height);
+        Dimension constrainedSize = new Dimension(buttonWidth, buttonHeight);
+        button.setPreferredSize(constrainedSize);
+        button.setMaximumSize(constrainedSize);
+        button.setMinimumSize(new Dimension(buttonWidth, buttonHeight));
     }
 
     private void wireEngine() {
@@ -214,17 +269,19 @@ public final class PomodoroPanel extends JPanel {
     public void retranslate() {
         titleLabel.setText(Messages.get(MessageCodes.UI_POMODORO_TITLE));
         enableLabel.setText(Messages.get(MessageCodes.UI_POMODORO_ENABLE));
-        enableHintLabel.setText("<html><body style='width:420px'>"
+        enableHintLabel.setText("<html><body style='width:180px'>"
                 + Messages.get(MessageCodes.UI_POMODORO_ENABLE_HINT)
                 + "</body></html>");
-        workMinutesLabel.setText(Messages.get(MessageCodes.UI_POMODORO_WORK));
-        shortBreakLabel.setText(Messages.get(MessageCodes.UI_POMODORO_SHORT_BREAK));
-        longBreakLabel.setText(Messages.get(MessageCodes.UI_POMODORO_LONG_BREAK));
+        workMinutesLabel.setText(formatDurationLabel(Messages.get(MessageCodes.UI_POMODORO_WORK)));
+        shortBreakLabel.setText(formatDurationLabel(Messages.get(MessageCodes.UI_POMODORO_SHORT_BREAK)));
+        longBreakLabel.setText(formatDurationLabel(Messages.get(MessageCodes.UI_POMODORO_LONG_BREAK)));
         sessionsUntilLongBreakLabel.setText(Messages.get(MessageCodes.UI_POMODORO_SESSIONS_UNTIL_LONG));
-        String minutesUnit = Messages.get(MessageCodes.UI_POMODORO_MINUTES);
-        durationUnitLabels.forEach(unitLabel -> unitLabel.setText(minutesUnit));
         skipButton.setText(Messages.get(MessageCodes.UI_POMODORO_SKIP));
         refresh();
+    }
+
+    private static String formatDurationLabel(String title) {
+        return title + ", " + Messages.get(MessageCodes.UI_POMODORO_MINUTES);
     }
 
     public void applyTheme() {
@@ -241,7 +298,6 @@ public final class PomodoroPanel extends JPanel {
         UiTheme.styleMutedLabel(enableHintLabel);
         UiTheme.styleMutedLabel(phaseLabel);
         UiTheme.styleMutedLabel(completedTodayLabel);
-        durationUnitLabels.forEach(UiTheme::styleMutedLabel);
         UiTheme.styleToggleSwitch(enableToggle);
         refresh();
     }
@@ -269,6 +325,7 @@ public final class PomodoroPanel extends JPanel {
         if (!featureEnabled) {
             startPauseButton.setText(Messages.get(MessageCodes.UI_POMODORO_START));
             UiTheme.stylePrimaryButton(startPauseButton);
+            constrainButtonWidth(startPauseButton, 280, 44);
             return;
         }
         if (timerRunning) {
@@ -278,6 +335,7 @@ public final class PomodoroPanel extends JPanel {
             startPauseButton.setText(Messages.get(MessageCodes.UI_POMODORO_START));
             UiTheme.stylePrimaryButton(startPauseButton);
         }
+        constrainButtonWidth(startPauseButton, 280, 44);
     }
 
     public void shutdown() {
@@ -328,6 +386,23 @@ public final class PomodoroPanel extends JPanel {
             case LONG_BREAK -> Messages.get(MessageCodes.UI_POMODORO_NOTIFY_LONG_BREAK_DONE);
         };
         notificationPublisher.accept(caption, message);
+        SwingUtilities.invokeLater(() -> showPhaseAlert(caption, message));
+    }
+
+    private void showPhaseAlert(String caption, String message) {
+        if (phaseAlertVisible) {
+            return;
+        }
+        phaseAlertVisible = true;
+        try {
+            pomodoroEngine.pause();
+            PomodoroAlertDialog.show(caption, message);
+            if (pomodoroEngine.isFeatureEnabled()) {
+                pomodoroEngine.startOrResume();
+            }
+        } finally {
+            phaseAlertVisible = false;
+        }
     }
 
     private static String formatCountdown(int totalSeconds) {
@@ -345,41 +420,31 @@ public final class PomodoroPanel extends JPanel {
         };
     }
 
-    private JPanel createDurationRow(JLabel label, JSpinner spinner, boolean showMinutesUnit) {
-        spinner.setPreferredSize(new Dimension(96, 32));
-        spinner.setMinimumSize(new Dimension(96, 32));
-        spinner.setMaximumSize(new Dimension(96, 32));
+    private JPanel createCompactDurationCell(JLabel label, JSpinner spinner) {
+        Dimension spinnerSize = new Dimension(72, 32);
+        spinner.setPreferredSize(spinnerSize);
+        spinner.setMinimumSize(spinnerSize);
+        spinner.setMaximumSize(spinnerSize);
 
-        JLabel unitLabel = new JLabel(" ");
-        unitLabel.setPreferredSize(new Dimension(36, 32));
-        unitLabel.setMinimumSize(new Dimension(36, 32));
-        unitLabel.setMaximumSize(new Dimension(36, 32));
-        unitLabel.setHorizontalAlignment(SwingConstants.LEFT);
-        UiTheme.styleMutedLabel(unitLabel);
-        if (showMinutesUnit) {
-            durationUnitLabels.add(unitLabel);
-        } else {
-            unitLabel.setText("");
-        }
+        label.setHorizontalAlignment(SwingConstants.LEFT);
 
-        JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-        controlPanel.setOpaque(false);
-        controlPanel.setPreferredSize(new Dimension(148, 36));
-        controlPanel.setMinimumSize(new Dimension(148, 36));
-        controlPanel.setMaximumSize(new Dimension(148, 36));
-        controlPanel.add(spinner);
-        controlPanel.add(unitLabel);
-        return createSettingRow(label, controlPanel);
+        JPanel cellPanel = new JPanel(new BorderLayout(8, 0));
+        cellPanel.setOpaque(false);
+        cellPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        cellPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+        cellPanel.add(label, BorderLayout.CENTER);
+        cellPanel.add(spinner, BorderLayout.EAST);
+        return cellPanel;
     }
 
-    private JPanel createSettingRow(JComponent leftComponent, JComponent rightComponent) {
-        JPanel rowPanel = new JPanel(new BorderLayout(16, 0));
-        rowPanel.setOpaque(false);
-        rowPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        rowPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 64));
-        rowPanel.add(leftComponent, BorderLayout.CENTER);
-        rowPanel.add(rightComponent, BorderLayout.EAST);
-        return rowPanel;
+    private JPanel createDivider() {
+        JPanel dividerPanel = new JPanel();
+        dividerPanel.setOpaque(true);
+        dividerPanel.setBackground(UiTheme.BORDER);
+        dividerPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+        dividerPanel.setPreferredSize(new Dimension(1, 1));
+        dividerPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return dividerPanel;
     }
 
     private JPanel createStackedTextPanel(JLabel titleLabel, JLabel hintLabel) {

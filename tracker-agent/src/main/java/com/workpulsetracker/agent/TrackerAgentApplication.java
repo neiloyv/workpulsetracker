@@ -15,6 +15,7 @@ import com.workpulsetracker.agent.tracking.TrackingEngine;
 import com.workpulsetracker.agent.ui.ActivationDialog;
 import com.workpulsetracker.agent.ui.TrackerMainFrame;
 import com.workpulsetracker.agent.ui.UiTheme;
+import com.workpulsetracker.agent.util.WindowsLaunchAtLoginService;
 import com.workpulsetracker.common.i18n.UserLocaleContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,6 +50,7 @@ public final class TrackerAgentApplication {
         AgentConfig agentConfig = AgentConfig.load();
         UserSettingsStore userSettingsStore = new UserSettingsStore();
         UserSettings userSettings = userSettingsStore.loadOrCreateDefault();
+        WindowsLaunchAtLoginService.apply(userSettings.isLaunchAtLogin());
 
         // Язык: сначала из сохранённых настроек пользователя, иначе из application.properties
         if (!userSettings.isSetupCompleted()) {
@@ -78,7 +80,7 @@ public final class TrackerAgentApplication {
                 activityStore,
                 localAppRuntimeStore
         );
-        StatisticsService statisticsService = new StatisticsService(activityStore, dataBuffer);
+        StatisticsService statisticsService = new StatisticsService(activityStore, dataBuffer, userSettings);
 
         TrackerMainFrame[] trackerMainFrameHolder = new TrackerMainFrame[1];
         TelemetryUploadScheduler[] telemetryUploadSchedulerHolder = new TelemetryUploadScheduler[1];

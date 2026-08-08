@@ -30,6 +30,8 @@ public final class UiTheme {
     public static final Color BACKGROUND = new Color(0x0A, 0x0A, 0x14);
     public static final Color SURFACE = new Color(0x14, 0x14, 0x22);
     public static final Color SURFACE_2 = new Color(0x1A, 0x1A, 0x2B);
+    /** Подсветка текущего дня/месяца в статистике (чуть светлее SURFACE, но темнее прежнего). */
+    public static final Color CURRENT_PERIOD_HIGHLIGHT = new Color(0x20, 0x20, 0x32);
     public static final Color TEXT_PRIMARY = new Color(0xED, 0xED, 0xF6);
     public static final Color TEXT_SECONDARY = new Color(0x9E, 0x9E, 0xB5);
     public static final Color ACCENT = new Color(0x74, 0x58, 0xFF);
@@ -58,11 +60,21 @@ public final class UiTheme {
             UIManager.put("ProgressBar.arc", 12);
             UIManager.put("ScrollBar.thumbArc", 999);
             UIManager.put("ScrollBar.trackArc", 999);
-            UIManager.put("TabbedPane.showTabSeparators", true);
-            UIManager.put("TabbedPane.tabSeparatorsFullHeight", true);
-            UIManager.put("TabbedPane.selectedBackground", SURFACE);
-            UIManager.put("Panel.background", BACKGROUND);
+            UIManager.put("TabbedPane.showTabSeparators", false);
+            UIManager.put("TabbedPane.tabSeparatorsFullHeight", false);
+            UIManager.put("TabbedPane.hasFullBorder", false);
+            UIManager.put("TabbedPane.tabType", "underlined");
+            UIManager.put("TabbedPane.tabHeight", 44);
+            UIManager.put("TabbedPane.tabInsets", new java.awt.Insets(10, 18, 10, 18));
+            UIManager.put("TabbedPane.selectedBackground", BACKGROUND);
             UIManager.put("TabbedPane.background", BACKGROUND);
+            UIManager.put("TabbedPane.foreground", TEXT_SECONDARY);
+            UIManager.put("TabbedPane.hoverColor", SURFACE_2);
+            UIManager.put("TabbedPane.selectedForeground", TEXT_PRIMARY);
+            UIManager.put("TabbedPane.underlineColor", ACCENT);
+            UIManager.put("TabbedPane.inactiveUnderlineColor", BORDER);
+            UIManager.put("TabbedPane.contentAreaColor", BACKGROUND);
+            UIManager.put("Panel.background", BACKGROUND);
             UIManager.put("Viewport.background", SURFACE);
             UIManager.put("List.background", SURFACE);
             UIManager.put("Table.background", SURFACE);
@@ -166,7 +178,8 @@ public final class UiTheme {
         checkBox.setOpaque(false);
         checkBox.setFocusPainted(false);
         checkBox.setText("");
-        checkBox.putClientProperty(FlatClientProperties.STYLE_CLASS, "toggleSwitch");
+        checkBox.setIconTextGap(0);
+        ToggleSwitchIcon.install(checkBox);
     }
 
     public static void styleSurfaceCard(JComponent component) {

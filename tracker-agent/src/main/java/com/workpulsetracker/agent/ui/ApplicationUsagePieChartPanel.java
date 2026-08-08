@@ -1,6 +1,7 @@
 package com.workpulsetracker.agent.ui;
 
 import com.workpulsetracker.agent.stats.ApplicationUsageSummary;
+import com.workpulsetracker.agent.util.ApplicationDisplayNameResolver;
 import com.workpulsetracker.agent.util.PercentageCalculator;
 import com.workpulsetracker.common.i18n.MessageCodes;
 import com.workpulsetracker.common.i18n.Messages;
@@ -106,7 +107,9 @@ public final class ApplicationUsagePieChartPanel extends JPanel {
         return IntStream.range(0, positiveSummaries.size())
                 .filter(index -> percentages.get(index) > 0)
                 .mapToObj(index -> new Slice(
-                        positiveSummaries.get(index).getApplicationName(),
+                        ApplicationDisplayNameResolver.resolveDisplayName(
+                                positiveSummaries.get(index).getApplicationName()
+                        ),
                         percentages.get(index),
                         ApplicationUsageColorPalette.colorForIndex(index)
                 ))

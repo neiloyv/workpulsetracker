@@ -135,6 +135,17 @@ public final class ApplicationIconService {
         return loadedIcon;
     }
 
+    /**
+     * Известный путь к exe для приложения (если уже запомнен).
+     */
+    public String findExecutablePath(String applicationName) {
+        if (StringUtils.isBlank(applicationName)) {
+            return null;
+        }
+        String baseApplicationName = TrackedApplicationNameResolver.extractBaseApplicationName(applicationName);
+        return executablePathByApplicationName.get(ApplicationNameNormalizer.normalize(baseApplicationName));
+    }
+
     private void preloadIcons() {
         executablePathByApplicationName.keySet().forEach(this::getIcon);
     }

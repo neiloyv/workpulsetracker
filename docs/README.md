@@ -12,6 +12,7 @@
 | [Обзор](agent/overview.md) | Что делает агент, основные модули, данные на диске |
 | [Интерфейс](agent/ui.md) | Окно, вкладки, кнопки, условия показа/блокировки |
 | [Сборка и запуск](agent/packaging.md) | `run` / Fat JAR / установщик Windows |
+| [Task: Programs / categories](agent/tasks/programs-tab-categories.md) | Вкладка Programs и ручные категории приложений |
 
 ### Веб
 | Документ | О чём |

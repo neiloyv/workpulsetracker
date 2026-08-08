@@ -14,6 +14,8 @@ import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
 import com.workpulsetracker.agent.stats.ApplicationUsageMatrix;
 import com.workpulsetracker.agent.stats.StatisticsService;
+import com.workpulsetracker.agent.stats.StatsPeriod;
+import com.workpulsetracker.agent.util.ApplicationDisplayNameResolver;
 import com.workpulsetracker.agent.util.DurationFormatter;
 import com.workpulsetracker.common.i18n.MessageCodes;
 import com.workpulsetracker.common.i18n.Messages;
@@ -26,6 +28,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 
@@ -60,6 +63,34 @@ public final class StatisticsPdfReportWriter {
                     }
                     writePeriodPage(document, statisticsReportSections.get(sectionIndex), reportFonts);
                 }
+            } catch (DocumentException documentException) {
+                throw new IOException("Failed to build PDF report", documentException);
+            } finally {
+                document.close();
+            }
+        }
+    }
+
+    public void writeSelectedPeriodToFile(
+            Path reportFilePath,
+            StatsPeriod statsPeriod,
+            LocalDate anchorDate
+    ) throws IOException {
+        Objects.requireNonNull(reportFilePath);
+        Objects.requireNonNull(statsPeriod);
+        try (OutputStream outputStream = Files.newOutputStream(reportFilePath)) {
+            Document document = new Document(PageSize.A4, 28, 28, 28, 28);
+            PdfWriter.getInstance(document, outputStream);
+            document.open();
+            try {
+                ReportFonts reportFonts = ReportFonts.create();
+                StatisticsReportSection statisticsReportSection = StatisticsReportSection.buildForAnchor(
+                        statisticsService,
+                        statsPeriod,
+                        anchorDate,
+                        minorUsageThresholdMinutes
+                );
+                writePeriodPage(document, statisticsReportSection, reportFonts);
             } catch (DocumentException documentException) {
                 throw new IOException("Failed to build PDF report", documentException);
             } finally {
@@ -144,7 +175,9 @@ public final class StatisticsPdfReportWriter {
              applicationIndex++) {
             addBodyCell(
                     table,
-                    applicationUsageMatrix.getApplicationNames().get(applicationIndex),
+                    ApplicationDisplayNameResolver.resolveDisplayName(
+                            applicationUsageMatrix.getApplicationNames().get(applicationIndex)
+                    ),
                     reportFonts.bodyFont(),
                     Element.ALIGN_LEFT
             );
@@ -164,7 +197,7 @@ public final class StatisticsPdfReportWriter {
                         table,
                         formatDurationCell(
                                 applicationUsageMatrix.getDurationSeconds(applicationIndex, bucketIndex),
-                                applicationUsageMatrix.getTotalActiveSeconds()
+                                applicationUsageMatrix.getBucketTotalSeconds(bucketIndex)
                         ),
                         reportFonts.bodyFont(),
                         Element.ALIGN_CENTER
@@ -183,15 +216,10 @@ public final class StatisticsPdfReportWriter {
                 Element.ALIGN_CENTER
         );
         for (int bucketIndex = 0; bucketIndex < applicationUsageMatrix.getPeriodBuckets().size(); bucketIndex++) {
-            long bucketTotalSeconds = 0L;
-            for (int applicationIndex = 0;
-                 applicationIndex < applicationUsageMatrix.getApplicationNames().size();
-                 applicationIndex++) {
-                bucketTotalSeconds += applicationUsageMatrix.getDurationSeconds(applicationIndex, bucketIndex);
-            }
+            long bucketTotalSeconds = applicationUsageMatrix.getBucketTotalSeconds(bucketIndex);
             addBodyCell(
                     table,
-                    formatDurationCell(bucketTotalSeconds, applicationUsageMatrix.getTotalActiveSeconds()),
+                    formatDurationCell(bucketTotalSeconds, bucketTotalSeconds),
                     reportFonts.headerFont(),
                     Element.ALIGN_CENTER
             );

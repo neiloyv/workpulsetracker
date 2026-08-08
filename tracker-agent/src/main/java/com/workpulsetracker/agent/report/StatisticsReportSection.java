@@ -11,6 +11,7 @@ import com.workpulsetracker.agent.stats.StatsPeriod;
 import com.workpulsetracker.common.i18n.MessageCodes;
 import com.workpulsetracker.common.i18n.Messages;
 
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -47,13 +48,18 @@ public final class StatisticsReportSection {
             int minorUsageThresholdMinutes
     ) {
         Objects.requireNonNull(statisticsService);
+        LocalDate today = LocalDate.now();
         return Arrays.stream(new StatsPeriod[]{
                         StatsPeriod.WEEK,
                         StatsPeriod.MONTH,
-                        StatsPeriod.YEAR,
-                        StatsPeriod.ALL_TIME
+                        StatsPeriod.YEAR
                 })
-                .map(statsPeriod -> build(statisticsService, statsPeriod, minorUsageThresholdMinutes))
+                .map(statsPeriod -> buildForAnchor(
+                        statisticsService,
+                        statsPeriod,
+                        today,
+                        minorUsageThresholdMinutes
+                ))
                 .collect(Collectors.toList());
     }
 
@@ -62,56 +68,49 @@ public final class StatisticsReportSection {
             StatsPeriod statsPeriod,
             int minorUsageThresholdMinutes
     ) {
-        StatisticsSnapshot statisticsSnapshot = statisticsService.buildSnapshot(statsPeriod);
+        return buildForAnchor(
+                statisticsService,
+                statsPeriod,
+                LocalDate.now(),
+                minorUsageThresholdMinutes
+        );
+    }
+
+    public static StatisticsReportSection buildForAnchor(
+            StatisticsService statisticsService,
+            StatsPeriod statsPeriod,
+            LocalDate anchorDate,
+            int minorUsageThresholdMinutes
+    ) {
+        Objects.requireNonNull(statisticsService);
+        LocalDate resolvedAnchorDate = Objects.nonNull(anchorDate) ? anchorDate : LocalDate.now();
+        StatisticsSnapshot statisticsSnapshot = statisticsService.buildSnapshotForAnchor(
+                statsPeriod,
+                resolvedAnchorDate
+        );
         List<ApplicationUsageSummary> applicationUsageSummaries = ApplicationUsageFilter.groupMinorApplicationGroups(
                         ApplicationUsageBrowserGrouper.group(statisticsSnapshot.getApplicationUsageSummaries()),
                         minorUsageThresholdMinutes
                 ).stream()
                 .map(ApplicationUsageGroup::toSummary)
                 .collect(Collectors.toList());
-        List<StatisticsReportTable> reportTables = buildReportTables(
-                statisticsService,
-                statsPeriod,
-                minorUsageThresholdMinutes
-        );
-        return new StatisticsReportSection(
-                statsPeriod,
-                resolvePeriodTitle(statsPeriod),
-                statisticsSnapshot.getTotalActiveSeconds(),
-                applicationUsageSummaries,
-                reportTables
-        );
-    }
-
-    private static List<StatisticsReportTable> buildReportTables(
-            StatisticsService statisticsService,
-            StatsPeriod statsPeriod,
-            int minorUsageThresholdMinutes
-    ) {
-        if (statsPeriod == StatsPeriod.MONTH) {
-            return statisticsService.listCurrentMonthWeekRanges().stream()
-                    .map(monthWeekRange -> new StatisticsReportTable(
-                            monthWeekRange.label(),
-                            ApplicationUsageFilter.groupMinorApplications(
-                                    ApplicationUsageBrowserGrouper.collapseBrowserApplications(
-                                            statisticsService.buildApplicationUsageMatrix(
-                                                    StatsPeriod.CUSTOM,
-                                                    monthWeekRange.startDate(),
-                                                    monthWeekRange.endDate()
-                                            )
-                                    ),
-                                    minorUsageThresholdMinutes
-                            )
-                    ))
-                    .collect(Collectors.toList());
-        }
         ApplicationUsageMatrix applicationUsageMatrix = ApplicationUsageFilter.groupMinorApplications(
                 ApplicationUsageBrowserGrouper.collapseBrowserApplications(
-                        statisticsService.buildApplicationUsageMatrix(statsPeriod)
+                        statisticsService.buildApplicationUsageMatrixForAnchor(statsPeriod, resolvedAnchorDate)
                 ),
                 minorUsageThresholdMinutes
         );
-        return List.of(new StatisticsReportTable(null, applicationUsageMatrix));
+        String periodTitle = statisticsService.formatPeriodCaption(statsPeriod, resolvedAnchorDate)
+                + " ("
+                + resolvePeriodTitle(statsPeriod)
+                + ")";
+        return new StatisticsReportSection(
+                statsPeriod,
+                periodTitle,
+                statisticsSnapshot.getTotalActiveSeconds(),
+                applicationUsageSummaries,
+                List.of(new StatisticsReportTable(null, applicationUsageMatrix))
+        );
     }
 
     private static String resolvePeriodTitle(StatsPeriod statsPeriod) {

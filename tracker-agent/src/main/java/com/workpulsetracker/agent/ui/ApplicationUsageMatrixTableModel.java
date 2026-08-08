@@ -26,15 +26,28 @@ public final class ApplicationUsageMatrixTableModel extends AbstractTableModel {
     private String applicationColumnName = Messages.get(MessageCodes.UI_TABLE_APPLICATION);
     private String periodTotalColumnName = Messages.get(MessageCodes.UI_TABLE_TOTAL);
 
-    public void setMatrix(ApplicationUsageMatrix applicationUsageMatrix) {
+    /**
+     * @return {@code true}, если изменилась структура колонок и нужен полный rebuild UI
+     */
+    public boolean setMatrix(ApplicationUsageMatrix applicationUsageMatrix) {
+        ApplicationUsageMatrix previousMatrix = this.applicationUsageMatrix;
+        boolean structureChanged = !hasSameColumnStructure(previousMatrix, applicationUsageMatrix);
+        boolean contentChanged = structureChanged || !hasSameContent(previousMatrix, applicationUsageMatrix);
         this.applicationUsageMatrix = applicationUsageMatrix;
-        fireTableStructureChanged();
+        if (!contentChanged) {
+            return false;
+        }
+        if (structureChanged) {
+            fireTableStructureChanged();
+            return true;
+        }
+        fireTableDataChanged();
+        return false;
     }
 
     public void retranslate() {
         applicationColumnName = Messages.get(MessageCodes.UI_TABLE_APPLICATION);
         periodTotalColumnName = Messages.get(MessageCodes.UI_TABLE_TOTAL);
-        fireTableStructureChanged();
     }
 
     public boolean isTotalRow(int rowIndex) {
@@ -95,9 +108,10 @@ public final class ApplicationUsageMatrixTableModel extends AbstractTableModel {
                     applicationUsageMatrix.getTotalActiveSeconds()
             );
         }
+        int bucketIndex = columnIndex - 2;
         return formatDurationCell(
-                applicationUsageMatrix.getDurationSeconds(applicationIndex, columnIndex - 2),
-                applicationUsageMatrix.getTotalActiveSeconds()
+                applicationUsageMatrix.getDurationSeconds(applicationIndex, bucketIndex),
+                applicationUsageMatrix.getBucketTotalSeconds(bucketIndex)
         );
     }
 
@@ -111,18 +125,8 @@ public final class ApplicationUsageMatrixTableModel extends AbstractTableModel {
                     applicationUsageMatrix.getTotalActiveSeconds()
             );
         }
-        return formatDurationCell(
-                getBucketTotalSeconds(columnIndex - 2),
-                applicationUsageMatrix.getTotalActiveSeconds()
-        );
-    }
-
-    private long getBucketTotalSeconds(int bucketIndex) {
-        return IntStream.range(0, getApplicationNames().size())
-                .mapToLong(applicationIndex ->
-                        applicationUsageMatrix.getDurationSeconds(applicationIndex, bucketIndex)
-                )
-                .sum();
+        long bucketTotalSeconds = applicationUsageMatrix.getBucketTotalSeconds(columnIndex - 2);
+        return formatDurationCell(bucketTotalSeconds, bucketTotalSeconds);
     }
 
     private static String formatDurationCell(long durationSeconds, long totalActiveSeconds) {
@@ -130,6 +134,53 @@ public final class ApplicationUsageMatrixTableModel extends AbstractTableModel {
             return "—";
         }
         return DurationFormatter.formatHoursMinutesWithPercent(durationSeconds, totalActiveSeconds);
+    }
+
+    private static boolean hasSameColumnStructure(
+            ApplicationUsageMatrix leftMatrix,
+            ApplicationUsageMatrix rightMatrix
+    ) {
+        if (Objects.isNull(leftMatrix) || Objects.isNull(rightMatrix)) {
+            return false;
+        }
+        List<PeriodBucket> leftBuckets = leftMatrix.getPeriodBuckets();
+        List<PeriodBucket> rightBuckets = rightMatrix.getPeriodBuckets();
+        if (leftBuckets.size() != rightBuckets.size()) {
+            return false;
+        }
+        return IntStream.range(0, leftBuckets.size())
+                .allMatch(bucketIndex -> Objects.equals(
+                        leftBuckets.get(bucketIndex).getLabel(),
+                        rightBuckets.get(bucketIndex).getLabel()
+                ));
+    }
+
+    private static boolean hasSameContent(
+            ApplicationUsageMatrix leftMatrix,
+            ApplicationUsageMatrix rightMatrix
+    ) {
+        if (Objects.isNull(leftMatrix) || Objects.isNull(rightMatrix)) {
+            return false;
+        }
+        if (leftMatrix.getTotalActiveSeconds() != rightMatrix.getTotalActiveSeconds()) {
+            return false;
+        }
+        List<String> leftApplicationNames = leftMatrix.getApplicationNames();
+        List<String> rightApplicationNames = rightMatrix.getApplicationNames();
+        if (!leftApplicationNames.equals(rightApplicationNames)) {
+            return false;
+        }
+        int bucketCount = leftMatrix.getPeriodBuckets().size();
+        return IntStream.range(0, leftApplicationNames.size())
+                .allMatch(applicationIndex ->
+                        leftMatrix.getApplicationTotalSeconds(applicationIndex)
+                                == rightMatrix.getApplicationTotalSeconds(applicationIndex)
+                                && IntStream.range(0, bucketCount)
+                                .allMatch(bucketIndex ->
+                                        leftMatrix.getDurationSeconds(applicationIndex, bucketIndex)
+                                                == rightMatrix.getDurationSeconds(applicationIndex, bucketIndex)
+                                )
+                );
     }
 
     @Override

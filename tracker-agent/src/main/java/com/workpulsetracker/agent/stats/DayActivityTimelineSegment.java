@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 
 /**
- * Сегмент суточного таймлайна: ACTIVE (работа) или IDLE (ПК включён, без активности).
+ * Сегмент суточного таймлайна: ACTIVE (работа), IDLE (простой) или EXCLUDED (Track OFF).
  * Промежутки без сегментов = PC Off / агент не записывал.
  */
 public final class DayActivityTimelineSegment {

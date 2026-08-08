@@ -3,6 +3,7 @@ package com.workpulsetracker.agent.stats;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.IntStream;
 
 /**
  * Матрица использования приложений по колонкам периода.
@@ -61,6 +62,12 @@ public final class ApplicationUsageMatrix {
 
     public long getApplicationTotalSeconds(int applicationIndex) {
         return applicationTotalSeconds[applicationIndex];
+    }
+
+    public long getBucketTotalSeconds(int bucketIndex) {
+        return IntStream.range(0, applicationNames.size())
+                .mapToLong(applicationIndex -> durationSecondsByApplicationAndBucket[applicationIndex][bucketIndex])
+                .sum();
     }
 
     public long getTotalActiveSeconds() {
