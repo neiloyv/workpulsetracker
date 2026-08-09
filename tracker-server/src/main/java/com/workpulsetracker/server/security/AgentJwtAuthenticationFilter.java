@@ -43,7 +43,8 @@ public class AgentJwtAuthenticationFilter extends OncePerRequestFilter {
             return true;
         }
         return !(requestUri.startsWith("/api/agent/telemetry")
-                || requestUri.startsWith("/api/agent/sync"));
+                || requestUri.startsWith("/api/agent/sync")
+                || requestUri.startsWith("/api/agent/feedback"));
     }
 
     @Override

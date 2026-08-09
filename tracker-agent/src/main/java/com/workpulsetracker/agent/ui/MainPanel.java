@@ -10,18 +10,21 @@ import com.workpulsetracker.agent.storage.UserSettings;
 import com.workpulsetracker.agent.tracking.TrackingEngine;
 import com.workpulsetracker.agent.util.DurationFormatter;
 import com.workpulsetracker.agent.util.PercentageCalculator;
+import com.workpulsetracker.agent.util.ProgramCategoryDisplayNames;
 import com.workpulsetracker.common.i18n.MessageCodes;
 import com.workpulsetracker.common.i18n.Messages;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.ButtonGroup;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
+import javax.swing.JToggleButton;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import java.awt.BorderLayout;
@@ -29,11 +32,13 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -41,6 +46,12 @@ import java.util.stream.Collectors;
  * Главная вкладка: Start/Pause, время работы, таймлайн, таблица и круговая диаграмма за сегодня.
  */
 public final class MainPanel extends JPanel {
+
+    private enum UsageChartMode {
+        PROGRAMS,
+        CATEGORIES,
+        ACTIVITY
+    }
 
     private final TrackingEngine trackingEngine;
     private final StatisticsService statisticsService;
@@ -50,18 +61,21 @@ public final class MainPanel extends JPanel {
     private final JLabel workTimeValueLabel = new JLabel("0:00:00");
     private final JLabel statusValueLabel = new JLabel();
     private final JLabel timelineCaptionLabel = new JLabel();
-    private final JLabel timelineActiveDurationLabel = new JLabel("0:00:00");
-    private final JLabel timelineIdleDurationLabel = new JLabel("0:00:00");
-    private final JLabel timelineActivePercentLabel = new JLabel("0%");
-    private final JLabel timelineIdlePercentLabel = new JLabel("0%");
     private final JLabel timelineLegendActiveLabel = new JLabel();
     private final JLabel timelineLegendIdleLabel = new JLabel();
     private final JLabel timelineLegendExcludedLabel = new JLabel();
     private final JPanel timelineLegendActiveSwatch = createLegendSwatch(DayActivityTimelinePanel.activeColor());
     private final JPanel timelineLegendIdleSwatch = createLegendSwatch(DayActivityTimelinePanel.idleColor());
     private final JPanel timelineLegendExcludedSwatch = createLegendSwatch(DayActivityTimelinePanel.excludedColor());
+    private final JPanel timelineLegendExcludedItem = createLegendItem(
+            timelineLegendExcludedSwatch,
+            timelineLegendExcludedLabel
+    );
     private final JLabel applicationsCaptionLabel = new JLabel();
     private final JLabel chartCaptionLabel = new JLabel();
+    private final JToggleButton chartProgramsModeButton = new JToggleButton();
+    private final JToggleButton chartCategoriesModeButton = new JToggleButton();
+    private final JToggleButton chartActivityModeButton = new JToggleButton();
     private final JButton startPauseButton = new JButton();
     private final ApplicationUsageTableModel applicationUsageTableModel = new ApplicationUsageTableModel();
     private final JTable applicationUsageTable = new JTable(applicationUsageTableModel);
@@ -70,6 +84,8 @@ public final class MainPanel extends JPanel {
     private final JPanel timelinePanel = new JPanel(new BorderLayout(4, 8));
     private final JPanel applicationsPanel = new JPanel(new BorderLayout(4, 8));
     private final JPanel chartPanel = new JPanel(new BorderLayout(4, 8));
+    private UsageChartMode selectedUsageChartMode = UsageChartMode.PROGRAMS;
+    private boolean suppressChartModeChangeEvents;
 
     public MainPanel(
             TrackingEngine trackingEngine,
@@ -122,14 +138,9 @@ public final class MainPanel extends JPanel {
 
         UiTheme.styleSurfaceCard(timelinePanel);
         UiTheme.styleMutedLabel(timelineCaptionLabel);
-        styleTimelineSummaryLabels();
-        JPanel timelineHeaderPanel = new JPanel(new BorderLayout(12, 0));
-        timelineHeaderPanel.setOpaque(false);
-        timelineHeaderPanel.add(timelineCaptionLabel, BorderLayout.WEST);
-        timelineHeaderPanel.add(createTimelineSummaryPanel(), BorderLayout.CENTER);
-        timelineHeaderPanel.add(createTimelineLegendPanel(), BorderLayout.EAST);
-        timelinePanel.add(timelineHeaderPanel, BorderLayout.NORTH);
+        timelinePanel.add(timelineCaptionLabel, BorderLayout.NORTH);
         timelinePanel.add(dayActivityTimelinePanel, BorderLayout.CENTER);
+        timelinePanel.add(createTimelineLegendPanel(), BorderLayout.SOUTH);
 
         UiTheme.styleSurfaceCard(applicationsPanel);
         UiTheme.styleMutedLabel(applicationsCaptionLabel);
@@ -152,9 +163,32 @@ public final class MainPanel extends JPanel {
         applicationsPanel.add(applicationsCaptionLabel, BorderLayout.NORTH);
         applicationsPanel.add(new JScrollPane(applicationUsageTable), BorderLayout.CENTER);
 
+        ButtonGroup chartModeButtonGroup = new ButtonGroup();
+        chartModeButtonGroup.add(chartProgramsModeButton);
+        chartModeButtonGroup.add(chartCategoriesModeButton);
+        chartModeButtonGroup.add(chartActivityModeButton);
+        chartProgramsModeButton.setSelected(true);
+        chartProgramsModeButton.addActionListener(actionEvent -> onUsageChartModeSelected(UsageChartMode.PROGRAMS));
+        chartCategoriesModeButton.addActionListener(actionEvent -> onUsageChartModeSelected(UsageChartMode.CATEGORIES));
+        chartActivityModeButton.addActionListener(actionEvent -> onUsageChartModeSelected(UsageChartMode.ACTIVITY));
+        UiTheme.styleSegmentedToggleButton(chartProgramsModeButton);
+        UiTheme.styleSegmentedToggleButton(chartCategoriesModeButton);
+        UiTheme.styleSegmentedToggleButton(chartActivityModeButton);
+
+        JPanel chartModePanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        chartModePanel.setOpaque(false);
+        chartModePanel.add(chartProgramsModeButton);
+        chartModePanel.add(chartCategoriesModeButton);
+        chartModePanel.add(chartActivityModeButton);
+
+        JPanel chartHeaderPanel = new JPanel(new BorderLayout(8, 0));
+        chartHeaderPanel.setOpaque(false);
+        chartHeaderPanel.add(chartCaptionLabel, BorderLayout.WEST);
+        chartHeaderPanel.add(chartModePanel, BorderLayout.EAST);
+
         UiTheme.styleSurfaceCard(chartPanel);
         UiTheme.styleMutedLabel(chartCaptionLabel);
-        chartPanel.add(chartCaptionLabel, BorderLayout.NORTH);
+        chartPanel.add(chartHeaderPanel, BorderLayout.NORTH);
         chartPanel.add(usagePieChartPanel, BorderLayout.CENTER);
 
         JPanel bottomSplitPanel = new JPanel(new GridLayout(1, 2, 12, 0));
@@ -187,39 +221,16 @@ public final class MainPanel extends JPanel {
         return logoLabel;
     }
 
-    private JPanel createTimelineSummaryPanel() {
-        JPanel durationRowPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 0));
-        durationRowPanel.setOpaque(false);
-        durationRowPanel.add(timelineActiveDurationLabel);
-        durationRowPanel.add(createVerticalSeparator());
-        durationRowPanel.add(timelineIdleDurationLabel);
-
-        JPanel percentRowPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 0));
-        percentRowPanel.setOpaque(false);
-        percentRowPanel.add(timelineActivePercentLabel);
-        percentRowPanel.add(createVerticalSeparator());
-        percentRowPanel.add(timelineIdlePercentLabel);
-
-        JPanel summaryPanel = new JPanel();
-        summaryPanel.setOpaque(false);
-        summaryPanel.setLayout(new BoxLayout(summaryPanel, BoxLayout.Y_AXIS));
-        durationRowPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        percentRowPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        summaryPanel.add(durationRowPanel);
-        summaryPanel.add(percentRowPanel);
-        return summaryPanel;
-    }
-
     private JPanel createTimelineLegendPanel() {
         UiTheme.styleMutedLabel(timelineLegendActiveLabel);
         UiTheme.styleMutedLabel(timelineLegendIdleLabel);
         UiTheme.styleMutedLabel(timelineLegendExcludedLabel);
 
-        JPanel legendPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        JPanel legendPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 16, 0));
         legendPanel.setOpaque(false);
         legendPanel.add(createLegendItem(timelineLegendActiveSwatch, timelineLegendActiveLabel));
         legendPanel.add(createLegendItem(timelineLegendIdleSwatch, timelineLegendIdleLabel));
-        legendPanel.add(createLegendItem(timelineLegendExcludedSwatch, timelineLegendExcludedLabel));
+        legendPanel.add(timelineLegendExcludedItem);
         return legendPanel;
     }
 
@@ -242,64 +253,18 @@ public final class MainPanel extends JPanel {
         return colorSwatch;
     }
 
-    private static JPanel createVerticalSeparator() {
-        JPanel separatorPanel = new JPanel();
-        separatorPanel.setOpaque(true);
-        separatorPanel.setBackground(UiTheme.BORDER);
-        Dimension separatorSize = new Dimension(1, 14);
-        separatorPanel.setPreferredSize(separatorSize);
-        separatorPanel.setMinimumSize(separatorSize);
-        separatorPanel.setMaximumSize(separatorSize);
-        return separatorPanel;
-    }
-
-    private void styleTimelineSummaryLabels() {
-        float captionFontSize = timelineCaptionLabel.getFont().getSize2D();
-        styleTimelineMetricLabel(
-                timelineActiveDurationLabel,
-                DayActivityTimelinePanel.activeColor(),
-                Font.BOLD,
-                captionFontSize
-        );
-        styleTimelineMetricLabel(
-                timelineIdleDurationLabel,
-                DayActivityTimelinePanel.idleColor(),
-                Font.BOLD,
-                captionFontSize
-        );
-        styleTimelineMetricLabel(
-                timelineActivePercentLabel,
-                DayActivityTimelinePanel.activeColor(),
-                Font.PLAIN,
-                captionFontSize
-        );
-        styleTimelineMetricLabel(
-                timelineIdlePercentLabel,
-                DayActivityTimelinePanel.idleColor(),
-                Font.PLAIN,
-                captionFontSize
-        );
-    }
-
-    private static void styleTimelineMetricLabel(
-            JLabel metricLabel,
-            Color foregroundColor,
-            int fontStyle,
-            float fontSize
-    ) {
-        metricLabel.setForeground(foregroundColor);
-        metricLabel.setFont(metricLabel.getFont().deriveFont(fontStyle, fontSize));
-        metricLabel.setHorizontalAlignment(SwingConstants.CENTER);
+    private static String formatTimelineLegendText(String stateName, String durationText, int percentage) {
+        return stateName + ": " + durationText + " (" + percentage + "%)";
     }
 
     public void retranslate() {
         workTimeCaptionLabel.setText(Messages.get(MessageCodes.UI_MAIN_WORK_TIME));
         timelineCaptionLabel.setText(Messages.get(MessageCodes.UI_MAIN_TIMELINE_TODAY));
-        timelineLegendActiveLabel.setText(Messages.get(MessageCodes.UI_MAIN_TIMELINE_STATE_ACTIVE));
-        timelineLegendIdleLabel.setText(Messages.get(MessageCodes.UI_MAIN_TIMELINE_STATE_IDLE));
-        timelineLegendExcludedLabel.setText(Messages.get(MessageCodes.UI_MAIN_TIMELINE_STATE_EXCLUDED));
         applicationsCaptionLabel.setText(Messages.get(MessageCodes.UI_MAIN_APPLICATIONS_TODAY));
         chartCaptionLabel.setText(Messages.get(MessageCodes.UI_MAIN_USAGE_CHART));
+        chartProgramsModeButton.setText(Messages.get(MessageCodes.UI_MAIN_CHART_MODE_PROGRAMS));
+        chartCategoriesModeButton.setText(Messages.get(MessageCodes.UI_MAIN_CHART_MODE_CATEGORIES));
+        chartActivityModeButton.setText(Messages.get(MessageCodes.UI_MAIN_CHART_MODE_ACTIVITY));
         usagePieChartPanel.setEmptyMessage(Messages.get(MessageCodes.UI_MAIN_NO_APPLICATIONS));
         dayActivityTimelinePanel.setEmptyMessage(Messages.get(MessageCodes.UI_MAIN_NO_APPLICATIONS));
         applicationUsageTableModel.retranslate();
@@ -321,8 +286,10 @@ public final class MainPanel extends JPanel {
         UiTheme.styleMutedLabel(timelineLegendExcludedLabel);
         UiTheme.styleMutedLabel(applicationsCaptionLabel);
         UiTheme.styleMutedLabel(chartCaptionLabel);
+        UiTheme.styleSegmentedToggleButton(chartProgramsModeButton);
+        UiTheme.styleSegmentedToggleButton(chartCategoriesModeButton);
+        UiTheme.styleSegmentedToggleButton(chartActivityModeButton);
         UiTheme.styleTimerLabel(workTimeValueLabel);
-        styleTimelineSummaryLabels();
         UiTheme.styleUsageTable(applicationUsageTable);
         ApplicationUsageTableModel.configureColumnAlignment(applicationUsageTable);
         refresh();
@@ -346,15 +313,32 @@ public final class MainPanel extends JPanel {
 
         long todayActiveSeconds = statisticsService.buildTodayActiveSeconds();
         long todayIdleSeconds = statisticsService.buildTodayIdleSeconds();
-        long todayComputerSeconds = todayActiveSeconds + todayIdleSeconds;
+        long todayExcludedSeconds = statisticsService.buildTodayExcludedSeconds();
+        boolean showExceptionsOnTimeline = userSettings.isShowExceptionsOnTimeline();
+        long todayComputerSeconds = todayActiveSeconds + todayIdleSeconds + todayExcludedSeconds;
         int activePercentage = PercentageCalculator.calculatePercentage(todayActiveSeconds, todayComputerSeconds);
-        int idlePercentage = todayComputerSeconds <= 0L ? 0 : Math.max(0, 100 - activePercentage);
+        int idlePercentage = PercentageCalculator.calculatePercentage(todayIdleSeconds, todayComputerSeconds);
+        int excludedPercentage = todayComputerSeconds <= 0L
+                ? 0
+                : Math.max(0, 100 - activePercentage - idlePercentage);
 
         workTimeValueLabel.setText(DurationFormatter.formatSeconds(todayActiveSeconds));
-        timelineActiveDurationLabel.setText(DurationFormatter.formatSeconds(todayActiveSeconds));
-        timelineIdleDurationLabel.setText(DurationFormatter.formatSeconds(todayIdleSeconds));
-        timelineActivePercentLabel.setText(activePercentage + "%");
-        timelineIdlePercentLabel.setText(idlePercentage + "%");
+        timelineLegendActiveLabel.setText(formatTimelineLegendText(
+                Messages.get(MessageCodes.UI_MAIN_TIMELINE_STATE_ACTIVE),
+                DurationFormatter.formatSeconds(todayActiveSeconds),
+                activePercentage
+        ));
+        timelineLegendIdleLabel.setText(formatTimelineLegendText(
+                Messages.get(MessageCodes.UI_MAIN_TIMELINE_STATE_IDLE),
+                DurationFormatter.formatSeconds(todayIdleSeconds),
+                idlePercentage
+        ));
+        timelineLegendExcludedLabel.setText(formatTimelineLegendText(
+                Messages.get(MessageCodes.UI_MAIN_TIMELINE_STATE_EXCLUDED),
+                DurationFormatter.formatSeconds(todayExcludedSeconds),
+                excludedPercentage
+        ));
+        timelineLegendExcludedItem.setVisible(showExceptionsOnTimeline);
 
         boolean trackingEnabled = trackingEngine.isTrackingEnabled();
         startPauseButton.setText(
@@ -370,15 +354,27 @@ public final class MainPanel extends JPanel {
 
         statusValueLabel.setText(resolveStatusLabelText(trackingEnabled));
 
+        List<ApplicationUsageSummary> todayApplicationUsageSummaries = statisticsService.buildTodayApplicationUsage();
         List<ApplicationUsageGroup> applicationUsageGroups = ApplicationUsageFilter.groupMinorApplicationGroups(
-                ApplicationUsageBrowserGrouper.group(statisticsService.buildTodayApplicationUsage()),
+                ApplicationUsageBrowserGrouper.group(todayApplicationUsageSummaries),
                 userSettings.getMinorUsageThresholdMinutes()
         );
-        List<ApplicationUsageSummary> pieChartSummaries = applicationUsageGroups.stream()
-                .map(ApplicationUsageGroup::toSummary)
-                .collect(Collectors.toList());
         applicationUsageTableModel.setGroups(applicationUsageGroups, todayActiveSeconds);
-        usagePieChartPanel.setUsageData(pieChartSummaries, todayActiveSeconds);
+        updateUsageChart(
+                applicationUsageGroups,
+                todayApplicationUsageSummaries,
+                todayActiveSeconds,
+                todayIdleSeconds,
+                todayExcludedSeconds
+        );
+        suppressChartModeChangeEvents = true;
+        try {
+            chartProgramsModeButton.setSelected(selectedUsageChartMode == UsageChartMode.PROGRAMS);
+            chartCategoriesModeButton.setSelected(selectedUsageChartMode == UsageChartMode.CATEGORIES);
+            chartActivityModeButton.setSelected(selectedUsageChartMode == UsageChartMode.ACTIVITY);
+        } finally {
+            suppressChartModeChangeEvents = false;
+        }
         boolean timelineVisible = userSettings.isTimelineVisible();
         timelinePanel.setVisible(timelineVisible);
         if (timelineVisible) {
@@ -386,6 +382,90 @@ public final class MainPanel extends JPanel {
         }
         ApplicationUsageTableModel.configureColumnAlignment(applicationUsageTable);
         revalidate();
+    }
+
+    private void updateUsageChart(
+            List<ApplicationUsageGroup> applicationUsageGroups,
+            List<ApplicationUsageSummary> todayApplicationUsageSummaries,
+            long todayActiveSeconds,
+            long todayIdleSeconds,
+            long todayExcludedSeconds
+    ) {
+        switch (selectedUsageChartMode) {
+            case PROGRAMS -> {
+                List<ApplicationUsageSummary> programChartSummaries = applicationUsageGroups.stream()
+                        .map(ApplicationUsageGroup::toSummary)
+                        .collect(Collectors.toList());
+                usagePieChartPanel.setUsageData(programChartSummaries, todayActiveSeconds);
+            }
+            case CATEGORIES -> usagePieChartPanel.setUsageData(
+                    buildCategoryChartSummaries(todayApplicationUsageSummaries),
+                    todayActiveSeconds,
+                    null,
+                    false
+            );
+            case ACTIVITY -> {
+                List<ApplicationUsageSummary> activityChartSummaries = new ArrayList<>();
+                List<Color> activitySliceColors = new ArrayList<>();
+                if (todayActiveSeconds > 0L) {
+                    activityChartSummaries.add(new ApplicationUsageSummary(
+                            Messages.get(MessageCodes.UI_MAIN_TIMELINE_STATE_ACTIVE),
+                            todayActiveSeconds
+                    ));
+                    activitySliceColors.add(DayActivityTimelinePanel.activeColor());
+                }
+                if (todayIdleSeconds > 0L) {
+                    activityChartSummaries.add(new ApplicationUsageSummary(
+                            Messages.get(MessageCodes.UI_MAIN_TIMELINE_STATE_IDLE),
+                            todayIdleSeconds
+                    ));
+                    activitySliceColors.add(DayActivityTimelinePanel.idleColor());
+                }
+                if (userSettings.isShowExceptionsOnTimeline() && todayExcludedSeconds > 0L) {
+                    activityChartSummaries.add(new ApplicationUsageSummary(
+                            Messages.get(MessageCodes.UI_MAIN_TIMELINE_STATE_EXCLUDED),
+                            todayExcludedSeconds
+                    ));
+                    activitySliceColors.add(DayActivityTimelinePanel.excludedColor());
+                }
+                long activityTotalSeconds = todayActiveSeconds + todayIdleSeconds
+                        + (userSettings.isShowExceptionsOnTimeline() ? todayExcludedSeconds : 0L);
+                usagePieChartPanel.setUsageData(
+                        activityChartSummaries,
+                        activityTotalSeconds,
+                        activitySliceColors,
+                        false
+                );
+            }
+        }
+    }
+
+    private List<ApplicationUsageSummary> buildCategoryChartSummaries(
+            List<ApplicationUsageSummary> applicationUsageSummaries
+    ) {
+        return applicationUsageSummaries.stream()
+                .collect(Collectors.groupingBy(
+                        applicationUsageSummary -> userSettings.getApplicationCategoryId(
+                                applicationUsageSummary.getApplicationName()
+                        ),
+                        Collectors.summingLong(ApplicationUsageSummary::getDurationSeconds)
+                ))
+                .entrySet().stream()
+                .filter(categoryDurationEntry -> categoryDurationEntry.getValue() > 0L)
+                .sorted(Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder()))
+                .map(categoryDurationEntry -> new ApplicationUsageSummary(
+                        ProgramCategoryDisplayNames.resolveDisplayName(categoryDurationEntry.getKey()),
+                        categoryDurationEntry.getValue()
+                ))
+                .collect(Collectors.toList());
+    }
+
+    private void onUsageChartModeSelected(UsageChartMode usageChartMode) {
+        if (suppressChartModeChangeEvents) {
+            return;
+        }
+        selectedUsageChartMode = usageChartMode;
+        refresh();
     }
 
     private String resolveStatusLabelText(boolean trackingEnabled) {

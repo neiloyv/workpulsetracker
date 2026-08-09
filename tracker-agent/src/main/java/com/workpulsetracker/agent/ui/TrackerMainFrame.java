@@ -1,7 +1,10 @@
 package com.workpulsetracker.agent.ui;
 
 import com.workpulsetracker.agent.api.AgentAccessClient;
+import com.workpulsetracker.agent.api.AgentFeedbackClient;
 import com.workpulsetracker.agent.api.AgentSyncClient;
+import com.workpulsetracker.agent.config.AgentConfig;
+import com.workpulsetracker.agent.feedback.FeedbackSubmitService;
 import com.workpulsetracker.agent.stats.StatisticsService;
 import com.workpulsetracker.agent.storage.ActivityStore;
 import com.workpulsetracker.agent.storage.UserSettings;
@@ -33,6 +36,8 @@ public final class TrackerMainFrame extends JFrame {
     private final PomodoroPanel pomodoroPanel;
     private final SettingsPanel settingsPanel;
     private final AccountPanel accountPanel;
+    private final InfoPanel infoPanel;
+    private final FeedbackPanel feedbackPanel;
     private final UserSettings userSettings;
     private final JTabbedPane tabbedPane = new JTabbedPane();
     private final TrayService trayService;
@@ -47,6 +52,7 @@ public final class TrackerMainFrame extends JFrame {
             ActivityStore activityStore,
             AgentAccessClient agentAccessClient,
             AgentSyncClient agentSyncClient,
+            AgentConfig agentConfig,
             Runnable exitAction
     ) {
         super(Messages.get(MessageCodes.UI_APP_TITLE));
@@ -82,6 +88,16 @@ public final class TrackerMainFrame extends JFrame {
                 trackingEngine,
                 this::onAccountModeOrCredentialsChanged,
                 this::onLocalDataRestored
+        );
+        this.infoPanel = new InfoPanel();
+        AgentFeedbackClient agentFeedbackClient = new AgentFeedbackClient(
+                agentConfig.getServerBaseUrl(),
+                agentAccessClient,
+                userSettingsStore
+        );
+        this.feedbackPanel = new FeedbackPanel(
+                userSettings,
+                new FeedbackSubmitService(agentConfig, agentFeedbackClient)
         );
 
         setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
@@ -125,6 +141,8 @@ public final class TrackerMainFrame extends JFrame {
         tabbedPane.addTab(Messages.get(MessageCodes.UI_TAB_POMODORO), pomodoroPanel);
         tabbedPane.addTab(Messages.get(MessageCodes.UI_TAB_SETTINGS), settingsPanel);
         tabbedPane.addTab(Messages.get(MessageCodes.UI_TAB_ACCOUNT), accountPanel);
+        tabbedPane.addTab(Messages.get(MessageCodes.UI_TAB_INFO), infoPanel);
+        tabbedPane.addTab(Messages.get(MessageCodes.UI_TAB_FEEDBACK), feedbackPanel);
         tabbedPane.addChangeListener(changeEvent -> {
             if (tabbedPane.getSelectedComponent() == statisticsPanel) {
                 statisticsPanel.refresh();
@@ -174,6 +192,7 @@ public final class TrackerMainFrame extends JFrame {
         settingsPanel.reloadFromSettings();
         statisticsPanel.onOperationModeChanged();
         accountPanel.retranslate();
+        feedbackPanel.reloadFromSettings();
         refreshPanels();
     }
 
@@ -187,6 +206,7 @@ public final class TrackerMainFrame extends JFrame {
         pomodoroPanel.reloadFromSettings();
         programsPanel.refresh();
         accountPanel.retranslate();
+        feedbackPanel.reloadFromSettings();
         statisticsPanel.onOperationModeChanged();
         mainPanel.applyAutoStartSetting(userSettings.isAutoStartTracking());
         retranslateUi();
@@ -201,12 +221,16 @@ public final class TrackerMainFrame extends JFrame {
         tabbedPane.setTitleAt(3, Messages.get(MessageCodes.UI_TAB_POMODORO));
         tabbedPane.setTitleAt(4, Messages.get(MessageCodes.UI_TAB_SETTINGS));
         tabbedPane.setTitleAt(5, Messages.get(MessageCodes.UI_TAB_ACCOUNT));
+        tabbedPane.setTitleAt(6, Messages.get(MessageCodes.UI_TAB_INFO));
+        tabbedPane.setTitleAt(7, Messages.get(MessageCodes.UI_TAB_FEEDBACK));
         mainPanel.retranslate();
         statisticsPanel.retranslate();
         programsPanel.retranslate();
         pomodoroPanel.retranslate();
         settingsPanel.retranslate();
         accountPanel.retranslate();
+        infoPanel.retranslate();
+        feedbackPanel.retranslate();
         trayService.retranslate();
     }
 

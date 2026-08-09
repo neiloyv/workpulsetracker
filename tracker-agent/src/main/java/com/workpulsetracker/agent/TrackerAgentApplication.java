@@ -102,6 +102,7 @@ public final class TrackerAgentApplication {
                 activityStore,
                 agentAccessClient,
                 agentSyncClient,
+                agentConfig,
                 exitAction
         );
         trackerMainFrameHolder[0] = trackerMainFrame;

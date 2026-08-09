@@ -35,7 +35,9 @@ import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -144,12 +146,31 @@ public final class ProgramsPanel extends JPanel {
         categoriesHeaderPanel.add(new JScrollPane(categoriesList), BorderLayout.CENTER);
         categoriesHeaderPanel.add(categoryButtonsPanel, BorderLayout.SOUTH);
         categoriesCard.add(categoriesHeaderPanel, BorderLayout.CENTER);
-        categoriesCard.setPreferredSize(new Dimension(260, 0));
 
-        JPanel bodyPanel = new JPanel(new BorderLayout(12, 0));
+        // Предпочтительные размеры обнуляем, чтобы weightx задал ровно 2/3 и 1/3.
+        tableCard.setPreferredSize(new Dimension(0, 0));
+        categoriesCard.setPreferredSize(new Dimension(0, 0));
+
+        JPanel bodyPanel = new JPanel(new GridBagLayout());
         bodyPanel.setOpaque(false);
-        bodyPanel.add(tableCard, BorderLayout.CENTER);
-        bodyPanel.add(categoriesCard, BorderLayout.EAST);
+
+        GridBagConstraints tableConstraints = new GridBagConstraints();
+        tableConstraints.gridx = 0;
+        tableConstraints.gridy = 0;
+        tableConstraints.weightx = 2;
+        tableConstraints.weighty = 1;
+        tableConstraints.fill = GridBagConstraints.BOTH;
+        tableConstraints.insets = new Insets(0, 0, 0, 12);
+        bodyPanel.add(tableCard, tableConstraints);
+
+        GridBagConstraints categoriesConstraints = new GridBagConstraints();
+        categoriesConstraints.gridx = 1;
+        categoriesConstraints.gridy = 0;
+        categoriesConstraints.weightx = 1;
+        categoriesConstraints.weighty = 1;
+        categoriesConstraints.fill = GridBagConstraints.BOTH;
+        categoriesConstraints.insets = new Insets(0, 0, 0, 0);
+        bodyPanel.add(categoriesCard, categoriesConstraints);
 
         add(titleLabel, BorderLayout.NORTH);
         add(bodyPanel, BorderLayout.CENTER);
@@ -436,7 +457,7 @@ public final class ProgramsPanel extends JPanel {
                 int row,
                 int column
         ) {
-            String categoryId = Objects.nonNull(value) ? String.valueOf(value) : ProgramCategoryIds.OTHER;
+            String categoryId = Objects.nonNull(value) ? String.valueOf(value) : ProgramCategoryIds.WORK;
             adjustingSelection = true;
             try {
                 IntStream.range(0, categoryComboBox.getItemCount())
@@ -462,7 +483,7 @@ public final class ProgramsPanel extends JPanel {
             if (selectedItem instanceof CategoryItem categoryItem) {
                 return categoryItem.categoryId();
             }
-            return ProgramCategoryIds.OTHER;
+            return ProgramCategoryIds.WORK;
         }
     }
 
@@ -484,7 +505,7 @@ public final class ProgramsPanel extends JPanel {
                     row,
                     column
             );
-            String categoryId = Objects.nonNull(value) ? String.valueOf(value) : ProgramCategoryIds.OTHER;
+            String categoryId = Objects.nonNull(value) ? String.valueOf(value) : ProgramCategoryIds.WORK;
             label.setText(ProgramCategoryDisplayNames.resolveDisplayName(categoryId));
             return label;
         }

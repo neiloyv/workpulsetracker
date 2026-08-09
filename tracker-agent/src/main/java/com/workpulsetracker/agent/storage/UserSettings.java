@@ -39,6 +39,7 @@ public final class UserSettings {
     private Boolean launchAtLogin = true;
     private Integer minorUsageThresholdMinutes = 5;
     private Boolean timelineVisible = true;
+    private Boolean showExceptionsOnTimeline = true;
     private Boolean minimizeToTray = true;
     private String lastReportDirectoryPath;
     private String lastBackupDirectoryPath;
@@ -47,13 +48,15 @@ public final class UserSettings {
     private Integer pomodoroShortBreakMinutes = 5;
     private Integer pomodoroLongBreakMinutes = 15;
     private Integer pomodoroSessionsUntilLongBreak = 4;
+    private Boolean pomodoroTrayNotifications = true;
+    private Boolean pomodoroConfirmationDialogs = true;
     /**
      * Пользовательские категории программ (дефолтные хранятся в коде, не здесь).
      */
     private List<String> customProgramCategories = new ArrayList<>();
     /**
      * Категория по ключу программы ({@link ProgramApplicationKeyResolver}).
-     * Отсутствующий ключ = {@link ProgramCategoryIds#OTHER}.
+     * Отсутствующий ключ = {@link ProgramCategoryIds#WORK}.
      */
     private Map<String, String> applicationCategoryByKey = new LinkedHashMap<>();
     /**
@@ -202,6 +205,14 @@ public final class UserSettings {
         this.timelineVisible = timelineVisible;
     }
 
+    public boolean isShowExceptionsOnTimeline() {
+        return Objects.isNull(showExceptionsOnTimeline) || showExceptionsOnTimeline;
+    }
+
+    public void setShowExceptionsOnTimeline(boolean showExceptionsOnTimeline) {
+        this.showExceptionsOnTimeline = showExceptionsOnTimeline;
+    }
+
     public boolean isMinimizeToTray() {
         return Objects.isNull(minimizeToTray) || minimizeToTray;
     }
@@ -273,6 +284,22 @@ public final class UserSettings {
         this.pomodoroSessionsUntilLongBreak = Math.max(1, Math.min(pomodoroSessionsUntilLongBreak, 12));
     }
 
+    public boolean isPomodoroTrayNotifications() {
+        return Objects.isNull(pomodoroTrayNotifications) || pomodoroTrayNotifications;
+    }
+
+    public void setPomodoroTrayNotifications(boolean pomodoroTrayNotifications) {
+        this.pomodoroTrayNotifications = pomodoroTrayNotifications;
+    }
+
+    public boolean isPomodoroConfirmationDialogs() {
+        return Objects.isNull(pomodoroConfirmationDialogs) || pomodoroConfirmationDialogs;
+    }
+
+    public void setPomodoroConfirmationDialogs(boolean pomodoroConfirmationDialogs) {
+        this.pomodoroConfirmationDialogs = pomodoroConfirmationDialogs;
+    }
+
     public List<String> getCustomProgramCategories() {
         if (Objects.isNull(customProgramCategories)) {
             customProgramCategories = new ArrayList<>();
@@ -330,14 +357,14 @@ public final class UserSettings {
         String programKey = ProgramApplicationKeyResolver.resolveProgramKey(applicationNameOrKey);
         String categoryId = getApplicationCategoryByKey().get(programKey);
         if (StringUtils.isBlank(categoryId)) {
-            return ProgramCategoryIds.OTHER;
+            return ProgramCategoryIds.WORK;
         }
         if (ProgramCategoryIds.isDefaultCategoryId(categoryId)) {
             return ProgramCategoryIds.normalizeDefaultCategoryId(categoryId);
         }
         boolean categoryExists = listAllProgramCategoryIds().stream()
                 .anyMatch(existingCategoryId -> existingCategoryId.equalsIgnoreCase(categoryId.trim()));
-        return categoryExists ? categoryId.trim() : ProgramCategoryIds.OTHER;
+        return categoryExists ? categoryId.trim() : ProgramCategoryIds.WORK;
     }
 
     public void setApplicationCategoryId(String applicationNameOrKey, String categoryId) {
@@ -477,6 +504,7 @@ public final class UserSettings {
         setLaunchAtLogin(sourceUserSettings.isLaunchAtLogin());
         setMinorUsageThresholdMinutes(sourceUserSettings.getMinorUsageThresholdMinutes());
         setTimelineVisible(sourceUserSettings.isTimelineVisible());
+        setShowExceptionsOnTimeline(sourceUserSettings.isShowExceptionsOnTimeline());
         setMinimizeToTray(sourceUserSettings.isMinimizeToTray());
         setLastReportDirectoryPath(sourceUserSettings.getLastReportDirectoryPath());
         setLastBackupDirectoryPath(sourceUserSettings.getLastBackupDirectoryPath());
@@ -485,6 +513,8 @@ public final class UserSettings {
         setPomodoroShortBreakMinutes(sourceUserSettings.getPomodoroShortBreakMinutes());
         setPomodoroLongBreakMinutes(sourceUserSettings.getPomodoroLongBreakMinutes());
         setPomodoroSessionsUntilLongBreak(sourceUserSettings.getPomodoroSessionsUntilLongBreak());
+        setPomodoroTrayNotifications(sourceUserSettings.isPomodoroTrayNotifications());
+        setPomodoroConfirmationDialogs(sourceUserSettings.isPomodoroConfirmationDialogs());
         setCustomProgramCategories(sourceUserSettings.getCustomProgramCategories());
         setApplicationCategoryByKey(sourceUserSettings.getApplicationCategoryByKey());
         setApplicationTrackedByKey(sourceUserSettings.getApplicationTrackedByKey());

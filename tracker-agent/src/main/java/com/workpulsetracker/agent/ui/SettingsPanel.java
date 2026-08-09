@@ -56,11 +56,14 @@ public final class SettingsPanel extends JPanel {
     private final JLabel minorThresholdHintLabel = new JLabel();
     private final JLabel timelineVisibleTitleLabel = new JLabel();
     private final JLabel timelineVisibleHintLabel = new JLabel();
+    private final JLabel showExceptionsOnTimelineTitleLabel = new JLabel();
+    private final JLabel showExceptionsOnTimelineHintLabel = new JLabel();
     private final JComboBox<LanguageItem> languageComboBox = new JComboBox<>();
     private final JCheckBox launchAtLoginToggle = new JCheckBox();
     private final JCheckBox autoStartToggle = new JCheckBox();
     private final JCheckBox minimizeToTrayToggle = new JCheckBox();
     private final JCheckBox timelineVisibleToggle = new JCheckBox();
+    private final JCheckBox showExceptionsOnTimelineToggle = new JCheckBox();
     private final JSpinner minorThresholdSpinner = new JSpinner(
             new SpinnerNumberModel(ApplicationUsageFilter.DEFAULT_MINOR_USAGE_THRESHOLD_MINUTES, 0, 24 * 60, 1)
     );
@@ -141,6 +144,11 @@ public final class SettingsPanel extends JPanel {
         UiTheme.styleToggleSwitch(timelineVisibleToggle);
         timelineVisibleToggle.addActionListener(actionEvent -> onTimelineVisibleChanged());
 
+        showExceptionsOnTimelineTitleLabel.setForeground(UiTheme.TEXT_PRIMARY);
+        UiTheme.styleMutedLabel(showExceptionsOnTimelineHintLabel);
+        UiTheme.styleToggleSwitch(showExceptionsOnTimelineToggle);
+        showExceptionsOnTimelineToggle.addActionListener(actionEvent -> onShowExceptionsOnTimelineChanged());
+
         generalCard.add(generalTitleLabel);
         generalCard.add(Box.createVerticalStrut(14));
         generalCard.add(languageLabel);
@@ -175,6 +183,11 @@ public final class SettingsPanel extends JPanel {
         trackingCard.add(createSettingRow(
                 createStackedTextPanel(timelineVisibleTitleLabel, timelineVisibleHintLabel),
                 timelineVisibleToggle
+        ));
+        trackingCard.add(Box.createVerticalStrut(14));
+        trackingCard.add(createSettingRow(
+                createStackedTextPanel(showExceptionsOnTimelineTitleLabel, showExceptionsOnTimelineHintLabel),
+                showExceptionsOnTimelineToggle
         ));
         trackingCard.add(Box.createVerticalGlue());
 
@@ -247,6 +260,10 @@ public final class SettingsPanel extends JPanel {
         minorThresholdHintLabel.setText(wrapHintHtml(Messages.get(MessageCodes.UI_SETTINGS_MINOR_THRESHOLD_HINT)));
         timelineVisibleTitleLabel.setText(Messages.get(MessageCodes.UI_SETTINGS_TIMELINE_VISIBLE));
         timelineVisibleHintLabel.setText(wrapHintHtml(Messages.get(MessageCodes.UI_SETTINGS_TIMELINE_VISIBLE_HINT)));
+        showExceptionsOnTimelineTitleLabel.setText(Messages.get(MessageCodes.UI_SETTINGS_SHOW_EXCEPTIONS_ON_TIMELINE));
+        showExceptionsOnTimelineHintLabel.setText(
+                wrapHintHtml(Messages.get(MessageCodes.UI_SETTINGS_SHOW_EXCEPTIONS_ON_TIMELINE_HINT))
+        );
         languageComboBox.repaint();
     }
 
@@ -262,16 +279,19 @@ public final class SettingsPanel extends JPanel {
         minimizeToTrayTitleLabel.setForeground(UiTheme.TEXT_PRIMARY);
         minorThresholdLabel.setForeground(UiTheme.TEXT_PRIMARY);
         timelineVisibleTitleLabel.setForeground(UiTheme.TEXT_PRIMARY);
+        showExceptionsOnTimelineTitleLabel.setForeground(UiTheme.TEXT_PRIMARY);
         UiTheme.styleMutedLabel(languageLabel);
         UiTheme.styleMutedLabel(launchAtLoginHintLabel);
         UiTheme.styleMutedLabel(autoStartHintLabel);
         UiTheme.styleMutedLabel(minimizeToTrayHintLabel);
         UiTheme.styleMutedLabel(minorThresholdHintLabel);
         UiTheme.styleMutedLabel(timelineVisibleHintLabel);
+        UiTheme.styleMutedLabel(showExceptionsOnTimelineHintLabel);
         UiTheme.styleToggleSwitch(launchAtLoginToggle);
         UiTheme.styleToggleSwitch(autoStartToggle);
         UiTheme.styleToggleSwitch(minimizeToTrayToggle);
         UiTheme.styleToggleSwitch(timelineVisibleToggle);
+        UiTheme.styleToggleSwitch(showExceptionsOnTimelineToggle);
     }
 
     public void reloadFromSettings() {
@@ -282,6 +302,7 @@ public final class SettingsPanel extends JPanel {
             autoStartToggle.setSelected(userSettings.isAutoStartTracking());
             minimizeToTrayToggle.setSelected(userSettings.isMinimizeToTray());
             timelineVisibleToggle.setSelected(userSettings.isTimelineVisible());
+            showExceptionsOnTimelineToggle.setSelected(userSettings.isShowExceptionsOnTimeline());
             minorThresholdSpinner.setValue(userSettings.getMinorUsageThresholdMinutes());
         } finally {
             suppressChangeEvents = false;
@@ -355,6 +376,15 @@ public final class SettingsPanel extends JPanel {
             return;
         }
         userSettings.setTimelineVisible(timelineVisibleToggle.isSelected());
+        userSettingsStore.save(userSettings);
+        settingsChangedListener.run();
+    }
+
+    private void onShowExceptionsOnTimelineChanged() {
+        if (suppressChangeEvents) {
+            return;
+        }
+        userSettings.setShowExceptionsOnTimeline(showExceptionsOnTimelineToggle.isSelected());
         userSettingsStore.save(userSettings);
         settingsChangedListener.run();
     }

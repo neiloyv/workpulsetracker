@@ -17,7 +17,7 @@ public final class ProgramCategoryDisplayNames {
 
     public static String resolveDisplayName(String categoryId) {
         if (StringUtils.isBlank(categoryId)) {
-            return Messages.get(MessageCodes.UI_PROGRAMS_CATEGORY_OTHER);
+            return Messages.get(MessageCodes.UI_PROGRAMS_CATEGORY_WORK);
         }
         String normalizedCategoryId = ProgramCategoryIds.normalizeDefaultCategoryId(categoryId.trim());
         if (ProgramCategoryIds.WORK.equals(normalizedCategoryId)) {

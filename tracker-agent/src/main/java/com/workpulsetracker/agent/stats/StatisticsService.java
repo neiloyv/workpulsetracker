@@ -409,7 +409,23 @@ public final class StatisticsService {
     public long buildTodayIdleSeconds() {
         InstantRange dayRange = resolveInstantRange(StatsPeriod.DAY, LocalDate.now(zoneId), null, null);
         return collectClippedTimelineIntervals(dayRange).stream()
-                .filter(ActivityInterval::isIdle)
+                .filter(this::countsAsIdleForTimelineMetrics)
+                .mapToLong(ActivityInterval::getDurationSeconds)
+                .sum();
+    }
+
+    /**
+     * Время сегодня в программах с Track OFF (виняток / exception на таймлайне).
+     * При выключенном показе исключений возвращает 0 — это время уже входит в Idle.
+     */
+    public long buildTodayExcludedSeconds() {
+        if (!userSettings.isShowExceptionsOnTimeline()) {
+            return 0L;
+        }
+        InstantRange dayRange = resolveInstantRange(StatsPeriod.DAY, LocalDate.now(zoneId), null, null);
+        return collectClippedTimelineIntervals(dayRange).stream()
+                .filter(activityInterval -> !activityInterval.isIdle())
+                .filter(activityInterval -> !userSettings.isApplicationTracked(activityInterval.getApplicationName()))
                 .mapToLong(ActivityInterval::getDurationSeconds)
                 .sum();
     }
@@ -518,9 +534,19 @@ public final class StatisticsService {
             return DayActivityState.IDLE;
         }
         if (!userSettings.isApplicationTracked(activityInterval.getApplicationName())) {
-            return DayActivityState.EXCLUDED;
+            return userSettings.isShowExceptionsOnTimeline()
+                    ? DayActivityState.EXCLUDED
+                    : DayActivityState.IDLE;
         }
         return DayActivityState.ACTIVE;
+    }
+
+    private boolean countsAsIdleForTimelineMetrics(ActivityInterval activityInterval) {
+        if (activityInterval.isIdle()) {
+            return true;
+        }
+        return !userSettings.isShowExceptionsOnTimeline()
+                && !userSettings.isApplicationTracked(activityInterval.getApplicationName());
     }
 
     private boolean canMergeTimelineStateIntervals(

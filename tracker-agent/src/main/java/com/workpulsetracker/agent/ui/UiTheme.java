@@ -174,6 +174,19 @@ public final class UiTheme {
                         + "margin: 6,14,6,14");
     }
 
+    public static void styleSegmentedToggleButton(javax.swing.JToggleButton toggleButton) {
+        toggleButton.setFocusPainted(false);
+        toggleButton.putClientProperty(FlatClientProperties.STYLE,
+                "arc: 999;"
+                        + "background: #141422;"
+                        + "foreground: #EDEDF6;"
+                        + "borderColor: #2F2F47;"
+                        + "selectedBackground: #7458FF;"
+                        + "selectedForeground: #FFFFFF;"
+                        + "hoverBackground: #1A1A2B;"
+                        + "margin: 6,14,6,14");
+    }
+
     public static void styleToggleSwitch(javax.swing.JCheckBox checkBox) {
         checkBox.setOpaque(false);
         checkBox.setFocusPainted(false);

@@ -12,6 +12,7 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSpinner;
@@ -44,6 +45,11 @@ public final class PomodoroPanel extends JPanel {
     private final JLabel enableLabel = new JLabel();
     private final JLabel enableHintLabel = new JLabel();
     private final JCheckBox enableToggle = new JCheckBox();
+    private final JLabel trayNotificationsLabel = new JLabel();
+    private final JCheckBox trayNotificationsToggle = new JCheckBox();
+    private final JLabel confirmationDialogsLabel = new JLabel();
+    private final JLabel confirmationDialogsHintLabel = new JLabel();
+    private final JCheckBox confirmationDialogsToggle = new JCheckBox();
     private final JLabel workMinutesLabel = new JLabel();
     private final JLabel shortBreakLabel = new JLabel();
     private final JLabel longBreakLabel = new JLabel();
@@ -94,15 +100,22 @@ public final class PomodoroPanel extends JPanel {
         UiTheme.styleToggleSwitch(enableToggle);
         enableToggle.addActionListener(actionEvent -> onEnableChanged());
 
-        JPanel enableRow = new JPanel(new BorderLayout(12, 0));
-        enableRow.setOpaque(false);
-        enableRow.setAlignmentX(Component.LEFT_ALIGNMENT);
-        enableRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 72));
-        enableRow.add(createStackedTextPanel(enableLabel, enableHintLabel), BorderLayout.CENTER);
-        JPanel enableToggleWrapper = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
-        enableToggleWrapper.setOpaque(false);
-        enableToggleWrapper.add(enableToggle);
-        enableRow.add(enableToggleWrapper, BorderLayout.EAST);
+        trayNotificationsLabel.setForeground(UiTheme.TEXT_PRIMARY);
+        UiTheme.styleToggleSwitch(trayNotificationsToggle);
+        trayNotificationsToggle.addActionListener(actionEvent -> onTrayNotificationsChanged());
+
+        confirmationDialogsLabel.setForeground(UiTheme.TEXT_PRIMARY);
+        UiTheme.styleMutedLabel(confirmationDialogsHintLabel);
+        UiTheme.styleToggleSwitch(confirmationDialogsToggle);
+        confirmationDialogsToggle.addActionListener(actionEvent -> onConfirmationDialogsChanged());
+
+        JPanel enableRow = createToggleRow(createStackedTextPanel(enableLabel, enableHintLabel), enableToggle, 72);
+        JPanel trayNotificationsRow = createToggleRow(trayNotificationsLabel, trayNotificationsToggle, 36);
+        JPanel confirmationDialogsRow = createToggleRow(
+                createStackedTextPanel(confirmationDialogsLabel, confirmationDialogsHintLabel),
+                confirmationDialogsToggle,
+                72
+        );
 
         workMinutesLabel.setForeground(UiTheme.TEXT_PRIMARY);
         shortBreakLabel.setForeground(UiTheme.TEXT_PRIMARY);
@@ -127,6 +140,10 @@ public final class PomodoroPanel extends JPanel {
         durationsStackPanel.add(createCompactDurationCell(sessionsUntilLongBreakLabel, sessionsUntilLongBreakSpinner));
 
         settingsCard.add(enableRow);
+        settingsCard.add(Box.createVerticalStrut(10));
+        settingsCard.add(trayNotificationsRow);
+        settingsCard.add(Box.createVerticalStrut(10));
+        settingsCard.add(confirmationDialogsRow);
         settingsCard.add(Box.createVerticalStrut(14));
         settingsCard.add(createDivider());
         settingsCard.add(Box.createVerticalStrut(14));
@@ -245,6 +262,8 @@ public final class PomodoroPanel extends JPanel {
         suppressChangeEvents = true;
         try {
             enableToggle.setSelected(userSettings.isPomodoroEnabled());
+            trayNotificationsToggle.setSelected(userSettings.isPomodoroTrayNotifications());
+            confirmationDialogsToggle.setSelected(userSettings.isPomodoroConfirmationDialogs());
             workMinutesSpinner.setValue(userSettings.getPomodoroWorkMinutes());
             shortBreakSpinner.setValue(userSettings.getPomodoroShortBreakMinutes());
             longBreakSpinner.setValue(userSettings.getPomodoroLongBreakMinutes());
@@ -272,6 +291,11 @@ public final class PomodoroPanel extends JPanel {
         enableHintLabel.setText("<html><body style='width:180px'>"
                 + Messages.get(MessageCodes.UI_POMODORO_ENABLE_HINT)
                 + "</body></html>");
+        trayNotificationsLabel.setText(Messages.get(MessageCodes.UI_POMODORO_TRAY_NOTIFICATIONS));
+        confirmationDialogsLabel.setText(Messages.get(MessageCodes.UI_POMODORO_CONFIRMATION_DIALOGS));
+        confirmationDialogsHintLabel.setText("<html><body style='width:180px'>"
+                + Messages.get(MessageCodes.UI_POMODORO_CONFIRMATION_DIALOGS_HINT)
+                + "</body></html>");
         workMinutesLabel.setText(formatDurationLabel(Messages.get(MessageCodes.UI_POMODORO_WORK)));
         shortBreakLabel.setText(formatDurationLabel(Messages.get(MessageCodes.UI_POMODORO_SHORT_BREAK)));
         longBreakLabel.setText(formatDurationLabel(Messages.get(MessageCodes.UI_POMODORO_LONG_BREAK)));
@@ -290,15 +314,20 @@ public final class PomodoroPanel extends JPanel {
         UiTheme.styleSurfaceCard(timerCard);
         titleLabel.setForeground(UiTheme.TEXT_PRIMARY);
         enableLabel.setForeground(UiTheme.TEXT_PRIMARY);
+        trayNotificationsLabel.setForeground(UiTheme.TEXT_PRIMARY);
+        confirmationDialogsLabel.setForeground(UiTheme.TEXT_PRIMARY);
         workMinutesLabel.setForeground(UiTheme.TEXT_PRIMARY);
         shortBreakLabel.setForeground(UiTheme.TEXT_PRIMARY);
         longBreakLabel.setForeground(UiTheme.TEXT_PRIMARY);
         sessionsUntilLongBreakLabel.setForeground(UiTheme.TEXT_PRIMARY);
         timerLabel.setForeground(UiTheme.TEXT_PRIMARY);
         UiTheme.styleMutedLabel(enableHintLabel);
+        UiTheme.styleMutedLabel(confirmationDialogsHintLabel);
         UiTheme.styleMutedLabel(phaseLabel);
         UiTheme.styleMutedLabel(completedTodayLabel);
         UiTheme.styleToggleSwitch(enableToggle);
+        UiTheme.styleToggleSwitch(trayNotificationsToggle);
+        UiTheme.styleToggleSwitch(confirmationDialogsToggle);
         refresh();
     }
 
@@ -353,6 +382,22 @@ public final class PomodoroPanel extends JPanel {
         pomodoroEngine.setFeatureEnabled(enabled);
     }
 
+    private void onTrayNotificationsChanged() {
+        if (suppressChangeEvents) {
+            return;
+        }
+        userSettings.setPomodoroTrayNotifications(trayNotificationsToggle.isSelected());
+        userSettingsStore.save(userSettings);
+    }
+
+    private void onConfirmationDialogsChanged() {
+        if (suppressChangeEvents) {
+            return;
+        }
+        userSettings.setPomodoroConfirmationDialogs(confirmationDialogsToggle.isSelected());
+        userSettingsStore.save(userSettings);
+    }
+
     private void onDurationsChanged() {
         if (suppressChangeEvents) {
             return;
@@ -385,8 +430,12 @@ public final class PomodoroPanel extends JPanel {
             case SHORT_BREAK -> Messages.get(MessageCodes.UI_POMODORO_NOTIFY_SHORT_BREAK_DONE);
             case LONG_BREAK -> Messages.get(MessageCodes.UI_POMODORO_NOTIFY_LONG_BREAK_DONE);
         };
-        notificationPublisher.accept(caption, message);
-        SwingUtilities.invokeLater(() -> showPhaseAlert(caption, message));
+        if (userSettings.isPomodoroTrayNotifications()) {
+            notificationPublisher.accept(caption, message);
+        }
+        if (userSettings.isPomodoroConfirmationDialogs()) {
+            SwingUtilities.invokeLater(() -> showPhaseAlert(caption, message));
+        }
     }
 
     private void showPhaseAlert(String caption, String message) {
@@ -418,6 +467,19 @@ public final class PomodoroPanel extends JPanel {
             case SHORT_BREAK -> Messages.get(MessageCodes.UI_POMODORO_PHASE_SHORT_BREAK);
             case LONG_BREAK -> Messages.get(MessageCodes.UI_POMODORO_PHASE_LONG_BREAK);
         };
+    }
+
+    private JPanel createToggleRow(JComponent leftComponent, JCheckBox toggle, int maxHeight) {
+        JPanel rowPanel = new JPanel(new BorderLayout(12, 0));
+        rowPanel.setOpaque(false);
+        rowPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        rowPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, maxHeight));
+        rowPanel.add(leftComponent, BorderLayout.CENTER);
+        JPanel toggleWrapper = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        toggleWrapper.setOpaque(false);
+        toggleWrapper.add(toggle);
+        rowPanel.add(toggleWrapper, BorderLayout.EAST);
+        return rowPanel;
     }
 
     private JPanel createCompactDurationCell(JLabel label, JSpinner spinner) {

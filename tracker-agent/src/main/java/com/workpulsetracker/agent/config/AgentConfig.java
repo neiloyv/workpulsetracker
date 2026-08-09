@@ -22,6 +22,7 @@ public final class AgentConfig {
     private static final long DEFAULT_FOCUS_POLL_INTERVAL_SECONDS = 10L;
     private static final long DEFAULT_TELEMETRY_UPLOAD_INTERVAL_SECONDS = 60L;
     private static final String DEFAULT_SERVER_BASE_URL = "http://localhost:8080";
+    private static final String DEFAULT_SUPPORT_EMAIL = "workpulsetracker@gmail.com";
 
     private final AppLanguage language;
     private final long idleTimeoutSeconds;
@@ -29,6 +30,7 @@ public final class AgentConfig {
     private final long focusPollIntervalSeconds;
     private final String serverBaseUrl;
     private final long telemetryUploadIntervalSeconds;
+    private final String supportEmail;
 
     private AgentConfig(
             AppLanguage language,
@@ -36,7 +38,8 @@ public final class AgentConfig {
             long idleCheckIntervalSeconds,
             long focusPollIntervalSeconds,
             String serverBaseUrl,
-            long telemetryUploadIntervalSeconds
+            long telemetryUploadIntervalSeconds,
+            String supportEmail
     ) {
         this.language = language;
         this.idleTimeoutSeconds = idleTimeoutSeconds;
@@ -44,6 +47,7 @@ public final class AgentConfig {
         this.focusPollIntervalSeconds = focusPollIntervalSeconds;
         this.serverBaseUrl = serverBaseUrl;
         this.telemetryUploadIntervalSeconds = telemetryUploadIntervalSeconds;
+        this.supportEmail = supportEmail;
     }
 
     public static AgentConfig load() {
@@ -81,6 +85,7 @@ public final class AgentConfig {
                 DEFAULT_TELEMETRY_UPLOAD_INTERVAL_SECONDS
         );
         String serverBaseUrl = resolveServerBaseUrl(properties.getProperty("server.base-url"));
+        String supportEmail = resolveSupportEmail(properties.getProperty("support.email"));
 
         AgentConfig agentConfig = new AgentConfig(
                 language,
@@ -88,16 +93,18 @@ public final class AgentConfig {
                 idleCheckIntervalSeconds,
                 focusPollIntervalSeconds,
                 serverBaseUrl,
-                telemetryUploadIntervalSeconds
+                telemetryUploadIntervalSeconds,
+                supportEmail
         );
         logger.info(
-                "Configuration loaded: language={}, idleTimeout={}s, idleCheck={}s, focusPoll={}s, serverBaseUrl={}, telemetryUpload={}s",
+                "Configuration loaded: language={}, idleTimeout={}s, idleCheck={}s, focusPoll={}s, serverBaseUrl={}, telemetryUpload={}s, supportEmail={}",
                 language.getCode(),
                 idleTimeoutSeconds,
                 idleCheckIntervalSeconds,
                 focusPollIntervalSeconds,
                 serverBaseUrl,
-                telemetryUploadIntervalSeconds
+                telemetryUploadIntervalSeconds,
+                supportEmail
         );
         return agentConfig;
     }
@@ -111,6 +118,13 @@ public final class AgentConfig {
             trimmedBaseUrl = trimmedBaseUrl.substring(0, trimmedBaseUrl.length() - 1);
         }
         return trimmedBaseUrl;
+    }
+
+    private static String resolveSupportEmail(String configuredSupportEmail) {
+        if (StringUtils.isBlank(configuredSupportEmail)) {
+            return DEFAULT_SUPPORT_EMAIL;
+        }
+        return configuredSupportEmail.trim().toLowerCase();
     }
 
     private static long resolveLong(Properties properties, String propertyName, long defaultValue) {
@@ -153,5 +167,9 @@ public final class AgentConfig {
 
     public long getTelemetryUploadIntervalSeconds() {
         return telemetryUploadIntervalSeconds;
+    }
+
+    public String getSupportEmail() {
+        return supportEmail;
     }
 }

@@ -46,8 +46,22 @@ public final class ApplicationUsageMatrixTableModel extends AbstractTableModel {
     }
 
     public void retranslate() {
-        applicationColumnName = Messages.get(MessageCodes.UI_TABLE_APPLICATION);
         periodTotalColumnName = Messages.get(MessageCodes.UI_TABLE_TOTAL);
+    }
+
+    /**
+     * @return {@code true}, если изменилось имя первой колонки
+     */
+    public boolean setFirstColumnName(String firstColumnName) {
+        String resolvedFirstColumnName = Objects.requireNonNullElseGet(
+                firstColumnName,
+                () -> Messages.get(MessageCodes.UI_TABLE_APPLICATION)
+        );
+        if (Objects.equals(this.applicationColumnName, resolvedFirstColumnName)) {
+            return false;
+        }
+        this.applicationColumnName = resolvedFirstColumnName;
+        return true;
     }
 
     public boolean isTotalRow(int rowIndex) {

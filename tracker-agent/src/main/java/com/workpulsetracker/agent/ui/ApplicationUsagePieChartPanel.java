@@ -32,7 +32,9 @@ public final class ApplicationUsagePieChartPanel extends JPanel {
     private static final int MIN_LABEL_PERCENTAGE = 4;
 
     private List<ApplicationUsageSummary> applicationUsageSummaries = Collections.emptyList();
+    private List<Color> sliceColors = Collections.emptyList();
     private long totalActiveSeconds;
+    private boolean resolveApplicationDisplayNames = true;
     private String emptyMessage = Messages.get(MessageCodes.UI_MAIN_NO_APPLICATIONS);
 
     public ApplicationUsagePieChartPanel() {
@@ -40,10 +42,21 @@ public final class ApplicationUsagePieChartPanel extends JPanel {
     }
 
     public void setUsageData(List<ApplicationUsageSummary> applicationUsageSummaries, long totalActiveSeconds) {
+        setUsageData(applicationUsageSummaries, totalActiveSeconds, null, true);
+    }
+
+    public void setUsageData(
+            List<ApplicationUsageSummary> applicationUsageSummaries,
+            long totalActiveSeconds,
+            List<Color> sliceColors,
+            boolean resolveApplicationDisplayNames
+    ) {
         this.applicationUsageSummaries = Objects.isNull(applicationUsageSummaries)
                 ? Collections.emptyList()
                 : List.copyOf(applicationUsageSummaries);
         this.totalActiveSeconds = Math.max(totalActiveSeconds, 0L);
+        this.sliceColors = Objects.isNull(sliceColors) ? Collections.emptyList() : List.copyOf(sliceColors);
+        this.resolveApplicationDisplayNames = resolveApplicationDisplayNames;
         repaint();
     }
 
@@ -106,13 +119,18 @@ public final class ApplicationUsagePieChartPanel extends JPanel {
 
         return IntStream.range(0, positiveSummaries.size())
                 .filter(index -> percentages.get(index) > 0)
-                .mapToObj(index -> new Slice(
-                        ApplicationDisplayNameResolver.resolveDisplayName(
-                                positiveSummaries.get(index).getApplicationName()
-                        ),
-                        percentages.get(index),
-                        ApplicationUsageColorPalette.colorForIndex(index)
-                ))
+                .mapToObj(index -> {
+                    ApplicationUsageSummary applicationUsageSummary = positiveSummaries.get(index);
+                    String sliceLabel = resolveApplicationDisplayNames
+                            ? ApplicationDisplayNameResolver.resolveDisplayName(
+                                    applicationUsageSummary.getApplicationName()
+                            )
+                            : applicationUsageSummary.getApplicationName();
+                    Color sliceColor = index < sliceColors.size()
+                            ? sliceColors.get(index)
+                            : ApplicationUsageColorPalette.colorForIndex(index);
+                    return new Slice(sliceLabel, percentages.get(index), sliceColor);
+                })
                 .collect(Collectors.toList());
     }
 
