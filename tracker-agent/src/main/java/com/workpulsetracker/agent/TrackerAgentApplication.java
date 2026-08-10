@@ -13,10 +13,13 @@ import com.workpulsetracker.agent.storage.UserSettings;
 import com.workpulsetracker.agent.storage.UserSettingsStore;
 import com.workpulsetracker.agent.tracking.TrackingEngine;
 import com.workpulsetracker.agent.ui.ActivationDialog;
+import com.workpulsetracker.agent.ui.StartupFailureDialogs;
 import com.workpulsetracker.agent.ui.TrackerMainFrame;
 import com.workpulsetracker.agent.ui.UiTheme;
+import com.workpulsetracker.agent.util.JNativeHookLibraryBootstrap;
 import com.workpulsetracker.agent.util.WindowsLaunchAtLoginService;
 import com.workpulsetracker.common.i18n.UserLocaleContext;
+import ch.qos.logback.classic.LoggerContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,19 +37,35 @@ public final class TrackerAgentApplication {
     }
 
     public static void main(String[] args) {
+        JNativeHookLibraryBootstrap.configureLibraryPath();
+        Thread.setDefaultUncaughtExceptionHandler((thread, throwable) ->
+                logger.error(
+                        "schema=local Uncaught exception in thread {}: {}",
+                        thread.getName(),
+                        throwable.getMessage(),
+                        throwable
+                )
+        );
         UiTheme.install();
 
         SwingUtilities.invokeLater(() -> {
             try {
                 startApplication();
-            } catch (Exception exception) {
-                logger.error("Failed to start the tracker agent: {}", exception.getMessage(), exception);
+            } catch (Throwable throwable) {
+                logger.error(
+                        "schema=local Failed to start the tracker agent: {}",
+                        throwable.getMessage(),
+                        throwable
+                );
+                flushLogs();
+                StartupFailureDialogs.showStartupFailure(null, throwable);
                 System.exit(1);
             }
         });
     }
 
     private static void startApplication() {
+        logger.info("schema=local Starting tracker agent UI bootstrap");
         AgentConfig agentConfig = AgentConfig.load();
         UserSettingsStore userSettingsStore = new UserSettingsStore();
         UserSettings userSettings = userSettingsStore.loadOrCreateDefault();
@@ -74,6 +93,7 @@ public final class TrackerAgentApplication {
         );
 
         DataBuffer dataBuffer = DataBuffer.getInstance();
+        logger.info("schema=local Creating tracking engine");
         TrackingEngine trackingEngine = new TrackingEngine(
                 agentConfig,
                 dataBuffer,
@@ -94,6 +114,7 @@ public final class TrackerAgentApplication {
             shutdown(trackingEngine);
         };
 
+        logger.info("schema=local Creating main window");
         TrackerMainFrame trackerMainFrame = new TrackerMainFrame(
                 trackingEngine,
                 statisticsService,
@@ -141,17 +162,41 @@ public final class TrackerAgentApplication {
         telemetryUploadSchedulerHolder[0] = telemetryUploadScheduler;
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            logger.info("Stopping tracker-agent...");
+            logger.info("schema=local Stopping tracker-agent...");
             telemetryUploadScheduler.close();
             trackingEngine.close();
         }, "tracker-agent-shutdown"));
 
         trackerMainFrame.setVisible(true);
-        if (userSettings.isAutoStartTracking()) {
+        startAutoTrackingIfConfigured(trackingEngine, trackerMainFrame, userSettings);
+        logger.info("schema=local tracker-agent UI started");
+    }
+
+    private static void startAutoTrackingIfConfigured(
+            TrackingEngine trackingEngine,
+            TrackerMainFrame trackerMainFrame,
+            UserSettings userSettings
+    ) {
+        if (!userSettings.isAutoStartTracking()) {
+            return;
+        }
+        try {
             trackingEngine.startTracking();
             trackerMainFrame.refreshPanels();
+        } catch (Exception exception) {
+            logger.error(
+                    "schema=local Failed to auto-start tracking: {}",
+                    exception.getMessage(),
+                    exception
+            );
+            StartupFailureDialogs.showAutoStartTrackingFailure(trackerMainFrame, exception);
         }
-        logger.info("tracker-agent UI started");
+    }
+
+    private static void flushLogs() {
+        if (LoggerFactory.getILoggerFactory() instanceof LoggerContext loggerContext) {
+            loggerContext.stop();
+        }
     }
 
     private static void shutdown(TrackingEngine trackingEngine) {

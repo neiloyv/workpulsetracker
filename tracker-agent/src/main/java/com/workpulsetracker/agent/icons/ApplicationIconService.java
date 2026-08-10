@@ -72,7 +72,9 @@ public final class ApplicationIconService {
                     .forEach(this::rememberExecutablePathWithoutSave);
             saveQuietly();
         }
-        preloadIcons();
+        Thread iconPreloadThread = new Thread(this::preloadIcons, "application-icon-preload");
+        iconPreloadThread.setDaemon(true);
+        iconPreloadThread.start();
     }
 
     private void loadPersistedPaths() {

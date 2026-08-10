@@ -57,11 +57,31 @@ tasks.build {
 val jpackageInputDirectory = layout.buildDirectory.dir("jpackage-input")
 val jpackageOutputDirectory = layout.buildDirectory.dir("jpackage")
 val jpackagePortableOutputDirectory = layout.buildDirectory.dir("jpackage-portable")
+val jpackageWindowsIconFile = layout.projectDirectory.file("packaging/windows/app-icon.ico")
+val jpackageWindowsIconSourceFile = layout.projectDirectory.file("packaging/windows/app-icon.png")
+val jpackageWindowsIconGeneratorFile = layout.projectDirectory.file("packaging/windows/GenerateWindowsIcon.java")
+
+tasks.register<Exec>("generateWindowsIcon") {
+    group = "distribution"
+    description = "Генерирует multi-size app-icon.ico из packaging/windows/app-icon.png"
+    onlyIf {
+        System.getProperty("os.name").lowercase().contains("win")
+                && jpackageWindowsIconSourceFile.asFile.isFile
+                && jpackageWindowsIconGeneratorFile.asFile.isFile
+    }
+    val javaExecutable = File(System.getProperty("java.home"), "bin/java.exe")
+    commandLine(
+        javaExecutable.absolutePath,
+        jpackageWindowsIconGeneratorFile.asFile.absolutePath,
+        jpackageWindowsIconSourceFile.asFile.absolutePath,
+        jpackageWindowsIconFile.asFile.absolutePath
+    )
+}
 
 tasks.register<Copy>("prepareJpackageInput") {
     group = "distribution"
     description = "Копирует Fat JAR во входную папку для jpackage"
-    dependsOn(tasks.shadowJar)
+    dependsOn(tasks.shadowJar, "generateWindowsIcon")
     from(tasks.shadowJar.flatMap { it.archiveFile })
     into(jpackageInputDirectory)
     rename { "tracker-agent.jar" }
@@ -77,16 +97,42 @@ fun jpackageExecutablePath(): String {
     }
 }
 
-fun jpackageCommonArgs(packageType: String, destinationDirectory: java.io.File): List<String> = listOf(
-    "--name", appDisplayName,
-    "--app-version", packagedAppVersion,
-    "--vendor", appVendor,
-    "--input", jpackageInputDirectory.get().asFile.absolutePath,
-    "--main-jar", "tracker-agent.jar",
-    "--main-class", "com.workpulsetracker.agent.TrackerAgentApplication",
-    "--type", packageType,
-    "--dest", destinationDirectory.absolutePath,
-    "--description", "Local automatic time tracker agent"
+fun jpackageIconArgs(): List<String> {
+    val operatingSystemName = System.getProperty("os.name").lowercase()
+    if (!operatingSystemName.contains("win")) {
+        return emptyList()
+    }
+    val iconFile = jpackageWindowsIconFile.asFile
+    if (!iconFile.isFile) {
+        return emptyList()
+    }
+    return listOf("--icon", iconFile.absolutePath)
+}
+
+fun jpackageCommonArgs(packageType: String, destinationDirectory: java.io.File): List<String> =
+    listOf(
+        "--name", appDisplayName,
+        "--app-version", packagedAppVersion,
+        "--vendor", appVendor,
+        "--input", jpackageInputDirectory.get().asFile.absolutePath,
+        "--main-jar", "tracker-agent.jar",
+        "--main-class", "com.workpulsetracker.agent.TrackerAgentApplication",
+        "--type", packageType,
+        "--dest", destinationDirectory.absolutePath,
+        "--description", appDisplayName
+    ) + jpackageIconArgs()
+
+/**
+ * Без этих опций MSI ставится почти «молча» и без ярлыков.
+ * --win-dir-chooser / --win-shortcut-prompt включают UI-мастер WiX.
+ * --win-menu / --win-shortcut создают ярлыки в Пуск и на рабочем столе.
+ */
+fun jpackageWindowsInstallerArgs(): List<String> = listOf(
+    "--win-dir-chooser",
+    "--win-menu",
+    "--win-menu-group", appVendor,
+    "--win-shortcut",
+    "--win-shortcut-prompt"
 )
 
 tasks.register<Exec>("jpackageNative") {
@@ -116,7 +162,11 @@ tasks.register<Exec>("jpackageNative") {
     }
 
     executable = jpackageExecutablePath()
-    args(jpackageCommonArgs(packageType, jpackageOutputDirectory.get().asFile))
+    val jpackageArguments = jpackageCommonArgs(packageType, jpackageOutputDirectory.get().asFile).toMutableList()
+    if (packageType == "msi" || packageType == "exe") {
+        jpackageArguments += jpackageWindowsInstallerArgs()
+    }
+    args(jpackageArguments)
 }
 
 tasks.register<Exec>("jpackagePortable") {

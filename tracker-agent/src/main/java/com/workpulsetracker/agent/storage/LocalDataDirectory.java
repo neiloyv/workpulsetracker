@@ -32,4 +32,8 @@ public final class LocalDataDirectory {
     public static Path getAppRuntimeCountersFilePath() {
         return getRootPath().resolve("app-runtime-counters.json");
     }
+
+    public static Path getNativeLibrariesDirectoryPath() {
+        return getRootPath().resolve("native");
+    }
 }
