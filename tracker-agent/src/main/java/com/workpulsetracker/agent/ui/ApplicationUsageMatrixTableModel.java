@@ -25,6 +25,7 @@ public final class ApplicationUsageMatrixTableModel extends AbstractTableModel {
     private ApplicationUsageMatrix applicationUsageMatrix;
     private String applicationColumnName = Messages.get(MessageCodes.UI_TABLE_APPLICATION);
     private String periodTotalColumnName = Messages.get(MessageCodes.UI_TABLE_TOTAL);
+    private boolean showPercentages = true;
 
     /**
      * @return {@code true}, если изменилась структура колонок и нужен полный rebuild UI
@@ -47,6 +48,20 @@ public final class ApplicationUsageMatrixTableModel extends AbstractTableModel {
 
     public void retranslate() {
         periodTotalColumnName = Messages.get(MessageCodes.UI_TABLE_TOTAL);
+    }
+
+    public void setShowPercentages(boolean showPercentages) {
+        if (this.showPercentages == showPercentages) {
+            return;
+        }
+        this.showPercentages = showPercentages;
+        if (!isEmpty()) {
+            fireTableDataChanged();
+        }
+    }
+
+    public boolean isShowPercentages() {
+        return showPercentages;
     }
 
     /**
@@ -143,11 +158,8 @@ public final class ApplicationUsageMatrixTableModel extends AbstractTableModel {
         return formatDurationCell(bucketTotalSeconds, bucketTotalSeconds);
     }
 
-    private static String formatDurationCell(long durationSeconds, long totalActiveSeconds) {
-        if (durationSeconds <= 0L) {
-            return "—";
-        }
-        return DurationFormatter.formatHoursMinutesWithPercent(durationSeconds, totalActiveSeconds);
+    private String formatDurationCell(long durationSeconds, long totalActiveSeconds) {
+        return DurationFormatter.formatStatisticsCell(durationSeconds, totalActiveSeconds, showPercentages);
     }
 
     private static boolean hasSameColumnStructure(

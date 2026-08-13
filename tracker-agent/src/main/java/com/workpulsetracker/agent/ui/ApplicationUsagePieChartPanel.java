@@ -2,6 +2,7 @@ package com.workpulsetracker.agent.ui;
 
 import com.workpulsetracker.agent.stats.ApplicationUsageSummary;
 import com.workpulsetracker.agent.util.ApplicationDisplayNameResolver;
+import com.workpulsetracker.agent.util.DurationFormatter;
 import com.workpulsetracker.agent.util.PercentageCalculator;
 import com.workpulsetracker.common.i18n.MessageCodes;
 import com.workpulsetracker.common.i18n.Messages;
@@ -24,8 +25,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
- * Круговая (donut) диаграмма использования приложений в процентах.
- * Проценты на секторах, легенда справа.
+ * Круговая (donut) диаграмма использования приложений.
+ * Время и проценты на секторах, в легенде только названия.
  */
 public final class ApplicationUsagePieChartPanel extends JPanel {
 
@@ -129,7 +130,12 @@ public final class ApplicationUsagePieChartPanel extends JPanel {
                     Color sliceColor = index < sliceColors.size()
                             ? sliceColors.get(index)
                             : ApplicationUsageColorPalette.colorForIndex(index);
-                    return new Slice(sliceLabel, percentages.get(index), sliceColor);
+                    return new Slice(
+                            sliceLabel,
+                            applicationUsageSummary.getDurationSeconds(),
+                            percentages.get(index),
+                            sliceColor
+                    );
                 })
                 .collect(Collectors.toList());
     }
@@ -225,15 +231,26 @@ public final class ApplicationUsagePieChartPanel extends JPanel {
             double midAngleRadians = Math.toRadians(midAngleDegrees);
             int textX = (int) Math.round(centerX + labelRadius * Math.cos(midAngleRadians));
             int textY = (int) Math.round(centerY - labelRadius * Math.sin(midAngleRadians));
+            String durationLabel = DurationFormatter.formatSeconds(slice.durationSeconds());
             String percentLabel = slice.percentage() + "%";
-            int textWidth = fontMetrics.stringWidth(percentLabel);
-            int drawX = textX - textWidth / 2;
+            int durationTextWidth = fontMetrics.stringWidth(durationLabel);
+            int drawX = textX - durationTextWidth / 2;
             int drawY = textY + (fontMetrics.getAscent() - fontMetrics.getDescent()) / 2;
 
             graphics2D.setColor(new Color(0, 0, 0, 110));
-            graphics2D.drawString(percentLabel, drawX + 1, drawY + 1);
+            graphics2D.drawString(durationLabel, drawX + 1, drawY + 1);
             graphics2D.setColor(Color.WHITE);
-            graphics2D.drawString(percentLabel, drawX, drawY);
+            graphics2D.drawString(durationLabel, drawX, drawY);
+
+            if (slice.percentage() >= MIN_LABEL_PERCENTAGE + 2) {
+                int percentDrawY = drawY + fontMetrics.getHeight() - 2;
+                int percentTextWidth = fontMetrics.stringWidth(percentLabel);
+                int percentDrawX = textX - percentTextWidth / 2;
+                graphics2D.setColor(new Color(0, 0, 0, 110));
+                graphics2D.drawString(percentLabel, percentDrawX + 1, percentDrawY + 1);
+                graphics2D.setColor(Color.WHITE);
+                graphics2D.drawString(percentLabel, percentDrawX, percentDrawY);
+            }
         }
     }
 
@@ -253,11 +270,7 @@ public final class ApplicationUsagePieChartPanel extends JPanel {
             graphics2D.setColor(slice.color());
             graphics2D.fillRoundRect(legendLeft, itemY + 4, 10, 10, 3, 3);
 
-            String legendText = truncateLegendText(
-                    slice.applicationName() + "  " + slice.percentage() + "%",
-                    fontMetrics,
-                    legendWidth - 20
-            );
+            String legendText = truncateLegendText(slice.applicationName(), fontMetrics, legendWidth - 20);
             graphics2D.setColor(UiTheme.TEXT_SECONDARY);
             graphics2D.drawString(legendText, legendLeft + 16, itemY + fontMetrics.getAscent() + 2);
         }
@@ -275,6 +288,6 @@ public final class ApplicationUsagePieChartPanel extends JPanel {
         return endIndex <= 0 ? ellipsis : text.substring(0, endIndex) + ellipsis;
     }
 
-    private record Slice(String applicationName, int percentage, Color color) {
+    private record Slice(String applicationName, long durationSeconds, int percentage, Color color) {
     }
 }

@@ -31,6 +31,7 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
@@ -118,9 +119,18 @@ public final class StatisticsPanel extends JPanel {
     private final JLabel timelineLegendActiveLabel = new JLabel();
     private final JLabel timelineLegendIdleLabel = new JLabel();
     private final JLabel timelineLegendExcludedLabel = new JLabel();
+    private final JLabel timelineLegendComputerLabel = new JLabel();
+    private final JCheckBox showPercentagesTimelineToggle = new JCheckBox();
+    private final JCheckBox showPercentagesMatrixToggle = new JCheckBox();
+    private final JLabel showPercentagesTimelineLabel = new JLabel();
+    private final JLabel showPercentagesMatrixLabel = new JLabel();
+    private final JLabel timelineAverageCaptionLabel = new JLabel();
+    private final JPanel timelineAveragePanel = new JPanel(new BorderLayout(8, 0));
+    private final JPanel timelineAverageMetricsPanel = new JPanel();
     private final JPanel timelineLegendActiveSwatch = createLegendSwatch(DayActivityTimelinePanel.activeColor());
     private final JPanel timelineLegendIdleSwatch = createLegendSwatch(DayActivityTimelinePanel.idleColor());
     private final JPanel timelineLegendExcludedSwatch = createLegendSwatch(DayActivityTimelinePanel.excludedColor());
+    private final JPanel timelineLegendComputerSwatch = createLegendSwatch(DayActivityTimelinePanel.computerColor());
     private final JPanel timelineLegendExcludedItem = createLegendItem(
             timelineLegendExcludedSwatch,
             timelineLegendExcludedLabel
@@ -151,6 +161,7 @@ public final class StatisticsPanel extends JPanel {
     private int currentPeriodBucketIndex = -1;
     private boolean suppressPeriodChangeEvents;
     private boolean suppressViewChangeEvents;
+    private boolean suppressPercentagesToggleEvents;
 
     public StatisticsPanel(
             StatisticsService statisticsService,
@@ -209,9 +220,9 @@ public final class StatisticsPanel extends JPanel {
 
         JPanel viewModePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         viewModePanel.setOpaque(false);
+        viewModePanel.add(timelineViewButton);
         viewModePanel.add(matrixViewButton);
         viewModePanel.add(categoriesViewButton);
-        viewModePanel.add(timelineViewButton);
 
         JPanel periodModePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         periodModePanel.setOpaque(false);
@@ -254,7 +265,7 @@ public final class StatisticsPanel extends JPanel {
         totalBlock.setOpaque(false);
         UiTheme.styleMutedLabel(totalCaptionLabel);
         totalTimeValueLabel.setFont(totalTimeValueLabel.getFont().deriveFont(Font.BOLD, 20f));
-        totalTimeValueLabel.setForeground(UiTheme.TEXT_PRIMARY);
+        totalTimeValueLabel.setForeground(DayActivityTimelinePanel.activeColor());
         totalTimeValueLabel.setHorizontalAlignment(SwingConstants.RIGHT);
         totalBlock.add(totalCaptionLabel);
         totalBlock.add(totalTimeValueLabel);
@@ -282,8 +293,21 @@ public final class StatisticsPanel extends JPanel {
         matrixBodyPanel.add(createEmptyStatePanel(matrixEmptyLabel), BODY_CARD_EMPTY);
         tablePanel.add(tableCaptionLabel, BorderLayout.NORTH);
         tablePanel.add(matrixBodyPanel, BorderLayout.CENTER);
+        tablePanel.add(createStatisticsBottomPanel(), BorderLayout.SOUTH);
 
         UiTheme.styleSurfaceCard(timelineViewPanel);
+        timelineAveragePanel.setOpaque(false);
+        timelineAveragePanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 8, 0));
+        timelineAverageCaptionLabel.setFont(timelineAverageCaptionLabel.getFont().deriveFont(Font.BOLD, 13f));
+        timelineAverageCaptionLabel.setForeground(UiTheme.TEXT_PRIMARY);
+        timelineAverageMetricsPanel.setOpaque(false);
+        timelineAverageMetricsPanel.setLayout(new FlowLayout(FlowLayout.RIGHT, 12, 0));
+        timelineAveragePanel.add(
+                createShowPercentagesControlPanel(showPercentagesTimelineToggle, showPercentagesTimelineLabel),
+                BorderLayout.WEST
+        );
+        timelineAveragePanel.add(timelineAverageMetricsPanel, BorderLayout.EAST);
+        timelineViewPanel.add(timelineAveragePanel, BorderLayout.NORTH);
         timelineRowsPanel.setOpaque(false);
         timelineRowsPanel.setLayout(new BoxLayout(timelineRowsPanel, BoxLayout.Y_AXIS));
         timelineScrollPane.setBorder(BorderFactory.createEmptyBorder());
@@ -294,6 +318,16 @@ public final class StatisticsPanel extends JPanel {
         timelineBodyPanel.add(createEmptyStatePanel(timelineEmptyLabel), BODY_CARD_EMPTY);
         timelineViewPanel.add(timelineBodyPanel, BorderLayout.CENTER);
         timelineViewPanel.add(createTimelineLegendPanel(), BorderLayout.SOUTH);
+
+        UiTheme.styleToggleSwitch(showPercentagesTimelineToggle);
+        UiTheme.styleToggleSwitch(showPercentagesMatrixToggle);
+        showPercentagesTimelineToggle.addActionListener(
+                actionEvent -> onShowPercentagesToggleChanged(showPercentagesTimelineToggle)
+        );
+        showPercentagesMatrixToggle.addActionListener(
+                actionEvent -> onShowPercentagesToggleChanged(showPercentagesMatrixToggle)
+        );
+        syncShowPercentagesToggleFromSettings();
 
         contentCardPanel.setOpaque(false);
         contentCardPanel.add(tablePanel, CONTENT_CARD_MATRIX);
@@ -423,7 +457,11 @@ public final class StatisticsPanel extends JPanel {
         timelineLegendActiveLabel.setText(Messages.get(MessageCodes.UI_MAIN_TIMELINE_STATE_ACTIVE));
         timelineLegendIdleLabel.setText(Messages.get(MessageCodes.UI_MAIN_TIMELINE_STATE_IDLE));
         timelineLegendExcludedLabel.setText(Messages.get(MessageCodes.UI_MAIN_TIMELINE_STATE_EXCLUDED));
+        timelineLegendComputerLabel.setText(Messages.get(MessageCodes.UI_STATS_TIMELINE_COMPUTER));
         timelineLegendExcludedItem.setVisible(userSettings.isShowExceptionsOnTimeline());
+        showPercentagesTimelineLabel.setText(Messages.get(MessageCodes.UI_STATS_SHOW_PERCENTAGES));
+        showPercentagesMatrixLabel.setText(Messages.get(MessageCodes.UI_STATS_SHOW_PERCENTAGES));
+        timelineAverageCaptionLabel.setText(Messages.get(MessageCodes.UI_STATS_TIMELINE_AVERAGE));
         reportFormatLabel.setText(Messages.get(MessageCodes.UI_STATS_DOWNLOAD_FORMAT));
         downloadReportButton.setText(Messages.get(MessageCodes.UI_STATS_DOWNLOAD_REPORT));
         reportFormatComboBox.repaint();
@@ -447,10 +485,16 @@ public final class StatisticsPanel extends JPanel {
         UiTheme.styleMutedLabel(timelineLegendActiveLabel);
         UiTheme.styleMutedLabel(timelineLegendIdleLabel);
         UiTheme.styleMutedLabel(timelineLegendExcludedLabel);
+        UiTheme.styleMutedLabel(timelineLegendComputerLabel);
+        UiTheme.styleMutedLabel(showPercentagesTimelineLabel);
+        UiTheme.styleMutedLabel(showPercentagesMatrixLabel);
         UiTheme.styleMutedLabel(reportFormatLabel);
+        UiTheme.styleToggleSwitch(showPercentagesTimelineToggle);
+        UiTheme.styleToggleSwitch(showPercentagesMatrixToggle);
+        timelineAverageCaptionLabel.setForeground(UiTheme.TEXT_PRIMARY);
         periodCaptionLabel.setForeground(UiTheme.TEXT_PRIMARY);
         weekInMonthCaptionLabel.setForeground(UiTheme.TEXT_PRIMARY);
-        totalTimeValueLabel.setForeground(UiTheme.TEXT_PRIMARY);
+        totalTimeValueLabel.setForeground(DayActivityTimelinePanel.activeColor());
         stylePeriodModeButton(weekPeriodButton);
         stylePeriodModeButton(monthPeriodButton);
         stylePeriodModeButton(yearPeriodButton);
@@ -478,6 +522,7 @@ public final class StatisticsPanel extends JPanel {
         }
 
         timelineLegendExcludedItem.setVisible(userSettings.isShowExceptionsOnTimeline());
+        syncShowPercentagesToggleFromSettings();
 
         if (selectedViewMode == StatisticsViewMode.TIMELINE && selectedStatsPeriod == StatsPeriod.YEAR) {
             selectedStatsPeriod = StatsPeriod.WEEK;
@@ -543,8 +588,11 @@ public final class StatisticsPanel extends JPanel {
 
         if (selectedViewMode == StatisticsViewMode.TIMELINE) {
             contentCardLayout.show(contentCardPanel, CONTENT_CARD_TIMELINE);
+            timelineAveragePanel.setVisible(true);
             if (statisticsSnapshot.getTotalActiveSeconds() <= 0L) {
                 timelineRowsPanel.removeAll();
+                timelineAverageMetricsPanel.removeAll();
+                timelineAverageMetricsPanel.add(timelineAverageCaptionLabel);
                 timelineBodyCardLayout.show(timelineBodyPanel, BODY_CARD_EMPTY);
             } else {
                 rebuildTimelineRows(matrixAnchorDate);
@@ -552,6 +600,7 @@ public final class StatisticsPanel extends JPanel {
             }
         } else {
             contentCardLayout.show(contentCardPanel, CONTENT_CARD_MATRIX);
+            timelineAveragePanel.setVisible(false);
             ApplicationUsageMatrix sourceApplicationUsageMatrix =
                     statisticsService.buildApplicationUsageMatrixForAnchor(matrixStatsPeriod, matrixAnchorDate);
             ApplicationUsageMatrix applicationUsageMatrix = selectedViewMode == StatisticsViewMode.CATEGORIES
@@ -637,6 +686,7 @@ public final class StatisticsPanel extends JPanel {
     private void rebuildTimelineRows(LocalDate weekAnchorDate) {
         timelineRowsPanel.removeAll();
         List<DayActivityTimelineRow> timelineRows = statisticsService.buildWeekActivityTimelines(weekAnchorDate);
+        updateTimelineAveragePanel(timelineRows);
         Locale locale = UserLocaleContext.getLanguage().toLocale();
         DateTimeFormatter dayDateFormatter = DateTimeFormatter.ofPattern("d MMMM", locale);
         int dayLabelColumnWidth = resolveTimelineDayLabelColumnWidth(timelineRows, dayDateFormatter, locale);
@@ -670,6 +720,150 @@ public final class StatisticsPanel extends JPanel {
                 })
                 .max()
                 .orElse(120);
+    }
+
+    private void updateTimelineAveragePanel(List<DayActivityTimelineRow> timelineRows) {
+        timelineAverageMetricsPanel.removeAll();
+        boolean showExceptionsOnTimeline = userSettings.isShowExceptionsOnTimeline();
+
+        List<long[]> dailyStateSeconds = timelineRows.stream()
+                .map(DayActivityTimelineRow::getDayActivityTimeline)
+                .map(dayActivityTimeline -> {
+                    long activeSeconds = sumTimelineSecondsByState(dayActivityTimeline, DayActivityState.ACTIVE);
+                    long idleSeconds = sumTimelineSecondsByState(dayActivityTimeline, DayActivityState.IDLE);
+                    long excludedSeconds = showExceptionsOnTimeline
+                            ? sumTimelineSecondsByState(dayActivityTimeline, DayActivityState.EXCLUDED)
+                            : 0L;
+                    long computerSeconds = activeSeconds + idleSeconds + excludedSeconds;
+                    if (computerSeconds <= 0L) {
+                        return null;
+                    }
+                    return new long[]{activeSeconds, idleSeconds, excludedSeconds};
+                })
+                .filter(Objects::nonNull)
+                .toList();
+
+        if (dailyStateSeconds.isEmpty()) {
+            timelineAverageMetricsPanel.add(timelineAverageCaptionLabel);
+            timelineAverageMetricsPanel.revalidate();
+            timelineAverageMetricsPanel.repaint();
+            return;
+        }
+
+        long averageActiveSeconds = dailyStateSeconds.stream()
+                .mapToLong(dayStateSeconds -> dayStateSeconds[0])
+                .sum() / dailyStateSeconds.size();
+        long averageIdleSeconds = dailyStateSeconds.stream()
+                .mapToLong(dayStateSeconds -> dayStateSeconds[1])
+                .sum() / dailyStateSeconds.size();
+        long averageExcludedSeconds = dailyStateSeconds.stream()
+                .mapToLong(dayStateSeconds -> dayStateSeconds[2])
+                .sum() / dailyStateSeconds.size();
+        long averageComputerSeconds = dailyStateSeconds.stream()
+                .mapToLong(dayStateSeconds -> dayStateSeconds[0] + dayStateSeconds[1] + dayStateSeconds[2])
+                .sum() / dailyStateSeconds.size();
+
+        timelineAverageMetricsPanel.add(timelineAverageCaptionLabel);
+        timelineAverageMetricsPanel.add(createTimelineAverageMetricItem(
+                Messages.get(MessageCodes.UI_MAIN_TIMELINE_STATE_ACTIVE),
+                averageActiveSeconds,
+                PercentageCalculator.calculatePercentage(averageActiveSeconds, averageComputerSeconds),
+                DayActivityTimelinePanel.activeColor()
+        ));
+        timelineAverageMetricsPanel.add(createTimelineAverageMetricItem(
+                Messages.get(MessageCodes.UI_MAIN_TIMELINE_STATE_IDLE),
+                averageIdleSeconds,
+                PercentageCalculator.calculatePercentage(averageIdleSeconds, averageComputerSeconds),
+                DayActivityTimelinePanel.idleColor()
+        ));
+        if (showExceptionsOnTimeline) {
+            timelineAverageMetricsPanel.add(createTimelineAverageMetricItem(
+                    Messages.get(MessageCodes.UI_MAIN_TIMELINE_STATE_EXCLUDED),
+                    averageExcludedSeconds,
+                    PercentageCalculator.calculatePercentage(averageExcludedSeconds, averageComputerSeconds),
+                    DayActivityTimelinePanel.excludedColor()
+            ));
+        }
+        timelineAverageMetricsPanel.add(createTimelineAverageMetricItem(
+                Messages.get(MessageCodes.UI_STATS_TIMELINE_COMPUTER),
+                averageComputerSeconds,
+                PercentageCalculator.calculatePercentage(averageComputerSeconds, averageComputerSeconds),
+                DayActivityTimelinePanel.computerColor()
+        ));
+        timelineAverageMetricsPanel.revalidate();
+        timelineAverageMetricsPanel.repaint();
+    }
+
+    private JPanel createTimelineAverageMetricItem(
+            String stateName,
+            long averageSeconds,
+            int percentage,
+            Color foregroundColor
+    ) {
+        String durationText = DurationFormatter.formatSeconds(averageSeconds);
+        if (userSettings.isShowStatisticsTablePercentages()) {
+            durationText = durationText + " (" + percentage + "%)";
+        }
+        JLabel stateNameLabel = new JLabel(stateName + ":");
+        JLabel durationLabel = new JLabel(durationText);
+        styleTimelineDayMetricLabel(stateNameLabel, foregroundColor, Font.PLAIN, 12f);
+        styleTimelineDayMetricLabel(durationLabel, foregroundColor, Font.BOLD, 13f);
+
+        JPanel metricItemPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        metricItemPanel.setOpaque(false);
+        metricItemPanel.add(stateNameLabel);
+        metricItemPanel.add(durationLabel);
+        return metricItemPanel;
+    }
+
+    private JPanel createStatisticsBottomPanel() {
+        JPanel bottomPanel = new JPanel(new BorderLayout(8, 0));
+        bottomPanel.setOpaque(false);
+        bottomPanel.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
+        bottomPanel.add(
+                createShowPercentagesControlPanel(showPercentagesMatrixToggle, showPercentagesMatrixLabel),
+                BorderLayout.WEST
+        );
+        return bottomPanel;
+    }
+
+    private JPanel createShowPercentagesControlPanel(JCheckBox toggle, JLabel captionLabel) {
+        UiTheme.styleMutedLabel(captionLabel);
+        JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        controlPanel.setOpaque(false);
+        controlPanel.add(toggle);
+        controlPanel.add(captionLabel);
+        return controlPanel;
+    }
+
+    private void onShowPercentagesToggleChanged(JCheckBox sourceToggle) {
+        if (suppressPercentagesToggleEvents) {
+            return;
+        }
+        boolean showStatisticsTablePercentages = sourceToggle.isSelected();
+        userSettings.setShowStatisticsTablePercentages(showStatisticsTablePercentages);
+        userSettingsStore.save(userSettings);
+        statisticsTableModel.setShowPercentages(showStatisticsTablePercentages);
+        suppressPercentagesToggleEvents = true;
+        try {
+            showPercentagesTimelineToggle.setSelected(showStatisticsTablePercentages);
+            showPercentagesMatrixToggle.setSelected(showStatisticsTablePercentages);
+        } finally {
+            suppressPercentagesToggleEvents = false;
+        }
+        refresh();
+    }
+
+    public void syncShowPercentagesToggleFromSettings() {
+        suppressPercentagesToggleEvents = true;
+        try {
+            boolean showStatisticsTablePercentages = userSettings.isShowStatisticsTablePercentages();
+            showPercentagesTimelineToggle.setSelected(showStatisticsTablePercentages);
+            showPercentagesMatrixToggle.setSelected(showStatisticsTablePercentages);
+            statisticsTableModel.setShowPercentages(showStatisticsTablePercentages);
+        } finally {
+            suppressPercentagesToggleEvents = false;
+        }
     }
 
     private JPanel createTimelineDayRow(
@@ -774,10 +968,12 @@ public final class StatisticsPanel extends JPanel {
         JPanel metricsPanel = new JPanel();
         metricsPanel.setOpaque(false);
         metricsPanel.setLayout(new BoxLayout(metricsPanel, BoxLayout.X_AXIS));
+        boolean showPercentages = userSettings.isShowStatisticsTablePercentages();
         metricsPanel.add(createTimelineDayMetricColumn(
                 DurationFormatter.formatHoursMinutes(activeSeconds),
                 activePercentage,
-                DayActivityTimelinePanel.activeColor()
+                DayActivityTimelinePanel.activeColor(),
+                showPercentages
         ));
         metricsPanel.add(Box.createHorizontalStrut(TIMELINE_SUMMARY_COLUMN_GAP));
         metricsPanel.add(createTimelineSummaryVerticalSeparator());
@@ -785,7 +981,8 @@ public final class StatisticsPanel extends JPanel {
         metricsPanel.add(createTimelineDayMetricColumn(
                 DurationFormatter.formatHoursMinutes(idleSeconds),
                 idlePercentage,
-                DayActivityTimelinePanel.idleColor()
+                DayActivityTimelinePanel.idleColor(),
+                showPercentages
         ));
         if (showExceptionsOnTimeline) {
             metricsPanel.add(Box.createHorizontalStrut(TIMELINE_SUMMARY_COLUMN_GAP));
@@ -794,15 +991,25 @@ public final class StatisticsPanel extends JPanel {
             metricsPanel.add(createTimelineDayMetricColumn(
                     DurationFormatter.formatHoursMinutes(excludedSeconds),
                     excludedPercentage,
-                    DayActivityTimelinePanel.excludedColor()
+                    DayActivityTimelinePanel.excludedColor(),
+                    showPercentages
             ));
         }
+        metricsPanel.add(Box.createHorizontalStrut(TIMELINE_SUMMARY_COLUMN_GAP));
+        metricsPanel.add(createTimelineSummaryVerticalSeparator());
+        metricsPanel.add(Box.createHorizontalStrut(TIMELINE_SUMMARY_COLUMN_GAP));
+        metricsPanel.add(createTimelineDayMetricColumn(
+                DurationFormatter.formatHoursMinutes(computerSeconds),
+                PercentageCalculator.calculatePercentage(computerSeconds, computerSeconds),
+                DayActivityTimelinePanel.computerColor(),
+                showPercentages
+        ));
 
         JPanel summaryTrackPanel = new JPanel(new GridBagLayout());
         summaryTrackPanel.setOpaque(false);
         summaryTrackPanel.add(metricsPanel);
 
-        int metricColumnCount = showExceptionsOnTimeline ? 3 : 2;
+        int metricColumnCount = (showExceptionsOnTimeline ? 3 : 2) + 1;
         int separatorCount = metricColumnCount - 1;
         int summaryWidth = TIMELINE_SUMMARY_METRIC_COLUMN_WIDTH * metricColumnCount
                 + TIMELINE_SUMMARY_COLUMN_GAP * (separatorCount * 2)
@@ -826,22 +1033,28 @@ public final class StatisticsPanel extends JPanel {
     private static JPanel createTimelineDayMetricColumn(
             String durationText,
             int percentage,
-            Color foregroundColor
+            Color foregroundColor,
+            boolean showPercentages
     ) {
-        JLabel durationLabel = new JLabel(durationText);
-        JLabel percentLabel = new JLabel(percentage + "%");
+        JLabel durationLabel = new JLabel(durationText, SwingConstants.CENTER);
         styleTimelineDayMetricLabel(durationLabel, foregroundColor, Font.BOLD, 12f);
-        styleTimelineDayMetricLabel(percentLabel, foregroundColor, Font.PLAIN, 11f);
         durationLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        percentLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JPanel metricColumnPanel = new JPanel();
         metricColumnPanel.setOpaque(false);
         metricColumnPanel.setLayout(new BoxLayout(metricColumnPanel, BoxLayout.Y_AXIS));
         metricColumnPanel.add(durationLabel);
-        metricColumnPanel.add(percentLabel);
+        if (showPercentages) {
+            JLabel percentLabel = new JLabel(percentage + "%", SwingConstants.CENTER);
+            styleTimelineDayMetricLabel(percentLabel, foregroundColor, Font.PLAIN, 11f);
+            percentLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            metricColumnPanel.add(percentLabel);
+        }
 
-        Dimension columnSize = new Dimension(TIMELINE_SUMMARY_METRIC_COLUMN_WIDTH, metricColumnPanel.getPreferredSize().height);
+        Dimension columnSize = new Dimension(
+                TIMELINE_SUMMARY_METRIC_COLUMN_WIDTH,
+                metricColumnPanel.getPreferredSize().height
+        );
         metricColumnPanel.setPreferredSize(columnSize);
         metricColumnPanel.setMinimumSize(columnSize);
         metricColumnPanel.setMaximumSize(columnSize);
@@ -889,13 +1102,15 @@ public final class StatisticsPanel extends JPanel {
         UiTheme.styleMutedLabel(timelineLegendActiveLabel);
         UiTheme.styleMutedLabel(timelineLegendIdleLabel);
         UiTheme.styleMutedLabel(timelineLegendExcludedLabel);
+        UiTheme.styleMutedLabel(timelineLegendComputerLabel);
 
-        JPanel legendPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 16, 0));
+        JPanel legendPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 16, 0));
         legendPanel.setOpaque(false);
         legendPanel.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
         legendPanel.add(createLegendItem(timelineLegendActiveSwatch, timelineLegendActiveLabel));
         legendPanel.add(createLegendItem(timelineLegendIdleSwatch, timelineLegendIdleLabel));
         legendPanel.add(timelineLegendExcludedItem);
+        legendPanel.add(createLegendItem(timelineLegendComputerSwatch, timelineLegendComputerLabel));
         timelineLegendExcludedItem.setVisible(userSettings.isShowExceptionsOnTimeline());
         return legendPanel;
     }
@@ -916,6 +1131,9 @@ public final class StatisticsPanel extends JPanel {
         colorSwatch.setPreferredSize(swatchSize);
         colorSwatch.setMinimumSize(swatchSize);
         colorSwatch.setMaximumSize(swatchSize);
+        if (Color.WHITE.equals(color)) {
+            colorSwatch.setBorder(BorderFactory.createLineBorder(UiTheme.BORDER, 1));
+        }
         return colorSwatch;
     }
 

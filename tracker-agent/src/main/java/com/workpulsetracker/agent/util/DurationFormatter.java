@@ -27,6 +27,23 @@ public final class DurationFormatter {
     }
 
     /**
+     * Формат ячейки статистики: {@code H:MM (N%)} или только {@code H:MM}.
+     */
+    public static String formatStatisticsCell(
+            long durationSeconds,
+            long totalActiveSeconds,
+            boolean showPercentages
+    ) {
+        if (durationSeconds <= 0L) {
+            return "—";
+        }
+        if (showPercentages) {
+            return formatHoursMinutesWithPercent(durationSeconds, totalActiveSeconds);
+        }
+        return formatHoursMinutes(durationSeconds);
+    }
+
+    /**
      * Формат ячейки статистики: {@code H:MM (N%)}.
      */
     public static String formatHoursMinutesWithPercent(long durationSeconds, long totalActiveSeconds) {

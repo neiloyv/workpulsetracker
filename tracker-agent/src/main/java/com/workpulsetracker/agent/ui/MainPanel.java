@@ -7,6 +7,7 @@ import com.workpulsetracker.agent.stats.ApplicationUsageGroup;
 import com.workpulsetracker.agent.stats.ApplicationUsageSummary;
 import com.workpulsetracker.agent.stats.StatisticsService;
 import com.workpulsetracker.agent.storage.UserSettings;
+import com.workpulsetracker.agent.storage.UserSettingsStore;
 import com.workpulsetracker.agent.tracking.TrackingEngine;
 import com.workpulsetracker.agent.util.DurationFormatter;
 import com.workpulsetracker.agent.util.PercentageCalculator;
@@ -56,6 +57,7 @@ public final class MainPanel extends JPanel {
     private final TrackingEngine trackingEngine;
     private final StatisticsService statisticsService;
     private final UserSettings userSettings;
+    private final UserSettingsStore userSettingsStore;
 
     private final JLabel workTimeCaptionLabel = new JLabel();
     private final JLabel workTimeValueLabel = new JLabel("0:00:00");
@@ -64,9 +66,11 @@ public final class MainPanel extends JPanel {
     private final JLabel timelineLegendActiveLabel = new JLabel();
     private final JLabel timelineLegendIdleLabel = new JLabel();
     private final JLabel timelineLegendExcludedLabel = new JLabel();
+    private final JLabel timelineLegendComputerLabel = new JLabel();
     private final JPanel timelineLegendActiveSwatch = createLegendSwatch(DayActivityTimelinePanel.activeColor());
     private final JPanel timelineLegendIdleSwatch = createLegendSwatch(DayActivityTimelinePanel.idleColor());
     private final JPanel timelineLegendExcludedSwatch = createLegendSwatch(DayActivityTimelinePanel.excludedColor());
+    private final JPanel timelineLegendComputerSwatch = createLegendSwatch(DayActivityTimelinePanel.computerColor());
     private final JPanel timelineLegendExcludedItem = createLegendItem(
             timelineLegendExcludedSwatch,
             timelineLegendExcludedLabel
@@ -84,17 +88,20 @@ public final class MainPanel extends JPanel {
     private final JPanel timelinePanel = new JPanel(new BorderLayout(4, 8));
     private final JPanel applicationsPanel = new JPanel(new BorderLayout(4, 8));
     private final JPanel chartPanel = new JPanel(new BorderLayout(4, 8));
-    private UsageChartMode selectedUsageChartMode = UsageChartMode.PROGRAMS;
+    private UsageChartMode selectedUsageChartMode = UsageChartMode.ACTIVITY;
     private boolean suppressChartModeChangeEvents;
 
     public MainPanel(
             TrackingEngine trackingEngine,
             StatisticsService statisticsService,
-            UserSettings userSettings
+            UserSettings userSettings,
+            UserSettingsStore userSettingsStore
     ) {
         this.trackingEngine = trackingEngine;
         this.statisticsService = statisticsService;
         this.userSettings = userSettings;
+        this.userSettingsStore = userSettingsStore;
+        this.selectedUsageChartMode = resolveUsageChartModeFromSettings();
         setLayout(new BorderLayout(0, 12));
         setBorder(BorderFactory.createEmptyBorder(20, 20, 16, 20));
         setBackground(UiTheme.BACKGROUND);
@@ -167,19 +174,21 @@ public final class MainPanel extends JPanel {
         chartModeButtonGroup.add(chartProgramsModeButton);
         chartModeButtonGroup.add(chartCategoriesModeButton);
         chartModeButtonGroup.add(chartActivityModeButton);
-        chartProgramsModeButton.setSelected(true);
+        chartActivityModeButton.setSelected(selectedUsageChartMode == UsageChartMode.ACTIVITY);
+        chartProgramsModeButton.setSelected(selectedUsageChartMode == UsageChartMode.PROGRAMS);
+        chartCategoriesModeButton.setSelected(selectedUsageChartMode == UsageChartMode.CATEGORIES);
+        chartActivityModeButton.addActionListener(actionEvent -> onUsageChartModeSelected(UsageChartMode.ACTIVITY));
         chartProgramsModeButton.addActionListener(actionEvent -> onUsageChartModeSelected(UsageChartMode.PROGRAMS));
         chartCategoriesModeButton.addActionListener(actionEvent -> onUsageChartModeSelected(UsageChartMode.CATEGORIES));
-        chartActivityModeButton.addActionListener(actionEvent -> onUsageChartModeSelected(UsageChartMode.ACTIVITY));
         UiTheme.styleSegmentedToggleButton(chartProgramsModeButton);
         UiTheme.styleSegmentedToggleButton(chartCategoriesModeButton);
         UiTheme.styleSegmentedToggleButton(chartActivityModeButton);
 
         JPanel chartModePanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         chartModePanel.setOpaque(false);
+        chartModePanel.add(chartActivityModeButton);
         chartModePanel.add(chartProgramsModeButton);
         chartModePanel.add(chartCategoriesModeButton);
-        chartModePanel.add(chartActivityModeButton);
 
         JPanel chartHeaderPanel = new JPanel(new BorderLayout(8, 0));
         chartHeaderPanel.setOpaque(false);
@@ -225,12 +234,14 @@ public final class MainPanel extends JPanel {
         UiTheme.styleMutedLabel(timelineLegendActiveLabel);
         UiTheme.styleMutedLabel(timelineLegendIdleLabel);
         UiTheme.styleMutedLabel(timelineLegendExcludedLabel);
+        UiTheme.styleMutedLabel(timelineLegendComputerLabel);
 
         JPanel legendPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 16, 0));
         legendPanel.setOpaque(false);
         legendPanel.add(createLegendItem(timelineLegendActiveSwatch, timelineLegendActiveLabel));
         legendPanel.add(createLegendItem(timelineLegendIdleSwatch, timelineLegendIdleLabel));
         legendPanel.add(timelineLegendExcludedItem);
+        legendPanel.add(createLegendItem(timelineLegendComputerSwatch, timelineLegendComputerLabel));
         return legendPanel;
     }
 
@@ -250,6 +261,9 @@ public final class MainPanel extends JPanel {
         colorSwatch.setPreferredSize(swatchSize);
         colorSwatch.setMinimumSize(swatchSize);
         colorSwatch.setMaximumSize(swatchSize);
+        if (Color.WHITE.equals(color)) {
+            colorSwatch.setBorder(BorderFactory.createLineBorder(UiTheme.BORDER, 1));
+        }
         return colorSwatch;
     }
 
@@ -284,6 +298,7 @@ public final class MainPanel extends JPanel {
         UiTheme.styleMutedLabel(timelineLegendActiveLabel);
         UiTheme.styleMutedLabel(timelineLegendIdleLabel);
         UiTheme.styleMutedLabel(timelineLegendExcludedLabel);
+        UiTheme.styleMutedLabel(timelineLegendComputerLabel);
         UiTheme.styleMutedLabel(applicationsCaptionLabel);
         UiTheme.styleMutedLabel(chartCaptionLabel);
         UiTheme.styleSegmentedToggleButton(chartProgramsModeButton);
@@ -311,6 +326,8 @@ public final class MainPanel extends JPanel {
             return;
         }
 
+        selectedUsageChartMode = resolveUsageChartModeFromSettings();
+
         long todayActiveSeconds = statisticsService.buildTodayActiveSeconds();
         long todayIdleSeconds = statisticsService.buildTodayIdleSeconds();
         long todayExcludedSeconds = statisticsService.buildTodayExcludedSeconds();
@@ -337,6 +354,11 @@ public final class MainPanel extends JPanel {
                 Messages.get(MessageCodes.UI_MAIN_TIMELINE_STATE_EXCLUDED),
                 DurationFormatter.formatSeconds(todayExcludedSeconds),
                 excludedPercentage
+        ));
+        timelineLegendComputerLabel.setText(formatTimelineLegendText(
+                Messages.get(MessageCodes.UI_MAIN_COMPUTER_TIME),
+                DurationFormatter.formatSeconds(todayComputerSeconds),
+                PercentageCalculator.calculatePercentage(todayComputerSeconds, todayComputerSeconds)
         ));
         timelineLegendExcludedItem.setVisible(showExceptionsOnTimeline);
 
@@ -369,9 +391,9 @@ public final class MainPanel extends JPanel {
         );
         suppressChartModeChangeEvents = true;
         try {
+            chartActivityModeButton.setSelected(selectedUsageChartMode == UsageChartMode.ACTIVITY);
             chartProgramsModeButton.setSelected(selectedUsageChartMode == UsageChartMode.PROGRAMS);
             chartCategoriesModeButton.setSelected(selectedUsageChartMode == UsageChartMode.CATEGORIES);
-            chartActivityModeButton.setSelected(selectedUsageChartMode == UsageChartMode.ACTIVITY);
         } finally {
             suppressChartModeChangeEvents = false;
         }
@@ -465,7 +487,17 @@ public final class MainPanel extends JPanel {
             return;
         }
         selectedUsageChartMode = usageChartMode;
+        userSettings.setUsageChartMode(usageChartMode.name());
+        userSettingsStore.save(userSettings);
         refresh();
+    }
+
+    private UsageChartMode resolveUsageChartModeFromSettings() {
+        try {
+            return UsageChartMode.valueOf(userSettings.getUsageChartMode());
+        } catch (IllegalArgumentException illegalArgumentException) {
+            return UsageChartMode.ACTIVITY;
+        }
     }
 
     private String resolveStatusLabelText(boolean trackingEnabled) {

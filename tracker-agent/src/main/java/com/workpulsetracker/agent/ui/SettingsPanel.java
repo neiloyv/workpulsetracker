@@ -58,15 +58,24 @@ public final class SettingsPanel extends JPanel {
     private final JLabel timelineVisibleHintLabel = new JLabel();
     private final JLabel showExceptionsOnTimelineTitleLabel = new JLabel();
     private final JLabel showExceptionsOnTimelineHintLabel = new JLabel();
+    private final JLabel showStatisticsPercentagesTitleLabel = new JLabel();
+    private final JLabel showStatisticsPercentagesHintLabel = new JLabel();
+    private final JLabel dailyWorkGoalNotificationTitleLabel = new JLabel();
+    private final JLabel dailyWorkGoalNotificationHintLabel = new JLabel();
+    private final JLabel dailyWorkGoalHoursLabel = new JLabel();
     private final JComboBox<LanguageItem> languageComboBox = new JComboBox<>();
     private final JCheckBox launchAtLoginToggle = new JCheckBox();
     private final JCheckBox autoStartToggle = new JCheckBox();
     private final JCheckBox minimizeToTrayToggle = new JCheckBox();
     private final JCheckBox timelineVisibleToggle = new JCheckBox();
     private final JCheckBox showExceptionsOnTimelineToggle = new JCheckBox();
+    private final JCheckBox showStatisticsPercentagesToggle = new JCheckBox();
+    private final JCheckBox dailyWorkGoalNotificationToggle = new JCheckBox();
     private final JSpinner minorThresholdSpinner = new JSpinner(
             new SpinnerNumberModel(ApplicationUsageFilter.DEFAULT_MINOR_USAGE_THRESHOLD_MINUTES, 0, 24 * 60, 1)
     );
+    private final JSpinner dailyWorkGoalHoursSpinner = new JSpinner(new SpinnerNumberModel(8, 1, 24, 1));
+    private final JPanel dailyWorkGoalHoursRowPanel = new JPanel(new BorderLayout(12, 0));
     private final JPanel generalCard = new JPanel();
     private final JPanel trackingCard = new JPanel();
     private boolean suppressChangeEvents;
@@ -149,6 +158,34 @@ public final class SettingsPanel extends JPanel {
         UiTheme.styleToggleSwitch(showExceptionsOnTimelineToggle);
         showExceptionsOnTimelineToggle.addActionListener(actionEvent -> onShowExceptionsOnTimelineChanged());
 
+        showStatisticsPercentagesTitleLabel.setForeground(UiTheme.TEXT_PRIMARY);
+        UiTheme.styleMutedLabel(showStatisticsPercentagesHintLabel);
+        UiTheme.styleToggleSwitch(showStatisticsPercentagesToggle);
+        showStatisticsPercentagesToggle.addActionListener(actionEvent -> onShowStatisticsPercentagesChanged());
+
+        dailyWorkGoalNotificationTitleLabel.setForeground(UiTheme.TEXT_PRIMARY);
+        UiTheme.styleMutedLabel(dailyWorkGoalNotificationHintLabel);
+        UiTheme.styleToggleSwitch(dailyWorkGoalNotificationToggle);
+        dailyWorkGoalNotificationToggle.addActionListener(actionEvent -> onDailyWorkGoalNotificationChanged());
+
+        dailyWorkGoalHoursLabel.setForeground(UiTheme.TEXT_PRIMARY);
+        dailyWorkGoalHoursSpinner.setMaximumSize(new Dimension(96, 32));
+        dailyWorkGoalHoursSpinner.setPreferredSize(new Dimension(96, 32));
+        dailyWorkGoalHoursSpinner.addChangeListener(changeEvent -> onDailyWorkGoalHoursChanged());
+        JPanel dailyWorkGoalHoursControlPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        dailyWorkGoalHoursControlPanel.setOpaque(false);
+        dailyWorkGoalHoursControlPanel.add(dailyWorkGoalHoursSpinner);
+
+        JPanel dailyWorkGoalHoursLabelPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        dailyWorkGoalHoursLabelPanel.setOpaque(false);
+        dailyWorkGoalHoursLabelPanel.add(dailyWorkGoalHoursLabel);
+
+        dailyWorkGoalHoursRowPanel.setOpaque(false);
+        dailyWorkGoalHoursRowPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        dailyWorkGoalHoursRowPanel.setBorder(BorderFactory.createEmptyBorder(0, 24, 0, 0));
+        dailyWorkGoalHoursRowPanel.add(dailyWorkGoalHoursLabelPanel, BorderLayout.CENTER);
+        dailyWorkGoalHoursRowPanel.add(dailyWorkGoalHoursControlPanel, BorderLayout.EAST);
+
         generalCard.add(generalTitleLabel);
         generalCard.add(Box.createVerticalStrut(14));
         generalCard.add(languageLabel);
@@ -189,6 +226,18 @@ public final class SettingsPanel extends JPanel {
                 createStackedTextPanel(showExceptionsOnTimelineTitleLabel, showExceptionsOnTimelineHintLabel),
                 showExceptionsOnTimelineToggle
         ));
+        trackingCard.add(Box.createVerticalStrut(14));
+        trackingCard.add(createSettingRow(
+                createStackedTextPanel(showStatisticsPercentagesTitleLabel, showStatisticsPercentagesHintLabel),
+                showStatisticsPercentagesToggle
+        ));
+        trackingCard.add(Box.createVerticalStrut(14));
+        trackingCard.add(createSettingRow(
+                createStackedTextPanel(dailyWorkGoalNotificationTitleLabel, dailyWorkGoalNotificationHintLabel),
+                dailyWorkGoalNotificationToggle
+        ));
+        trackingCard.add(Box.createVerticalStrut(8));
+        trackingCard.add(dailyWorkGoalHoursRowPanel);
         trackingCard.add(Box.createVerticalGlue());
 
         JPanel columnsPanel = new JPanel(new GridLayout(1, 2, 16, 0));
@@ -264,7 +313,25 @@ public final class SettingsPanel extends JPanel {
         showExceptionsOnTimelineHintLabel.setText(
                 wrapHintHtml(Messages.get(MessageCodes.UI_SETTINGS_SHOW_EXCEPTIONS_ON_TIMELINE_HINT))
         );
+        showStatisticsPercentagesTitleLabel.setText(
+                Messages.get(MessageCodes.UI_SETTINGS_SHOW_STATISTICS_PERCENTAGES)
+        );
+        showStatisticsPercentagesHintLabel.setText(
+                wrapHintHtml(Messages.get(MessageCodes.UI_SETTINGS_SHOW_STATISTICS_PERCENTAGES_HINT))
+        );
+        dailyWorkGoalNotificationTitleLabel.setText(
+                Messages.get(MessageCodes.UI_SETTINGS_DAILY_WORK_GOAL_NOTIFICATION)
+        );
+        dailyWorkGoalNotificationHintLabel.setText(
+                wrapHintHtml(Messages.get(MessageCodes.UI_SETTINGS_DAILY_WORK_GOAL_NOTIFICATION_HINT))
+        );
+        dailyWorkGoalHoursLabel.setText(
+                Messages.get(MessageCodes.UI_SETTINGS_DAILY_WORK_GOAL_HOURS)
+                        + ", "
+                        + Messages.get(MessageCodes.UI_SETTINGS_DAILY_WORK_GOAL_HOURS_UNIT)
+        );
         languageComboBox.repaint();
+        updateDailyWorkGoalHoursRowVisibility();
     }
 
     public void applyTheme() {
@@ -280,6 +347,9 @@ public final class SettingsPanel extends JPanel {
         minorThresholdLabel.setForeground(UiTheme.TEXT_PRIMARY);
         timelineVisibleTitleLabel.setForeground(UiTheme.TEXT_PRIMARY);
         showExceptionsOnTimelineTitleLabel.setForeground(UiTheme.TEXT_PRIMARY);
+        showStatisticsPercentagesTitleLabel.setForeground(UiTheme.TEXT_PRIMARY);
+        dailyWorkGoalNotificationTitleLabel.setForeground(UiTheme.TEXT_PRIMARY);
+        dailyWorkGoalHoursLabel.setForeground(UiTheme.TEXT_PRIMARY);
         UiTheme.styleMutedLabel(languageLabel);
         UiTheme.styleMutedLabel(launchAtLoginHintLabel);
         UiTheme.styleMutedLabel(autoStartHintLabel);
@@ -287,11 +357,15 @@ public final class SettingsPanel extends JPanel {
         UiTheme.styleMutedLabel(minorThresholdHintLabel);
         UiTheme.styleMutedLabel(timelineVisibleHintLabel);
         UiTheme.styleMutedLabel(showExceptionsOnTimelineHintLabel);
+        UiTheme.styleMutedLabel(showStatisticsPercentagesHintLabel);
+        UiTheme.styleMutedLabel(dailyWorkGoalNotificationHintLabel);
         UiTheme.styleToggleSwitch(launchAtLoginToggle);
         UiTheme.styleToggleSwitch(autoStartToggle);
         UiTheme.styleToggleSwitch(minimizeToTrayToggle);
         UiTheme.styleToggleSwitch(timelineVisibleToggle);
         UiTheme.styleToggleSwitch(showExceptionsOnTimelineToggle);
+        UiTheme.styleToggleSwitch(showStatisticsPercentagesToggle);
+        UiTheme.styleToggleSwitch(dailyWorkGoalNotificationToggle);
     }
 
     public void reloadFromSettings() {
@@ -303,10 +377,20 @@ public final class SettingsPanel extends JPanel {
             minimizeToTrayToggle.setSelected(userSettings.isMinimizeToTray());
             timelineVisibleToggle.setSelected(userSettings.isTimelineVisible());
             showExceptionsOnTimelineToggle.setSelected(userSettings.isShowExceptionsOnTimeline());
+            showStatisticsPercentagesToggle.setSelected(userSettings.isShowStatisticsTablePercentages());
+            dailyWorkGoalNotificationToggle.setSelected(userSettings.isDailyWorkGoalNotificationEnabled());
+            dailyWorkGoalHoursSpinner.setValue(userSettings.getDailyWorkGoalHours());
             minorThresholdSpinner.setValue(userSettings.getMinorUsageThresholdMinutes());
         } finally {
             suppressChangeEvents = false;
         }
+        updateDailyWorkGoalHoursRowVisibility();
+    }
+
+    private void updateDailyWorkGoalHoursRowVisibility() {
+        dailyWorkGoalHoursRowPanel.setVisible(dailyWorkGoalNotificationToggle.isSelected());
+        revalidate();
+        repaint();
     }
 
     private void selectLanguage(AppLanguage appLanguage) {
@@ -385,6 +469,35 @@ public final class SettingsPanel extends JPanel {
             return;
         }
         userSettings.setShowExceptionsOnTimeline(showExceptionsOnTimelineToggle.isSelected());
+        userSettingsStore.save(userSettings);
+        settingsChangedListener.run();
+    }
+
+    private void onShowStatisticsPercentagesChanged() {
+        if (suppressChangeEvents) {
+            return;
+        }
+        userSettings.setShowStatisticsTablePercentages(showStatisticsPercentagesToggle.isSelected());
+        userSettingsStore.save(userSettings);
+        settingsChangedListener.run();
+    }
+
+    private void onDailyWorkGoalNotificationChanged() {
+        if (suppressChangeEvents) {
+            return;
+        }
+        userSettings.setDailyWorkGoalNotificationEnabled(dailyWorkGoalNotificationToggle.isSelected());
+        userSettingsStore.save(userSettings);
+        updateDailyWorkGoalHoursRowVisibility();
+        settingsChangedListener.run();
+    }
+
+    private void onDailyWorkGoalHoursChanged() {
+        if (suppressChangeEvents) {
+            return;
+        }
+        int dailyWorkGoalHours = ((Number) dailyWorkGoalHoursSpinner.getValue()).intValue();
+        userSettings.setDailyWorkGoalHours(dailyWorkGoalHours);
         userSettingsStore.save(userSettings);
         settingsChangedListener.run();
     }

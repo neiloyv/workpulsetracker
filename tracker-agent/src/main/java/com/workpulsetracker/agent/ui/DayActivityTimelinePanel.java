@@ -81,6 +81,10 @@ public final class DayActivityTimelinePanel extends JPanel {
     public static Color excludedColor() {
         return EXCLUDED_COLOR;
     }
+
+    public static Color computerColor() {
+        return Color.WHITE;
+    }
     private static final Color HOUR_TICK_COLOR = new Color(0x5A, 0x5A, 0x78);
     private static final Color SUB_HOUR_TICK_COLOR = new Color(0x3E, 0x3E, 0x58);
 

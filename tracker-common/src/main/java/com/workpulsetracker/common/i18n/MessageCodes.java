@@ -63,6 +63,7 @@ public final class MessageCodes {
     public static final String UI_FEEDBACK_PREVIEW_FAILED = "ui.feedback.preview.failed";
 
     public static final String UI_MAIN_WORK_TIME = "ui.main.work.time";
+    public static final String UI_MAIN_COMPUTER_TIME = "ui.main.computer.time";
     public static final String UI_MAIN_START = "ui.main.start";
     public static final String UI_MAIN_PAUSE = "ui.main.pause";
     public static final String UI_MAIN_STATUS_RUNNING = "ui.main.status.running";
@@ -130,6 +131,9 @@ public final class MessageCodes {
     public static final String UI_STATS_DOWNLOAD_FORMAT_PDF = "ui.stats.download.format.pdf";
     public static final String UI_STATS_DOWNLOAD_SUCCESS = "ui.stats.download.success";
     public static final String UI_STATS_DOWNLOAD_FAILED = "ui.stats.download.failed";
+    public static final String UI_STATS_SHOW_PERCENTAGES = "ui.stats.show.percentages";
+    public static final String UI_STATS_TIMELINE_AVERAGE = "ui.stats.timeline.average";
+    public static final String UI_STATS_TIMELINE_COMPUTER = "ui.stats.timeline.computer";
 
     public static final String UI_SETTINGS_TITLE = "ui.settings.title";
     public static final String UI_SETTINGS_GENERAL = "ui.settings.general";
@@ -148,6 +152,12 @@ public final class MessageCodes {
     public static final String UI_SETTINGS_TIMELINE_VISIBLE_HINT = "ui.settings.timeline.visible.hint";
     public static final String UI_SETTINGS_SHOW_EXCEPTIONS_ON_TIMELINE = "ui.settings.show.exceptions.on.timeline";
     public static final String UI_SETTINGS_SHOW_EXCEPTIONS_ON_TIMELINE_HINT = "ui.settings.show.exceptions.on.timeline.hint";
+    public static final String UI_SETTINGS_SHOW_STATISTICS_PERCENTAGES = "ui.settings.show.statistics.percentages";
+    public static final String UI_SETTINGS_SHOW_STATISTICS_PERCENTAGES_HINT = "ui.settings.show.statistics.percentages.hint";
+    public static final String UI_SETTINGS_DAILY_WORK_GOAL_NOTIFICATION = "ui.settings.daily.work.goal.notification";
+    public static final String UI_SETTINGS_DAILY_WORK_GOAL_NOTIFICATION_HINT = "ui.settings.daily.work.goal.notification.hint";
+    public static final String UI_SETTINGS_DAILY_WORK_GOAL_HOURS = "ui.settings.daily.work.goal.hours";
+    public static final String UI_SETTINGS_DAILY_WORK_GOAL_HOURS_UNIT = "ui.settings.daily.work.goal.hours.unit";
     public static final String UI_SETTINGS_MINIMIZE_TO_TRAY = "ui.settings.minimize.to.tray";
     public static final String UI_SETTINGS_MINIMIZE_TO_TRAY_HINT = "ui.settings.minimize.to.tray.hint";
     public static final String UI_SETTINGS_DATA = "ui.settings.data";
@@ -225,6 +235,9 @@ public final class MessageCodes {
     public static final String UI_POMODORO_NOTIFY_SHORT_BREAK_DONE = "ui.pomodoro.notify.short.break.done";
     public static final String UI_POMODORO_NOTIFY_LONG_BREAK_DONE = "ui.pomodoro.notify.long.break.done";
     public static final String UI_POMODORO_ALERT_OK = "ui.pomodoro.alert.ok";
+
+    public static final String UI_DAILY_WORK_GOAL_NOTIFICATION_TITLE = "ui.daily.work.goal.notification.title";
+    public static final String UI_DAILY_WORK_GOAL_NOTIFICATION_MESSAGE = "ui.daily.work.goal.notification.message";
 
     public static final String UI_TRAY_OPEN = "ui.tray.open";
     public static final String UI_TRAY_EXIT = "ui.tray.exit";

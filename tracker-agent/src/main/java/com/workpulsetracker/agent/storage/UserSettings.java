@@ -40,6 +40,23 @@ public final class UserSettings {
     private Integer minorUsageThresholdMinutes = 5;
     private Boolean timelineVisible = true;
     private Boolean showExceptionsOnTimeline = true;
+    /**
+     * Режим круговой диаграммы на вкладке Tracker: ACTIVITY, PROGRAMS, CATEGORIES.
+     */
+    private String usageChartMode = "ACTIVITY";
+    /**
+     * Показывать проценты в таблице статистики (Programs / Categories).
+     */
+    private Boolean showStatisticsTablePercentages = true;
+    /**
+     * Уведомление при достижении дневной цели активной работы.
+     */
+    private Boolean dailyWorkGoalNotificationEnabled = false;
+    private Integer dailyWorkGoalHours = 8;
+    /**
+     * Дата (ISO), когда последний раз показывали уведомление о дневной цели.
+     */
+    private String lastDailyWorkGoalNotificationDate;
     private Boolean minimizeToTray = true;
     private String lastReportDirectoryPath;
     private String lastBackupDirectoryPath;
@@ -211,6 +228,55 @@ public final class UserSettings {
 
     public void setShowExceptionsOnTimeline(boolean showExceptionsOnTimeline) {
         this.showExceptionsOnTimeline = showExceptionsOnTimeline;
+    }
+
+    public String getUsageChartMode() {
+        if (StringUtils.isBlank(usageChartMode)) {
+            return "ACTIVITY";
+        }
+        return usageChartMode.trim().toUpperCase();
+    }
+
+    public void setUsageChartMode(String usageChartModeValue) {
+        if (StringUtils.isBlank(usageChartModeValue)) {
+            this.usageChartMode = "ACTIVITY";
+            return;
+        }
+        this.usageChartMode = usageChartModeValue.trim().toUpperCase();
+    }
+
+    public boolean isShowStatisticsTablePercentages() {
+        return Objects.isNull(showStatisticsTablePercentages) || showStatisticsTablePercentages;
+    }
+
+    public void setShowStatisticsTablePercentages(boolean showStatisticsTablePercentages) {
+        this.showStatisticsTablePercentages = showStatisticsTablePercentages;
+    }
+
+    public boolean isDailyWorkGoalNotificationEnabled() {
+        return Objects.nonNull(dailyWorkGoalNotificationEnabled) && dailyWorkGoalNotificationEnabled;
+    }
+
+    public void setDailyWorkGoalNotificationEnabled(boolean dailyWorkGoalNotificationEnabled) {
+        this.dailyWorkGoalNotificationEnabled = dailyWorkGoalNotificationEnabled;
+    }
+
+    public int getDailyWorkGoalHours() {
+        return normalizeDailyWorkGoalHours(dailyWorkGoalHours);
+    }
+
+    public void setDailyWorkGoalHours(int dailyWorkGoalHours) {
+        this.dailyWorkGoalHours = normalizeDailyWorkGoalHours(dailyWorkGoalHours);
+    }
+
+    public String getLastDailyWorkGoalNotificationDate() {
+        return lastDailyWorkGoalNotificationDate;
+    }
+
+    public void setLastDailyWorkGoalNotificationDate(String lastDailyWorkGoalNotificationDate) {
+        this.lastDailyWorkGoalNotificationDate = StringUtils.isNotBlank(lastDailyWorkGoalNotificationDate)
+                ? lastDailyWorkGoalNotificationDate.trim()
+                : null;
     }
 
     public boolean isMinimizeToTray() {
@@ -443,6 +509,13 @@ public final class UserSettings {
         return Math.min(minutes, 180);
     }
 
+    private static int normalizeDailyWorkGoalHours(Integer hours) {
+        if (Objects.isNull(hours) || hours < 1) {
+            return 8;
+        }
+        return Math.min(hours, 24);
+    }
+
     public void applyLocalOnlyMode() {
         setOperationMode(AgentOperationMode.LOCAL_SOLO);
         this.email = null;
@@ -505,6 +578,11 @@ public final class UserSettings {
         setMinorUsageThresholdMinutes(sourceUserSettings.getMinorUsageThresholdMinutes());
         setTimelineVisible(sourceUserSettings.isTimelineVisible());
         setShowExceptionsOnTimeline(sourceUserSettings.isShowExceptionsOnTimeline());
+        setUsageChartMode(sourceUserSettings.getUsageChartMode());
+        setShowStatisticsTablePercentages(sourceUserSettings.isShowStatisticsTablePercentages());
+        setDailyWorkGoalNotificationEnabled(sourceUserSettings.isDailyWorkGoalNotificationEnabled());
+        setDailyWorkGoalHours(sourceUserSettings.getDailyWorkGoalHours());
+        setLastDailyWorkGoalNotificationDate(sourceUserSettings.getLastDailyWorkGoalNotificationDate());
         setMinimizeToTray(sourceUserSettings.isMinimizeToTray());
         setLastReportDirectoryPath(sourceUserSettings.getLastReportDirectoryPath());
         setLastBackupDirectoryPath(sourceUserSettings.getLastBackupDirectoryPath());

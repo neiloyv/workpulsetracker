@@ -42,6 +42,7 @@ public final class TrackerMainFrame extends JFrame {
     private final JTabbedPane tabbedPane = new JTabbedPane();
     private final TrayService trayService;
     private final Timer refreshTimer;
+    private final DailyWorkGoalNotifier dailyWorkGoalNotifier;
     private final Runnable exitAction;
 
     public TrackerMainFrame(
@@ -58,7 +59,7 @@ public final class TrackerMainFrame extends JFrame {
         super(Messages.get(MessageCodes.UI_APP_TITLE));
         this.exitAction = exitAction;
         this.userSettings = userSettings;
-        this.mainPanel = new MainPanel(trackingEngine, statisticsService, userSettings);
+        this.mainPanel = new MainPanel(trackingEngine, statisticsService, userSettings, userSettingsStore);
         this.statisticsPanel = new StatisticsPanel(statisticsService, userSettings, userSettingsStore);
         this.trayService = new TrayService(this, exitAction);
         this.programsPanel = new ProgramsPanel(
@@ -98,6 +99,11 @@ public final class TrackerMainFrame extends JFrame {
         this.feedbackPanel = new FeedbackPanel(
                 userSettings,
                 new FeedbackSubmitService(agentConfig, agentFeedbackClient)
+        );
+        this.dailyWorkGoalNotifier = new DailyWorkGoalNotifier(
+                statisticsService,
+                userSettings,
+                userSettingsStore
         );
 
         setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
@@ -183,6 +189,8 @@ public final class TrackerMainFrame extends JFrame {
 
     public void refreshPanels() {
         mainPanel.refresh();
+        dailyWorkGoalNotifier.checkAndNotify();
+        statisticsPanel.syncShowPercentagesToggleFromSettings();
         if (tabbedPane.getSelectedComponent() == statisticsPanel) {
             statisticsPanel.refresh();
         }
