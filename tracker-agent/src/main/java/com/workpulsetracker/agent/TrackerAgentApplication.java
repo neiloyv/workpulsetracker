@@ -9,6 +9,7 @@ import com.workpulsetracker.agent.icons.ApplicationIconService;
 import com.workpulsetracker.agent.stats.StatisticsService;
 import com.workpulsetracker.agent.storage.ActivityStore;
 import com.workpulsetracker.agent.storage.LocalAppRuntimeStore;
+import com.workpulsetracker.agent.storage.LocalSqliteDatabase;
 import com.workpulsetracker.agent.storage.UserSettings;
 import com.workpulsetracker.agent.storage.UserSettingsStore;
 import com.workpulsetracker.agent.tracking.TrackingEngine;
@@ -165,6 +166,7 @@ public final class TrackerAgentApplication {
             logger.info("schema=local Stopping tracker-agent...");
             telemetryUploadScheduler.close();
             trackingEngine.close();
+            LocalSqliteDatabase.getInstance().closeQuietly();
         }, "tracker-agent-shutdown"));
 
         trackerMainFrame.setVisible(true);
@@ -205,6 +207,7 @@ public final class TrackerAgentApplication {
                 trackingEngine.close();
             }
         } finally {
+            LocalSqliteDatabase.getInstance().closeQuietly();
             System.exit(0);
         }
     }

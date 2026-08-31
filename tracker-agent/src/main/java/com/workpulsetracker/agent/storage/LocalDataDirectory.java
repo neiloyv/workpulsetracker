@@ -17,6 +17,10 @@ public final class LocalDataDirectory {
         return Paths.get(System.getProperty("user.home"), DIRECTORY_NAME);
     }
 
+    public static Path getDatabaseFilePath() {
+        return getRootPath().resolve("agent.db");
+    }
+
     public static Path getSettingsFilePath() {
         return getRootPath().resolve("settings.json");
     }

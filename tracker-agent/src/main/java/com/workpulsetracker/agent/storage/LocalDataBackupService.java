@@ -11,11 +11,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Reader;
-import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.stream.Stream;
@@ -28,48 +28,32 @@ import java.util.zip.ZipOutputStream;
  */
 public final class LocalDataBackupService {
 
-    public static final int BACKUP_FORMAT_VERSION = 1;
+    public static final int BACKUP_FORMAT_VERSION = 2;
     private static final String MANIFEST_ENTRY_NAME = "manifest.json";
     private static final String SETTINGS_ENTRY_NAME = "settings.json";
-    private static final String INTERVALS_ENTRY_NAME = "intervals.json";
-    private static final String EXECUTABLE_PATHS_ENTRY_NAME = "executable-paths.json";
+    private static final String DATABASE_ENTRY_NAME = "agent.db";
 
     private static final Logger logger = LoggerFactory.getLogger(LocalDataBackupService.class);
 
     private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
-    private final Path settingsFilePath;
-    private final Path intervalsFilePath;
-    private final Path executablePathsFilePath;
-
-    public LocalDataBackupService() {
-        this(
-                LocalDataDirectory.getSettingsFilePath(),
-                LocalDataDirectory.getIntervalsFilePath(),
-                LocalDataDirectory.getExecutablePathsFilePath()
-        );
-    }
-
-    public LocalDataBackupService(
-            Path settingsFilePath,
-            Path intervalsFilePath,
-            Path executablePathsFilePath
-    ) {
-        this.settingsFilePath = Objects.requireNonNull(settingsFilePath);
-        this.intervalsFilePath = Objects.requireNonNull(intervalsFilePath);
-        this.executablePathsFilePath = Objects.requireNonNull(executablePathsFilePath);
-    }
 
     public void exportToZip(Path zipFilePath) throws IOException {
         Objects.requireNonNull(zipFilePath);
         Files.createDirectories(zipFilePath.getParent());
+        Path temporaryDatabaseFilePath = Files.createTempFile("workpulse-agent-db-", ".db");
         try (OutputStream fileOutputStream = Files.newOutputStream(zipFilePath);
              ZipOutputStream zipOutputStream = new ZipOutputStream(fileOutputStream)) {
             writeManifest(zipOutputStream);
-            copyFileToZipIfExists(zipOutputStream, SETTINGS_ENTRY_NAME, settingsFilePath);
-            copyFileToZipIfExists(zipOutputStream, INTERVALS_ENTRY_NAME, intervalsFilePath);
-            copyFileToZipIfExists(zipOutputStream, EXECUTABLE_PATHS_ENTRY_NAME, executablePathsFilePath);
+            try {
+                LocalSqliteDatabase.getInstance().copyDatabaseTo(temporaryDatabaseFilePath);
+            } catch (SQLException exception) {
+                throw new IOException("Failed to export agent.db", exception);
+            }
+            copyFileToZipIfExists(zipOutputStream, DATABASE_ENTRY_NAME, temporaryDatabaseFilePath);
+        } finally {
+            Files.deleteIfExists(temporaryDatabaseFilePath);
         }
-        logger.info("Local backup exported to {}", zipFilePath);
+        logger.info("schema=local Local backup exported to {}", zipFilePath);
     }
 
     public void importFromZip(Path zipFilePath) throws IOException {
@@ -81,15 +65,13 @@ public final class LocalDataBackupService {
         Path temporaryDirectory = Files.createTempDirectory("workpulse-backup-import-");
         try {
             extractZip(zipFilePath, temporaryDirectory);
-            validateExtractedBackup(temporaryDirectory);
-
-            Path dataRootPath = LocalDataDirectory.getRootPath();
-            Files.createDirectories(dataRootPath);
-
-            replaceFile(temporaryDirectory.resolve(SETTINGS_ENTRY_NAME), settingsFilePath);
-            replaceOptionalFile(temporaryDirectory.resolve(INTERVALS_ENTRY_NAME), intervalsFilePath, "[]");
-            replaceOptionalFile(temporaryDirectory.resolve(EXECUTABLE_PATHS_ENTRY_NAME), executablePathsFilePath, "{}");
-            logger.info("Local backup imported from {}", zipFilePath);
+            BackupManifest backupManifest = validateExtractedBackup(temporaryDirectory);
+            if (backupManifest.formatVersion() >= 2) {
+                importSqliteBackup(temporaryDirectory.resolve(DATABASE_ENTRY_NAME));
+            } else {
+                importLegacyJsonBackup(temporaryDirectory);
+            }
+            logger.info("schema=local Local backup imported from {}", zipFilePath);
         } finally {
             deleteDirectoryQuietly(temporaryDirectory);
         }
@@ -141,14 +123,10 @@ public final class LocalDataBackupService {
         }
     }
 
-    private void validateExtractedBackup(Path temporaryDirectory) throws IOException {
+    private BackupManifest validateExtractedBackup(Path temporaryDirectory) throws IOException {
         Path manifestPath = temporaryDirectory.resolve(MANIFEST_ENTRY_NAME);
-        Path settingsPath = temporaryDirectory.resolve(SETTINGS_ENTRY_NAME);
         if (!Files.isRegularFile(manifestPath)) {
             throw new IOException("Backup does not contain manifest.json");
-        }
-        if (!Files.isRegularFile(settingsPath)) {
-            throw new IOException("Backup does not contain settings.json");
         }
         try (Reader reader = Files.newBufferedReader(manifestPath, StandardCharsets.UTF_8)) {
             BackupManifest backupManifest = gson.fromJson(reader, BackupManifest.class);
@@ -157,26 +135,33 @@ public final class LocalDataBackupService {
                     || backupManifest.formatVersion() > BACKUP_FORMAT_VERSION) {
                 throw new IOException("Unsupported backup format version");
             }
+            if (backupManifest.formatVersion() >= 2) {
+                if (!Files.isRegularFile(temporaryDirectory.resolve(DATABASE_ENTRY_NAME))) {
+                    throw new IOException("Backup does not contain agent.db");
+                }
+            } else if (!Files.isRegularFile(temporaryDirectory.resolve(SETTINGS_ENTRY_NAME))) {
+                throw new IOException("Backup does not contain settings.json");
+            }
+            return backupManifest;
         }
     }
 
-    private static void replaceFile(Path sourceFilePath, Path targetFilePath) throws IOException {
-        Files.createDirectories(targetFilePath.getParent());
-        Files.copy(sourceFilePath, targetFilePath, StandardCopyOption.REPLACE_EXISTING);
+    private static void importSqliteBackup(Path sourceDatabaseFilePath) throws IOException {
+        try {
+            LocalSqliteDatabase.getInstance().replaceDatabaseFile(sourceDatabaseFilePath);
+        } catch (SQLException exception) {
+            throw new IOException("Failed to import agent.db", exception);
+        }
     }
 
-    private static void replaceOptionalFile(
-            Path sourceFilePath,
-            Path targetFilePath,
-            String emptyContent
-    ) throws IOException {
-        Files.createDirectories(targetFilePath.getParent());
-        if (Files.isRegularFile(sourceFilePath)) {
-            Files.copy(sourceFilePath, targetFilePath, StandardCopyOption.REPLACE_EXISTING);
-            return;
-        }
-        try (Writer writer = Files.newBufferedWriter(targetFilePath, StandardCharsets.UTF_8)) {
-            writer.write(emptyContent);
+    private static void importLegacyJsonBackup(Path temporaryDirectory) throws IOException {
+        try {
+            LocalSqliteDatabase.getInstance().run(connection -> {
+                JsonToSqliteMigrator.clearUserData(connection);
+                JsonToSqliteMigrator.migrateFromDirectory(connection, temporaryDirectory);
+            });
+        } catch (SQLException exception) {
+            throw new IOException("Failed to import legacy JSON backup", exception);
         }
     }
 

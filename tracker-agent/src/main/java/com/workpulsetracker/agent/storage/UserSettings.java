@@ -1,7 +1,7 @@
 package com.workpulsetracker.agent.storage;
 
 import com.workpulsetracker.agent.mode.AgentOperationMode;
-import com.workpulsetracker.agent.util.ProgramApplicationKeyResolver;
+import com.workpulsetracker.agent.util.TrackedApplicationNameResolver;
 import com.workpulsetracker.common.i18n.AppLanguage;
 import org.apache.commons.lang3.StringUtils;
 
@@ -72,7 +72,7 @@ public final class UserSettings {
      */
     private List<String> customProgramCategories = new ArrayList<>();
     /**
-     * Категория по ключу программы ({@link ProgramApplicationKeyResolver}).
+     * Категория по ключу программы ({@link TrackedApplicationNameResolver}).
      * Отсутствующий ключ = {@link ProgramCategoryIds#WORK}.
      */
     private Map<String, String> applicationCategoryByKey = new LinkedHashMap<>();
@@ -420,7 +420,7 @@ public final class UserSettings {
     }
 
     public String getApplicationCategoryId(String applicationNameOrKey) {
-        String programKey = ProgramApplicationKeyResolver.resolveProgramKey(applicationNameOrKey);
+        String programKey = TrackedApplicationNameResolver.resolveProgramKey(applicationNameOrKey);
         String categoryId = getApplicationCategoryByKey().get(programKey);
         if (StringUtils.isBlank(categoryId)) {
             return ProgramCategoryIds.WORK;
@@ -434,19 +434,19 @@ public final class UserSettings {
     }
 
     public void setApplicationCategoryId(String applicationNameOrKey, String categoryId) {
-        String programKey = ProgramApplicationKeyResolver.resolveProgramKey(applicationNameOrKey);
+        String programKey = TrackedApplicationNameResolver.resolveProgramKey(applicationNameOrKey);
         String resolvedCategoryId = resolveExistingCategoryId(categoryId);
         getApplicationCategoryByKey().put(programKey, resolvedCategoryId);
     }
 
     public boolean isApplicationTracked(String applicationNameOrKey) {
-        String programKey = ProgramApplicationKeyResolver.resolveProgramKey(applicationNameOrKey);
+        String programKey = TrackedApplicationNameResolver.resolveProgramKey(applicationNameOrKey);
         Boolean tracked = getApplicationTrackedByKey().get(programKey);
         return Objects.isNull(tracked) || tracked;
     }
 
     public void setApplicationTracked(String applicationNameOrKey, boolean tracked) {
-        String programKey = ProgramApplicationKeyResolver.resolveProgramKey(applicationNameOrKey);
+        String programKey = TrackedApplicationNameResolver.resolveProgramKey(applicationNameOrKey);
         getApplicationTrackedByKey().put(programKey, tracked);
     }
 

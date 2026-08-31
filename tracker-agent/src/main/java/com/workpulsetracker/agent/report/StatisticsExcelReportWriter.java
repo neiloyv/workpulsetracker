@@ -49,7 +49,6 @@ public final class StatisticsExcelReportWriter {
         try (Workbook workbook = new XSSFWorkbook();
              OutputStream outputStream = Files.newOutputStream(reportFilePath)) {
             CellStyle titleCellStyle = createBoldCellStyle(workbook, 14, HorizontalAlignment.LEFT);
-            CellStyle sectionCellStyle = createBoldCellStyle(workbook, 12, HorizontalAlignment.LEFT);
             CellStyle headerCellStyle = createBoldCellStyle(workbook, 11, HorizontalAlignment.CENTER);
             CellStyle bodyCenterCellStyle = createCellStyle(workbook, 11, HorizontalAlignment.CENTER);
             CellStyle bodyLeftCellStyle = createCellStyle(workbook, 11, HorizontalAlignment.LEFT);
@@ -61,7 +60,6 @@ public final class StatisticsExcelReportWriter {
                             workbook,
                             statisticsReportSection,
                             titleCellStyle,
-                            sectionCellStyle,
                             headerCellStyle,
                             bodyLeftCellStyle,
                             bodyCenterCellStyle,
@@ -83,7 +81,6 @@ public final class StatisticsExcelReportWriter {
         try (Workbook workbook = new XSSFWorkbook();
              OutputStream outputStream = Files.newOutputStream(reportFilePath)) {
             CellStyle titleCellStyle = createBoldCellStyle(workbook, 14, HorizontalAlignment.LEFT);
-            CellStyle sectionCellStyle = createBoldCellStyle(workbook, 12, HorizontalAlignment.LEFT);
             CellStyle headerCellStyle = createBoldCellStyle(workbook, 11, HorizontalAlignment.CENTER);
             CellStyle bodyCenterCellStyle = createCellStyle(workbook, 11, HorizontalAlignment.CENTER);
             CellStyle bodyLeftCellStyle = createCellStyle(workbook, 11, HorizontalAlignment.LEFT);
@@ -100,7 +97,6 @@ public final class StatisticsExcelReportWriter {
                     workbook,
                     statisticsReportSection,
                     titleCellStyle,
-                    sectionCellStyle,
                     headerCellStyle,
                     bodyLeftCellStyle,
                     bodyCenterCellStyle,
@@ -116,7 +112,6 @@ public final class StatisticsExcelReportWriter {
             Workbook workbook,
             StatisticsReportSection statisticsReportSection,
             CellStyle titleCellStyle,
-            CellStyle sectionCellStyle,
             CellStyle headerCellStyle,
             CellStyle bodyLeftCellStyle,
             CellStyle bodyCenterCellStyle,
@@ -138,28 +133,19 @@ public final class StatisticsExcelReportWriter {
                 titleCellStyle
         );
 
-        int maxColumnCount = 2;
-        for (StatisticsReportTable reportTable : statisticsReportSection.getReportTables()) {
-            rowIndex++;
-            if (reportTable.hasTitle()) {
-                Row weekTitleRow = sheet.createRow(rowIndex++);
-                createCell(weekTitleRow, 0, reportTable.getTitle(), sectionCellStyle);
-            }
-            rowIndex = writeMatrixTable(
-                    sheet,
-                    rowIndex,
-                    reportTable.getApplicationUsageMatrix(),
-                    headerCellStyle,
-                    bodyLeftCellStyle,
-                    bodyCenterCellStyle,
-                    totalLeftCellStyle,
-                    totalCenterCellStyle
-            );
-            maxColumnCount = Math.max(
-                    maxColumnCount,
-                    2 + reportTable.getApplicationUsageMatrix().getPeriodBuckets().size()
-            );
-        }
+        ApplicationUsageMatrix applicationUsageMatrix = statisticsReportSection.getApplicationUsageMatrix();
+        rowIndex++;
+        rowIndex = writeMatrixTable(
+                sheet,
+                rowIndex,
+                applicationUsageMatrix,
+                headerCellStyle,
+                bodyLeftCellStyle,
+                bodyCenterCellStyle,
+                totalLeftCellStyle,
+                totalCenterCellStyle
+        );
+        int maxColumnCount = Math.max(2, 2 + applicationUsageMatrix.getPeriodBuckets().size());
 
         for (int columnIndex = 0; columnIndex < maxColumnCount; columnIndex++) {
             sheet.autoSizeColumn(columnIndex);

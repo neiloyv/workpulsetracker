@@ -13,7 +13,6 @@ import com.workpulsetracker.common.i18n.Messages;
 
 import java.time.LocalDate;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -27,20 +26,20 @@ public final class StatisticsReportSection {
     private final String periodTitle;
     private final long totalActiveSeconds;
     private final List<ApplicationUsageSummary> applicationUsageSummaries;
-    private final List<StatisticsReportTable> reportTables;
+    private final ApplicationUsageMatrix applicationUsageMatrix;
 
     private StatisticsReportSection(
             StatsPeriod statsPeriod,
             String periodTitle,
             long totalActiveSeconds,
             List<ApplicationUsageSummary> applicationUsageSummaries,
-            List<StatisticsReportTable> reportTables
+            ApplicationUsageMatrix applicationUsageMatrix
     ) {
         this.statsPeriod = statsPeriod;
         this.periodTitle = periodTitle;
         this.totalActiveSeconds = totalActiveSeconds;
         this.applicationUsageSummaries = applicationUsageSummaries;
-        this.reportTables = List.copyOf(reportTables);
+        this.applicationUsageMatrix = applicationUsageMatrix;
     }
 
     public static List<StatisticsReportSection> buildAll(
@@ -61,19 +60,6 @@ public final class StatisticsReportSection {
                         minorUsageThresholdMinutes
                 ))
                 .collect(Collectors.toList());
-    }
-
-    public static StatisticsReportSection build(
-            StatisticsService statisticsService,
-            StatsPeriod statsPeriod,
-            int minorUsageThresholdMinutes
-    ) {
-        return buildForAnchor(
-                statisticsService,
-                statsPeriod,
-                LocalDate.now(),
-                minorUsageThresholdMinutes
-        );
     }
 
     public static StatisticsReportSection buildForAnchor(
@@ -109,7 +95,7 @@ public final class StatisticsReportSection {
                 periodTitle,
                 statisticsSnapshot.getTotalActiveSeconds(),
                 applicationUsageSummaries,
-                List.of(new StatisticsReportTable(null, applicationUsageMatrix))
+                applicationUsageMatrix
         );
     }
 
@@ -140,7 +126,7 @@ public final class StatisticsReportSection {
         return applicationUsageSummaries;
     }
 
-    public List<StatisticsReportTable> getReportTables() {
-        return Collections.unmodifiableList(reportTables);
+    public ApplicationUsageMatrix getApplicationUsageMatrix() {
+        return applicationUsageMatrix;
     }
 }

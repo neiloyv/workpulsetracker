@@ -116,14 +116,8 @@ public final class StatisticsPdfReportWriter {
         document.add(titleParagraph);
         document.add(new Paragraph(" "));
 
-        for (StatisticsReportTable reportTable : statisticsReportSection.getReportTables()) {
-            if (reportTable.hasTitle()) {
-                document.add(new Paragraph(reportTable.getTitle(), reportFonts.sectionFont()));
-                document.add(new Paragraph(" "));
-            }
-            document.add(buildStatisticsTable(reportTable.getApplicationUsageMatrix(), reportFonts));
-            document.add(new Paragraph(" "));
-        }
+        document.add(buildStatisticsTable(statisticsReportSection.getApplicationUsageMatrix(), reportFonts));
+        document.add(new Paragraph(" "));
 
         addPieChart(document, statisticsReportSection);
     }

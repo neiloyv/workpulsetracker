@@ -1,19 +1,13 @@
 package com.workpulsetracker.agent.storage;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.reflect.TypeToken;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.io.Reader;
-import java.io.Writer;
-import java.lang.reflect.Type;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -30,50 +24,38 @@ import java.util.stream.Collectors;
 public final class LocalAppRuntimeStore {
 
     private static final Logger logger = LoggerFactory.getLogger(LocalAppRuntimeStore.class);
-    private static final Type STORE_TYPE = new TypeToken<Map<String, AppRuntimeCounter>>() {
-    }.getType();
+    private static final String SELECT_ALL_COUNTERS_SQL =
+            "SELECT app_identifier, display_name, current_value_seconds, last_synced_value_seconds "
+                    + "FROM app_runtime_counter";
+    private static final String DELETE_ALL_COUNTERS_SQL = "DELETE FROM app_runtime_counter";
+    private static final String UPSERT_COUNTER_SQL =
+            "INSERT INTO app_runtime_counter ("
+                    + "app_identifier, display_name, current_value_seconds, last_synced_value_seconds"
+                    + ") VALUES (?, ?, ?, ?) "
+                    + "ON CONFLICT(app_identifier) DO UPDATE SET "
+                    + "display_name = excluded.display_name, "
+                    + "current_value_seconds = excluded.current_value_seconds, "
+                    + "last_synced_value_seconds = excluded.last_synced_value_seconds";
 
-    private final Path storeFilePath;
-    private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     private final Map<String, AppRuntimeCounter> countersByAppIdentifier = new ConcurrentHashMap<>();
 
-    public LocalAppRuntimeStore() {
-        this(LocalDataDirectory.getAppRuntimeCountersFilePath());
-    }
-
-    public LocalAppRuntimeStore(Path storeFilePath) {
-        this.storeFilePath = storeFilePath;
-    }
-
     public synchronized void load() {
-        if (!Files.exists(storeFilePath)) {
-            return;
-        }
-        try (Reader reader = Files.newBufferedReader(storeFilePath, StandardCharsets.UTF_8)) {
-            Map<String, AppRuntimeCounter> loadedCounters = gson.fromJson(reader, STORE_TYPE);
+        try {
+            Map<String, AppRuntimeCounter> loadedCounters =
+                    LocalSqliteDatabase.getInstance().call(LocalAppRuntimeStore::loadCountersFromConnection);
             countersByAppIdentifier.clear();
-            if (Objects.nonNull(loadedCounters)) {
-                loadedCounters.entrySet().stream()
-                        .filter(entry -> StringUtils.isNotBlank(entry.getKey()) && Objects.nonNull(entry.getValue()))
-                        .forEach(entry -> countersByAppIdentifier.put(
-                                entry.getKey().toLowerCase(Locale.ROOT),
-                                entry.getValue()
-                        ));
-            }
-            logger.info("Loaded {} local app runtime counters", countersByAppIdentifier.size());
-        } catch (IOException exception) {
-            logger.warn("Failed to load app runtime counters: {}", exception.getMessage());
+            countersByAppIdentifier.putAll(loadedCounters);
+            logger.info("schema=local Loaded {} local app runtime counters", countersByAppIdentifier.size());
+        } catch (SQLException exception) {
+            logger.warn("schema=local Failed to load app runtime counters: {}", exception.getMessage());
         }
     }
 
     public synchronized void save() {
         try {
-            Files.createDirectories(storeFilePath.getParent());
-            try (Writer writer = Files.newBufferedWriter(storeFilePath, StandardCharsets.UTF_8)) {
-                gson.toJson(new LinkedHashMap<>(countersByAppIdentifier), writer);
-            }
-        } catch (IOException exception) {
-            logger.warn("Failed to save app runtime counters: {}", exception.getMessage());
+            LocalSqliteDatabase.getInstance().run(connection -> replaceAllOnConnection(connection, countersByAppIdentifier));
+        } catch (SQLException exception) {
+            logger.warn("schema=local Failed to save app runtime counters: {}", exception.getMessage());
         }
     }
 
@@ -90,7 +72,7 @@ public final class LocalAppRuntimeStore {
             appRuntimeCounter.setDisplayName(displayName.trim());
         }
         appRuntimeCounter.setCurrentValueSeconds(appRuntimeCounter.getCurrentValueSeconds() + seconds);
-        save();
+        persistCounter(normalizedIdentifier, appRuntimeCounter);
     }
 
     public synchronized List<AppRuntimeSnapshot> snapshotPendingUpload() {
@@ -102,16 +84,6 @@ public final class LocalAppRuntimeStore {
                 ))
                 .filter(snapshot -> snapshot.currentValueSeconds() > 0L)
                 .collect(Collectors.toList());
-    }
-
-    public synchronized Map<String, Long> getAllCurrentValues() {
-        return countersByAppIdentifier.entrySet().stream()
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        entry -> entry.getValue().getCurrentValueSeconds(),
-                        (first, second) -> first,
-                        LinkedHashMap::new
-                ));
     }
 
     /**
@@ -129,9 +101,9 @@ public final class LocalAppRuntimeStore {
                     AppRuntimeCounter appRuntimeCounter = countersByAppIdentifier.get(normalizedIdentifier);
                     if (Objects.nonNull(appRuntimeCounter)) {
                         appRuntimeCounter.setLastSyncedValueSeconds(appRuntimeCounter.getCurrentValueSeconds());
+                        persistCounter(normalizedIdentifier, appRuntimeCounter);
                     }
                 });
-        save();
     }
 
     /**
@@ -159,14 +131,83 @@ public final class LocalAppRuntimeStore {
         save();
     }
 
-    public synchronized List<AppRuntimeSnapshot> getAllSnapshots() {
-        return countersByAppIdentifier.entrySet().stream()
-                .map(entry -> new AppRuntimeSnapshot(
-                        entry.getKey(),
-                        entry.getValue().getDisplayName(),
-                        entry.getValue().getCurrentValueSeconds()
-                ))
-                .collect(Collectors.toList());
+    static Map<String, AppRuntimeCounter> loadCountersFromConnection(Connection connection) throws SQLException {
+        Map<String, AppRuntimeCounter> loadedCounters = new LinkedHashMap<>();
+        try (PreparedStatement preparedStatement = connection.prepareStatement(SELECT_ALL_COUNTERS_SQL);
+             ResultSet resultSet = preparedStatement.executeQuery()) {
+            while (resultSet.next()) {
+                String appIdentifier = resultSet.getString("app_identifier");
+                if (StringUtils.isBlank(appIdentifier)) {
+                    continue;
+                }
+                loadedCounters.put(
+                        appIdentifier.toLowerCase(Locale.ROOT),
+                        new AppRuntimeCounter(
+                                resultSet.getString("display_name"),
+                                resultSet.getLong("current_value_seconds"),
+                                resultSet.getLong("last_synced_value_seconds")
+                        )
+                );
+            }
+        }
+        return loadedCounters;
+    }
+
+    static void replaceAllOnConnection(
+            Connection connection,
+            Map<String, AppRuntimeCounter> countersByAppIdentifier
+    ) throws SQLException {
+        boolean previousAutoCommit = connection.getAutoCommit();
+        connection.setAutoCommit(false);
+        try (PreparedStatement deleteStatement = connection.prepareStatement(DELETE_ALL_COUNTERS_SQL);
+             PreparedStatement upsertStatement = connection.prepareStatement(UPSERT_COUNTER_SQL)) {
+            deleteStatement.executeUpdate();
+            countersByAppIdentifier.entrySet().stream()
+                    .filter(entry -> StringUtils.isNotBlank(entry.getKey()) && Objects.nonNull(entry.getValue()))
+                    .forEach(entry -> {
+                        try {
+                            bindCounter(
+                                    upsertStatement,
+                                    entry.getKey().toLowerCase(Locale.ROOT),
+                                    entry.getValue()
+                            );
+                            upsertStatement.addBatch();
+                        } catch (SQLException exception) {
+                            throw new IllegalStateException(exception);
+                        }
+                    });
+            upsertStatement.executeBatch();
+            connection.commit();
+        } catch (SQLException exception) {
+            connection.rollback();
+            throw exception;
+        } finally {
+            connection.setAutoCommit(previousAutoCommit);
+        }
+    }
+
+    private void persistCounter(String appIdentifier, AppRuntimeCounter appRuntimeCounter) {
+        try {
+            LocalSqliteDatabase.getInstance().run(connection -> {
+                try (PreparedStatement preparedStatement = connection.prepareStatement(UPSERT_COUNTER_SQL)) {
+                    bindCounter(preparedStatement, appIdentifier, appRuntimeCounter);
+                    preparedStatement.executeUpdate();
+                }
+            });
+        } catch (SQLException exception) {
+            logger.warn("schema=local Failed to persist app runtime counter {}: {}", appIdentifier, exception.getMessage());
+        }
+    }
+
+    private static void bindCounter(
+            PreparedStatement preparedStatement,
+            String appIdentifier,
+            AppRuntimeCounter appRuntimeCounter
+    ) throws SQLException {
+        preparedStatement.setString(1, appIdentifier);
+        preparedStatement.setString(2, appRuntimeCounter.getDisplayName());
+        preparedStatement.setLong(3, appRuntimeCounter.getCurrentValueSeconds());
+        preparedStatement.setLong(4, appRuntimeCounter.getLastSyncedValueSeconds());
     }
 
     public static final class AppRuntimeCounter {

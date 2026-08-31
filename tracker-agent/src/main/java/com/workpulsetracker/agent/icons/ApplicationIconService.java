@@ -1,9 +1,6 @@
 package com.workpulsetracker.agent.icons;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.reflect.TypeToken;
-import com.workpulsetracker.agent.storage.LocalDataDirectory;
+import com.workpulsetracker.agent.storage.LocalSqliteDatabase;
 import com.workpulsetracker.agent.util.ApplicationNameNormalizer;
 import com.workpulsetracker.agent.util.TrackedApplicationNameResolver;
 import com.workpulsetracker.common.i18n.MessageCodes;
@@ -21,14 +18,12 @@ import java.awt.Image;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.IOException;
-import java.io.Reader;
-import java.io.Writer;
 import java.lang.reflect.Method;
-import java.lang.reflect.Type;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -41,24 +36,21 @@ public final class ApplicationIconService {
 
     private static final Logger logger = LoggerFactory.getLogger(ApplicationIconService.class);
     private static final ApplicationIconService INSTANCE = new ApplicationIconService();
-    private static final Type PATH_MAP_TYPE = new TypeToken<Map<String, String>>() {
-    }.getType();
     private static final int ICON_SIZE = 16;
     private static final Color FALLBACK_BACKGROUND = new Color(0x1A, 0x1A, 0x2B);
     private static final Color FALLBACK_BORDER = new Color(0x74, 0x58, 0xFF);
+    private static final String SELECT_ALL_EXECUTABLE_PATHS_SQL =
+            "SELECT application_name, executable_path FROM executable_path";
+    private static final String DELETE_ALL_EXECUTABLE_PATHS_SQL = "DELETE FROM executable_path";
+    private static final String UPSERT_EXECUTABLE_PATH_SQL =
+            "INSERT INTO executable_path (application_name, executable_path) VALUES (?, ?) "
+                    + "ON CONFLICT(application_name) DO UPDATE SET executable_path = excluded.executable_path";
 
-    private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     private final ConcurrentHashMap<String, String> executablePathByApplicationName = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ImageIcon> iconByApplicationName = new ConcurrentHashMap<>();
     private final ImageIcon fallbackIcon = createFallbackIcon();
-    private final Path executablePathsFilePath;
 
     private ApplicationIconService() {
-        this(LocalDataDirectory.getExecutablePathsFilePath());
-    }
-
-    ApplicationIconService(Path executablePathsFilePath) {
-        this.executablePathsFilePath = executablePathsFilePath;
     }
 
     public static ApplicationIconService getInstance() {
@@ -67,6 +59,7 @@ public final class ApplicationIconService {
 
     public void load() {
         loadPersistedPaths();
+        iconByApplicationName.clear();
         if (isWindows()) {
             WindowsProcessPathDiscovery.discoverRunningProcesses()
                     .forEach(this::rememberExecutablePathWithoutSave);
@@ -79,24 +72,12 @@ public final class ApplicationIconService {
 
     private void loadPersistedPaths() {
         try {
-            Files.createDirectories(executablePathsFilePath.getParent());
-            if (!Files.exists(executablePathsFilePath)) {
-                return;
-            }
-            try (Reader reader = Files.newBufferedReader(executablePathsFilePath, StandardCharsets.UTF_8)) {
-                Map<String, String> loadedExecutablePaths = gson.fromJson(reader, PATH_MAP_TYPE);
-                if (Objects.isNull(loadedExecutablePaths)) {
-                    return;
-                }
-                loadedExecutablePaths.entrySet().stream()
-                        .filter(entry -> StringUtils.isNotBlank(entry.getKey()) && StringUtils.isNotBlank(entry.getValue()))
-                        .forEach(entry -> executablePathByApplicationName.put(
-                                ApplicationNameNormalizer.normalize(entry.getKey()),
-                                entry.getValue().trim()
-                        ));
-            }
-        } catch (IOException exception) {
-            logger.warn("Failed to load executable-paths.json: {}", exception.getMessage());
+            Map<String, String> loadedExecutablePaths =
+                    LocalSqliteDatabase.getInstance().call(ApplicationIconService::loadExecutablePathsFromConnection);
+            executablePathByApplicationName.clear();
+            loadedExecutablePaths.forEach(executablePathByApplicationName::put);
+        } catch (SQLException exception) {
+            logger.warn("schema=local Failed to load executable paths: {}", exception.getMessage());
         }
     }
 
@@ -270,13 +251,58 @@ public final class ApplicationIconService {
 
     private void saveQuietly() {
         try {
-            Files.createDirectories(executablePathsFilePath.getParent());
-            try (Writer writer = Files.newBufferedWriter(executablePathsFilePath, StandardCharsets.UTF_8)) {
-                gson.toJson(executablePathByApplicationName, writer);
-            }
-        } catch (IOException exception) {
-            logger.warn("Failed to save executable-paths.json: {}", exception.getMessage());
+            LocalSqliteDatabase.getInstance().run(
+                    connection -> replaceAllExecutablePathsOnConnection(connection, executablePathByApplicationName)
+            );
+        } catch (SQLException exception) {
+            logger.warn("schema=local Failed to save executable paths: {}", exception.getMessage());
         }
+    }
+
+    public static void replaceAllExecutablePathsOnConnection(
+            Connection connection,
+            Map<String, String> executablePathByApplicationName
+    ) throws SQLException {
+        boolean previousAutoCommit = connection.getAutoCommit();
+        connection.setAutoCommit(false);
+        try (PreparedStatement deleteStatement = connection.prepareStatement(DELETE_ALL_EXECUTABLE_PATHS_SQL);
+             PreparedStatement upsertStatement = connection.prepareStatement(UPSERT_EXECUTABLE_PATH_SQL)) {
+            deleteStatement.executeUpdate();
+            executablePathByApplicationName.entrySet().stream()
+                    .filter(entry -> StringUtils.isNotBlank(entry.getKey()) && StringUtils.isNotBlank(entry.getValue()))
+                    .forEach(entry -> {
+                        try {
+                            upsertStatement.setString(1, ApplicationNameNormalizer.normalize(entry.getKey()));
+                            upsertStatement.setString(2, entry.getValue().trim());
+                            upsertStatement.addBatch();
+                        } catch (SQLException exception) {
+                            throw new IllegalStateException(exception);
+                        }
+                    });
+            upsertStatement.executeBatch();
+            connection.commit();
+        } catch (SQLException exception) {
+            connection.rollback();
+            throw exception;
+        } finally {
+            connection.setAutoCommit(previousAutoCommit);
+        }
+    }
+
+    private static Map<String, String> loadExecutablePathsFromConnection(Connection connection) throws SQLException {
+        ConcurrentHashMap<String, String> loadedExecutablePaths = new ConcurrentHashMap<>();
+        try (PreparedStatement preparedStatement = connection.prepareStatement(SELECT_ALL_EXECUTABLE_PATHS_SQL);
+             ResultSet resultSet = preparedStatement.executeQuery()) {
+            while (resultSet.next()) {
+                String applicationName = resultSet.getString("application_name");
+                String executablePath = resultSet.getString("executable_path");
+                if (StringUtils.isBlank(applicationName) || StringUtils.isBlank(executablePath)) {
+                    continue;
+                }
+                loadedExecutablePaths.put(ApplicationNameNormalizer.normalize(applicationName), executablePath.trim());
+            }
+        }
+        return loadedExecutablePaths;
     }
 
     private static boolean isWindows() {

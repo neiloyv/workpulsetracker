@@ -4,16 +4,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Collectors;
 
 /**
- * Потокобезопасный in-memory буфер интервалов активности текущей сессии.
+ * Потокобезопасный in-memory буфер текущего открытого интервала активности.
+ * Закрытые интервалы не хранятся здесь — они уходят слушателям (persist в {@code ActivityStore}).
  */
 public final class DataBuffer {
 
@@ -22,7 +20,6 @@ public final class DataBuffer {
     private static final DataBuffer INSTANCE = new DataBuffer();
 
     private final ReentrantLock reentrantLock = new ReentrantLock();
-    private final List<ActivityInterval> closedActivityIntervals = new ArrayList<>();
     private final List<ActivityBufferListener> activityBufferListeners = new CopyOnWriteArrayList<>();
     private ActivityInterval currentActivityInterval;
 
@@ -37,10 +34,6 @@ public final class DataBuffer {
         if (Objects.nonNull(activityBufferListener)) {
             activityBufferListeners.add(activityBufferListener);
         }
-    }
-
-    public void startInterval(String applicationName, String windowTitle, boolean idle) {
-        startInterval(applicationName, windowTitle, idle, null, null);
     }
 
     public void startInterval(
@@ -86,44 +79,10 @@ public final class DataBuffer {
         }
     }
 
-    public List<ActivityInterval> getClosedIntervals() {
-        reentrantLock.lock();
-        try {
-            return Collections.unmodifiableList(
-                    closedActivityIntervals.stream().collect(Collectors.toList())
-            );
-        } finally {
-            reentrantLock.unlock();
-        }
-    }
-
-    public List<ActivityInterval> getAllIntervalsSnapshot() {
-        reentrantLock.lock();
-        try {
-            List<ActivityInterval> activityIntervals = closedActivityIntervals.stream()
-                    .collect(Collectors.toCollection(ArrayList::new));
-            if (Objects.nonNull(currentActivityInterval)) {
-                activityIntervals.add(currentActivityInterval);
-            }
-            return Collections.unmodifiableList(activityIntervals);
-        } finally {
-            reentrantLock.unlock();
-        }
-    }
-
     public ActivityInterval getCurrentInterval() {
         reentrantLock.lock();
         try {
             return currentActivityInterval;
-        } finally {
-            reentrantLock.unlock();
-        }
-    }
-
-    public int getClosedIntervalCount() {
-        reentrantLock.lock();
-        try {
-            return closedActivityIntervals.size();
         } finally {
             reentrantLock.unlock();
         }
@@ -135,7 +94,6 @@ public final class DataBuffer {
         }
         currentActivityInterval.setEndInstant(endInstant);
         ActivityInterval closedActivityInterval = currentActivityInterval;
-        closedActivityIntervals.add(closedActivityInterval);
         currentActivityInterval = null;
         logger.debug("Closed interval: {}", closedActivityInterval);
         activityBufferListeners.forEach(listener -> listener.onIntervalClosed(closedActivityInterval));

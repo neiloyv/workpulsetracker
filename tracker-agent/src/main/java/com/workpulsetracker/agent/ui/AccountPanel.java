@@ -4,8 +4,6 @@ import com.formdev.flatlaf.FlatClientProperties;
 import com.workpulsetracker.agent.api.AgentAccessClient;
 import com.workpulsetracker.agent.api.AgentSyncClient;
 import com.workpulsetracker.agent.icons.ApplicationIconService;
-import com.workpulsetracker.agent.mode.AgentFeature;
-import com.workpulsetracker.agent.mode.FeatureGateService;
 import com.workpulsetracker.agent.storage.ActivityStore;
 import com.workpulsetracker.agent.storage.LocalDataBackupService;
 import com.workpulsetracker.agent.storage.UserSettings;
@@ -48,7 +46,6 @@ public final class AccountPanel extends JPanel {
     private final ActivityStore activityStore;
     private final TrackingEngine trackingEngine;
     private final LocalDataBackupService localDataBackupService = new LocalDataBackupService();
-    private final FeatureGateService featureGateService;
     private final Runnable settingsChangedListener;
     private final Runnable localDataRestoredListener;
 
@@ -98,7 +95,6 @@ public final class AccountPanel extends JPanel {
         this.agentSyncClient = agentSyncClient;
         this.activityStore = activityStore;
         this.trackingEngine = trackingEngine;
-        this.featureGateService = new FeatureGateService(userSettings);
         this.settingsChangedListener = settingsChangedListener;
         this.localDataRestoredListener = localDataRestoredListener;
         setLayout(new BorderLayout());
@@ -375,7 +371,7 @@ public final class AccountPanel extends JPanel {
     }
 
     private void syncAccountLabels() {
-        boolean localSoloMode = featureGateService.isLocalSoloMode();
+        boolean localSoloMode = userSettings.getOperationMode().isLocalSolo();
         soloConnectPanel.setVisible(localSoloMode);
         syncedDetailsPanel.setVisible(!localSoloMode);
 
@@ -420,7 +416,7 @@ public final class AccountPanel extends JPanel {
     }
 
     private void updateSyncControlsState() {
-        boolean cloudSyncAllowed = featureGateService.isFeatureAllowed(AgentFeature.SYNC_TO_CLOUD)
+        boolean cloudSyncAllowed = userSettings.getOperationMode().isNetworkSync()
                 && agentSyncClient.isSyncConfigured(userSettings);
         syncNowButton.setEnabled(cloudSyncAllowed);
         syncHintLabel.setText(
@@ -527,7 +523,7 @@ public final class AccountPanel extends JPanel {
     }
 
     private void triggerBackgroundSyncFlush() {
-        if (!featureGateService.isFeatureAllowed(AgentFeature.SYNC_TO_CLOUD)) {
+        if (!userSettings.getOperationMode().isNetworkSync()) {
             return;
         }
         Thread syncFlushThread = new Thread(() -> {
@@ -667,6 +663,7 @@ public final class AccountPanel extends JPanel {
             localDataBackupService.importFromZip(selectedFile.toPath());
             userSettingsStore.reloadInto(userSettings);
             activityStore.load();
+            trackingEngine.getLocalAppRuntimeStore().load();
             ApplicationIconService.getInstance().load();
             UserLocaleContext.setLanguage(userSettings.getLanguage());
             WindowsLaunchAtLoginService.apply(userSettings.isLaunchAtLogin());
@@ -691,7 +688,7 @@ public final class AccountPanel extends JPanel {
     }
 
     private void onSyncNowClicked() {
-        if (!featureGateService.isFeatureAllowed(AgentFeature.SYNC_TO_CLOUD)
+        if (!userSettings.getOperationMode().isNetworkSync()
                 || !agentSyncClient.isSyncConfigured(userSettings)) {
             UiDialogs.showMessage(
                     Messages.get(MessageCodes.UI_SETTINGS_SYNC_NOT_IMPLEMENTED),

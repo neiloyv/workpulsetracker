@@ -41,10 +41,6 @@ public final class TrackingEngine implements AutoCloseable {
     private final AtomicBoolean monitorsStarted = new AtomicBoolean(false);
     private final List<Runnable> stateChangeListeners = new CopyOnWriteArrayList<>();
 
-    public TrackingEngine(AgentConfig agentConfig, DataBuffer dataBuffer, ActivityStore activityStore) {
-        this(agentConfig, dataBuffer, activityStore, new LocalAppRuntimeStore());
-    }
-
     public TrackingEngine(
             AgentConfig agentConfig,
             DataBuffer dataBuffer,
@@ -102,7 +98,7 @@ public final class TrackingEngine implements AutoCloseable {
         });
     }
 
-    public void initializeMonitors() {
+    private void initializeMonitors() {
         if (!monitorsStarted.compareAndSet(false, true)) {
             return;
         }
@@ -146,8 +142,8 @@ public final class TrackingEngine implements AutoCloseable {
         return dataBuffer;
     }
 
-    public ActivityStore getActivityStore() {
-        return activityStore;
+    public LocalAppRuntimeStore getLocalAppRuntimeStore() {
+        return localAppRuntimeStore;
     }
 
     public void addStateChangeListener(Runnable stateChangeListener) {

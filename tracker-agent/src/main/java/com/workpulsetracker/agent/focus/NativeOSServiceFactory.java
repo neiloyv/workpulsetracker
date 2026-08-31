@@ -1,7 +1,5 @@
 package com.workpulsetracker.agent.focus;
 
-import com.workpulsetracker.agent.focus.linux.LinuxNativeOSService;
-import com.workpulsetracker.agent.focus.macos.MacNativeOSService;
 import com.workpulsetracker.agent.focus.windows.WindowsNativeOSService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,23 +20,9 @@ public final class NativeOSServiceFactory {
 
         return switch (operatingSystemType) {
             case WINDOWS -> new WindowsNativeOSService();
-            case LINUX -> new LinuxNativeOSService();
-            case MACOS -> new MacNativeOSService();
-            case UNKNOWN -> {
-                logger.warn("Unknown OS '{}', window focus will be unavailable",
-                        System.getProperty("os.name"));
-                yield new NativeOSService() {
-                    @Override
-                    public WindowInfo getActiveWindowInfo() {
-                        return new WindowInfo("unknown-process", "Unsupported OS");
-                    }
-
-                    @Override
-                    public String getOperatingSystemName() {
-                        return System.getProperty("os.name", "unknown");
-                    }
-                };
-            }
+            case LINUX -> new UnsupportedNativeOSService("Linux");
+            case MACOS -> new UnsupportedNativeOSService("macOS");
+            case UNKNOWN -> new UnsupportedNativeOSService(System.getProperty("os.name", "unknown"));
         };
     }
 }

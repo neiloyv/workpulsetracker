@@ -66,19 +66,9 @@ public final class IdleDetector implements AutoCloseable {
         return currentStatus.get();
     }
 
-    public Instant getLastActivityInstant() {
-        return lastActivityInstant.get();
-    }
-
     public void addListener(IdleStatusListener idleStatusListener) {
         if (Objects.nonNull(idleStatusListener)) {
             idleStatusListeners.add(idleStatusListener);
-        }
-    }
-
-    public void removeListener(IdleStatusListener idleStatusListener) {
-        if (Objects.nonNull(idleStatusListener)) {
-            idleStatusListeners.remove(idleStatusListener);
         }
     }
 

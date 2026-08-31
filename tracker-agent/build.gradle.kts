@@ -11,6 +11,7 @@ dependencies {
     implementation("net.java.dev.jna:jna-platform:5.15.0")
     implementation("org.apache.commons:commons-lang3:3.17.0")
     implementation("com.google.code.gson:gson:2.11.0")
+    implementation("org.xerial:sqlite-jdbc:3.47.1.0")
     implementation("com.formdev:flatlaf:3.5.4")
     implementation("org.apache.poi:poi-ooxml:5.3.0")
     implementation("com.github.librepdf:openpdf:1.3.43")
